@@ -8,6 +8,10 @@ homepage = "https://github.com/auser/traefikctl"
 authors = ["Ari <me@ari.io>"]
 license = "Apache-2.0 or MIT"
 
+[[bin]]
+name = "traefikctl"
+path = "src/main.rs"
+
 [package.metadata.wix]
 upgrade-guid = "F4761C69-4FF9-4810-AF9E-2AF110D7CF42"
 path-guid = "28239E20-C62B-43AD-BC64-61911768BEF6"
