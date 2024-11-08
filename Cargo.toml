@@ -5,15 +5,13 @@ edition = "2021"
 repository = "https://github.com/auser/traefikctl"
 
 [features]
-default = ["config", "etcd", "log", "cli", "restful"]
+default = ["config", "etcd", "log", "cli"]
 cli = ["dep:clap"]
 config = [
   "dep:async-trait",
   "dep:config",
-  "dep:reqwest",
-  "dep:notify",
-  "dep:parking_lot",
   "dep:tracing",
+  "dep:serde_json",
   "dep:serde_yaml",
 ]
 etcd = ["dep:etcd-client", "dep:tokio", "dep:tracing"]
@@ -30,6 +28,7 @@ restful = [
   "dep:serde_json",
   "dep:tokio",
   "dep:tracing",
+  "dep:reqwest",
 ]
 
 [dependencies]
@@ -46,10 +45,7 @@ etcd-client = { version = "0.14.0", features = [
   "tls",
   "tls-roots",
 ], optional = true }
-itertools = "0.13.0"
-notify = { version = "7.0.0", optional = true }
 ordermap = { version = "0.5.3", features = ["serde"] }
-parking_lot = { version = "0.12.3", optional = true }
 reqwest = { version = "0.12.9", optional = true }
 serde = { version = "1.0.214", features = ["derive"] }
 serde_json = { version = "1.0.132", optional = true }
