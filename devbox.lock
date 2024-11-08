@@ -1,0 +1,177 @@
+{
+  "lockfile_version": "1",
+  "packages": {
+    "etcd@latest": {
+      "last_modified": "2024-10-13T23:44:06Z",
+      "resolved": "github:NixOS/nixpkgs/d4f247e89f6e10120f911e2e2d2254a050d0f732#etcd",
+      "source": "devbox-search",
+      "version": "3.5.16",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/8hrilxaygs4jvzdvx824j22c2nymacql-etcd-3.5.16",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/8hrilxaygs4jvzdvx824j22c2nymacql-etcd-3.5.16"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/k89dw56vwds6ijz4dgf8k1jq6zhclay6-etcd-3.5.16",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/k89dw56vwds6ijz4dgf8k1jq6zhclay6-etcd-3.5.16"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/pbc04ngdq3j7fly3ximj7lb772l4hfp9-etcd-3.5.16",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/pbc04ngdq3j7fly3ximj7lb772l4hfp9-etcd-3.5.16"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/ig650q57p2gdccs91iazfln60syrqw0i-etcd-3.5.16",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/ig650q57p2gdccs91iazfln60syrqw0i-etcd-3.5.16"
+        }
+      }
+    },
+    "openssl@latest": {
+      "last_modified": "2024-10-30T07:09:13Z",
+      "resolved": "github:NixOS/nixpkgs/2d2a9ddbe3f2c00747398f3dc9b05f7f2ebb0f53#openssl",
+      "source": "devbox-search",
+      "version": "3.3.2",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "bin",
+              "path": "/nix/store/a10lfxsms9ri0cng296mb3p9zv1mm13w-openssl-3.3.2-bin",
+              "default": true
+            },
+            {
+              "name": "man",
+              "path": "/nix/store/5s1i22h4mkngdaw0hdcjw3ny287yqz01-openssl-3.3.2-man",
+              "default": true
+            },
+            {
+              "name": "out",
+              "path": "/nix/store/hfn95nq7wr6sidn5vridlk1a4drira0r-openssl-3.3.2"
+            },
+            {
+              "name": "dev",
+              "path": "/nix/store/0w7wifk6j8df14dh887xk7zrjgv9b86a-openssl-3.3.2-dev"
+            },
+            {
+              "name": "doc",
+              "path": "/nix/store/4dx41nsb4q0336lzzrq1bnvcfa94kvfv-openssl-3.3.2-doc"
+            }
+          ],
+          "store_path": "/nix/store/a10lfxsms9ri0cng296mb3p9zv1mm13w-openssl-3.3.2-bin"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "bin",
+              "path": "/nix/store/62vj6isp88hpd8s1qri6rfd9glyj6mn5-openssl-3.3.2-bin",
+              "default": true
+            },
+            {
+              "name": "man",
+              "path": "/nix/store/41jpj95wcl0pgz5dlyybqgdb9f4m436c-openssl-3.3.2-man",
+              "default": true
+            },
+            {
+              "name": "dev",
+              "path": "/nix/store/nb5kwzjwgccfry7pbsrlcanzhj3vdc5a-openssl-3.3.2-dev"
+            },
+            {
+              "name": "doc",
+              "path": "/nix/store/wb7dfmn102az979wg5fg2j0280phmm3d-openssl-3.3.2-doc"
+            },
+            {
+              "name": "out",
+              "path": "/nix/store/lcmchmg9k0dmhzrlzr5q2jba9b5dm3hd-openssl-3.3.2"
+            },
+            {
+              "name": "debug",
+              "path": "/nix/store/rp3a2k66r1naixhp3jmf1w15xid7yrnn-openssl-3.3.2-debug"
+            }
+          ],
+          "store_path": "/nix/store/62vj6isp88hpd8s1qri6rfd9glyj6mn5-openssl-3.3.2-bin"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "bin",
+              "path": "/nix/store/nr9b0c45hd3rwfrf5y88f0krydqrzi72-openssl-3.3.2-bin",
+              "default": true
+            },
+            {
+              "name": "man",
+              "path": "/nix/store/av4xspc7qapzcj7cai5v6cp6rcashw64-openssl-3.3.2-man",
+              "default": true
+            },
+            {
+              "name": "dev",
+              "path": "/nix/store/dr1raj9n1wg77g2yl19b58wfbpjlpvbc-openssl-3.3.2-dev"
+            },
+            {
+              "name": "doc",
+              "path": "/nix/store/5cdws1m1zdq24cskmwaq172b8mzcsfyy-openssl-3.3.2-doc"
+            },
+            {
+              "name": "out",
+              "path": "/nix/store/qbi891qa35lhgnkgzk8v6nmcpw318cph-openssl-3.3.2"
+            }
+          ],
+          "store_path": "/nix/store/nr9b0c45hd3rwfrf5y88f0krydqrzi72-openssl-3.3.2-bin"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "bin",
+              "path": "/nix/store/s3vv0916j6z5zfs0b1bcfinx1kb6cbhn-openssl-3.3.2-bin",
+              "default": true
+            },
+            {
+              "name": "man",
+              "path": "/nix/store/38hak2ij9k8d3sz398gz3lyad3br2fxz-openssl-3.3.2-man",
+              "default": true
+            },
+            {
+              "name": "debug",
+              "path": "/nix/store/7spvbkyr95m1jcsc0mpj2b8ijgj1yirx-openssl-3.3.2-debug"
+            },
+            {
+              "name": "dev",
+              "path": "/nix/store/i4zk1906f863gjp39vhsjl1imkwyp4qs-openssl-3.3.2-dev"
+            },
+            {
+              "name": "doc",
+              "path": "/nix/store/dbhlzspnvw8yayp0hz289kws3zawc2f8-openssl-3.3.2-doc"
+            },
+            {
+              "name": "out",
+              "path": "/nix/store/k09x35dsjavyy4xbfda7aafi1knwqd20-openssl-3.3.2"
+            }
+          ],
+          "store_path": "/nix/store/s3vv0916j6z5zfs0b1bcfinx1kb6cbhn-openssl-3.3.2-bin"
+        }
+      }
+    }
+  }
+}

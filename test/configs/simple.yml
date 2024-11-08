@@ -1,0 +1,86 @@
+etcd:
+  endpoints: ["https://0.0.0.0:2379"]
+  timeout: 2000
+  keep_alive: 300
+  tls:
+    cert: "./config/tls/etcd-peer.pem"
+    key: "./config/tls/etcd-peer-key.pem"
+    ca: "./config/tls/ca.pem"
+    domain: herringbank.com
+
+middlewares:
+  enable-headers:
+    headers:
+      access_control_allow_methods:
+        - "GET"
+        - "POST"
+        - "PUT"
+        - "DELETE"
+        - "OPTIONS"
+      access_control_allow_headers:
+        - "Content-Type"
+        - "Authorization"
+        - "Content-Type"
+        - Content-Length
+        - Accept-Encoding
+        - X-CSRF-Token
+        - Authorization
+        - accept
+        - origin
+        - Cache-Control
+        - X-Requested-With
+        - Host
+        - "Location"
+      custom_request_headers:
+        X-Forwarded-Proto: "https"
+        X-Forwarded-Port: "443"
+      custom_response_headers:
+        Location: ""
+      access_control_expose_headers:
+        - "Location"
+      add_vary_header: true
+
+  pass-through:
+    headers:
+      custom_request_headers:
+        X-Pass-Through: "true"
+      access_control_expose_headers:
+        - "Location"
+      add_vary_header: true
+
+  handle-redirects:
+    headers:
+      custom_request_headers:
+        Location: ""
+  add-www:
+    redirect_regex:
+      permanent: true
+      regex: "^https://([^.]+\\.[^.]+\\.[^.]+)(.*)"
+      replacement: "https://www.\\${1}\\${2}"
+
+hosts:
+  - domain: "ibs.collegegreen.net"
+    entrypoints:
+      - websecure
+    tls: true
+    middlewares:
+      - "enable-headers"
+      - "handle-redirects"
+      - "pass-through"
+      - "add-www"
+    include_redirect: true
+    deployments:
+      blue:
+        ip: redirector
+        port: 3000
+        weight: 100
+        tls: true
+      green:
+        ip: "10.8.29.28"
+        port: 9220
+        weight: 0
+        tls: true
+    pass_through: false
+    paths:
+      - path: "/"
+        strip_prefix: false

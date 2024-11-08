@@ -1,0 +1,66 @@
+[package]
+name = "traefikctl"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["config", "etcd", "log", "cli", "restful"]
+cli = ["dep:clap"]
+config = [
+  "dep:async-trait",
+  "dep:config",
+  "dep:reqwest",
+  "dep:notify",
+  "dep:parking_lot",
+  "dep:tracing",
+  "dep:serde_yaml",
+]
+etcd = ["dep:etcd-client", "dep:tokio", "dep:tracing"]
+log = [
+  "dep:chrono",
+  "dep:time",
+  "dep:tracing",
+  "dep:tracing-appender",
+  "dep:tracing-subscriber",
+]
+restful = [
+  "dep:axum",
+  "dep:axum-extra",
+  "dep:serde_json",
+  "dep:tokio",
+  "dep:tracing",
+]
+
+[dependencies]
+async-trait = { version = "0.1.83", optional = true }
+axum = { version = "0.7.7", optional = true }
+axum-extra = { version = "0.9.4", optional = true }
+chrono = { version = "0.4.38", features = ["serde"], optional = true }
+clap = { version = "4.5.20", features = ["derive", "env"], optional = true }
+color-eyre = "0.6.3"
+colored = "2.1.0"
+config = { version = "0.14.1", optional = true }
+etcd-client = { version = "0.14.0", features = [
+  "tls",
+  "tls-roots",
+], optional = true }
+itertools = "0.13.0"
+notify = { version = "7.0.0", optional = true }
+parking_lot = { version = "0.12.3", optional = true }
+reqwest = { version = "0.12.9", optional = true }
+serde = { version = "1.0.214", features = ["derive"] }
+serde_json = { version = "1.0.132", optional = true }
+serde_yaml = { version = "0.9.34", optional = true }
+thiserror = "2.0.0"
+time = { version = "0.3.36", optional = true }
+tokio = { version = "1.41.1", features = ["full"], optional = true }
+tracing = { version = "0.1.40", optional = true }
+tracing-appender = { version = "0.2.3", optional = true }
+tracing-subscriber = { version = "0.3.18", features = [
+  "env-filter",
+  "local-time",
+], optional = true }
+url = "2.5.3"
+
+[dev-dependencies]
+pretty_assertions = "1.4"
