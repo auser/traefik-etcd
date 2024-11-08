@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en" id="oranda" class="dark">
+  <head>
+    <title>traefikctl</title>
+    
+      <meta property="og:url" content="https:&#x2f;&#x2f;github.com&#x2f;auser&#x2f;traefikctl" />
+    
+    
+      <link rel="icon" href="&#x2f;favicon.ico" />
+    
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+      <meta name="description" content="A CLI for managing traefik with etcd" />
+      <meta property="og:description" content="A CLI for managing traefik with etcd" />
+    
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="traefikctl" />
+    
+    
+    
+    <meta http-equiv="Permissions-Policy" content="interest-cohort=()" />
+    <link rel="stylesheet" href="&#x2f;oranda-v0.6.1.css" />
+    
+    
+  </head>
+  <body>
+    <div class="container">
+      <div class="page-body">
+        
+          <div class="repo_banner">
+            <a href="https:&#x2f;&#x2f;github.com&#x2f;auser&#x2f;traefikctl">
+              <div class="github-icon" aria-hidden="true"></div>
+              Check out our GitHub!
+            </a>
+          </div>
+        
+
+        <main>
+          <header>
+            
+            <h1 class="title">traefikctl</h1>
+            
+  <nav class="nav">
+    <ul>
+      <li><a href="&#x2f;">Home</a></li>
+
+      
+
+      
+
+      
+
+      
+
+      
+        <li><a href="&#x2f;changelog&#x2f;">Changelog</a></li>
+      
+    </ul>
+  </nav>
+
+          </header>
+
+          
+
+
+    &lt;h1&gt;Traefik Config Generator with etcd&lt;&#x2f;h1&gt;
+&lt;p&gt;This is a tool to generate Traefik configuration for a given set of hosts.&lt;&#x2f;p&gt;
+&lt;h2&gt;Usage&lt;&#x2f;h2&gt;
+&lt;pre style=&quot;background-color:#263238;&quot;&gt;&lt;span style=&quot;color:#82aaff;&quot;&gt;cargo run&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt; --&lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;bin&lt;&#x2f;span&gt;&lt;span style=&quot;color:#82aaff;&quot;&gt; traefik-config-generator&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt; --&lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;config&lt;&#x2f;span&gt;&lt;span style=&quot;color:#82aaff;&quot;&gt; config&#x2f;config.yml
+&lt;&#x2f;span&gt;&lt;&#x2f;pre&gt;
+
+&lt;h2&gt;Configuration&lt;&#x2f;h2&gt;
+&lt;p&gt;The configuration is done in the &lt;code&gt;config&#x2f;config.yml&lt;&#x2f;code&gt; file.&lt;&#x2f;p&gt;
+&lt;h3&gt;Hosts&lt;&#x2f;h3&gt;
+&lt;p&gt;Each host has a domain, a list of paths, and a list of deployments.&lt;&#x2f;p&gt;
+&lt;h4&gt;Paths&lt;&#x2f;h4&gt;
+&lt;p&gt;Each path has a path, a list of deployments, a list of middlewares, and a boolean to strip the prefix. The deployments are keyed by the deployment name, which is used to determine which router to use.&lt;&#x2f;p&gt;
+&lt;h4&gt;Deployments&lt;&#x2f;h4&gt;
+&lt;p&gt;Each deployment has an ip, a port, a weight, and a boolean to determine if the cookie should be passed through.&lt;&#x2f;p&gt;
+&lt;pre style=&quot;background-color:#263238;&quot;&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;etcd&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;  &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;endpoints&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: [&quot;&lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;https:&#x2f;&#x2f;0.0.0.0:2379&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;&quot;]
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;  &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;timeout&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;2000
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;  &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;keep_alive&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;300
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;  &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;tls&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;    &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;cert&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &quot;&lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;.&#x2f;config&#x2f;tls&#x2f;etcd-peer.pem&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;&quot;
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;    &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;key&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &quot;&lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;.&#x2f;config&#x2f;tls&#x2f;etcd-peer-key.pem&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;&quot;
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;    &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;ca&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &quot;&lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;.&#x2f;config&#x2f;tls&#x2f;ca.pem&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;&quot;
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;    &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;domain&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;herringbank.com
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;middlewares&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;  &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;enable-headers&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;    &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;headers&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;      &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;custom_request_headers&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;        &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;X-Forwarded-Proto&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &quot;&lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;https&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;&quot;
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;        &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;X-Forwarded-Port&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &quot;&lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;443&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;&quot;
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;        &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;Location&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &quot;&quot;
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;      &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;custom_response_headers&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;        &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;Location&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &quot;&quot;
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;      &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;access_control_allow_methods&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;        &lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;- &quot;&lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;GET&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;&quot;
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;      &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;access_control_allow_headers&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;        &lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;- &quot;&lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;Content-Type&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;&quot;
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;      &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;access_control_expose_headers&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;        &lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;- &lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;Location
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;      &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;add_vary_header&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;true
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;hosts&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;  &lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;- &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;domain&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &quot;&lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;example.com&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;&quot;
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;    &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;www_redirect&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;true
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;    &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;paths&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;      &lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;- &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;path&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &quot;&lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;&#x2f;test&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;&quot;
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;        &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;deployments&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;          &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;blue&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;            &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;ip&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;10.0.0.1
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;            &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;port&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;8080
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;            &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;weight&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;50
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;          &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;green&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;            &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;ip&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;10.0.0.2
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;            &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;port&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;8080
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;            &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;weight&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;50
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;        &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;middlewares&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:  
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;          &lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;- &lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;enable-headers
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;          &lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;- &lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;forward-server
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;    &lt;&#x2f;span&gt;&lt;span style=&quot;font-style:italic;color:#546e7a;&quot;&gt;# Root path (catch-all)
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;    &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;deployments&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;      &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;blue&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;        &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;ip&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;10.0.0.1
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;        &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;port&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;8080
+&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;        &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;weight&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;100
+&lt;&#x2f;span&gt;&lt;&#x2f;pre&gt;
+
+
+
+
+        </main>
+      </div>
+
+      <footer>
+        
+          <a href="https:&#x2f;&#x2f;github.com&#x2f;auser&#x2f;traefikctl"><div class="github-icon" aria-hidden="true"></div></a>
+        
+        <span>
+          traefikctl
+        </span>
+      </footer>
+    </div>
+
+    
+    
+
+    
+
+
+  </body>
+</html>
