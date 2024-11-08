@@ -3,6 +3,9 @@ name = "traefikctl"
 version = "0.1.0"
 edition = "2021"
 repository = "https://github.com/auser/traefikctl"
+description = "A CLI for managing traefik with etcd"
+homepage = "https://github.com/auser/traefikctl"
+
 
 [features]
 default = ["config", "etcd", "log", "cli"]

@@ -8,8 +8,10 @@ cargo-dist-version = "0.25.1"
 # CI backends to support
 ci = "github"
 # The installers to generate for each app
-installers = ["shell"]
-# Target platforms to build apps for (Rust target-triple syntax)
+installers = ["shell", "homebrew", "msi"]
+tap = "auser/homebrew-tap"
+publish-jobs = ["homebrew"]
+# Target platforms to build apps for (Rust target-triple syntax)installers = ["shell", "homebrew"]
 targets = [
   "aarch64-apple-darwin",
   "x86_64-apple-darwin",
