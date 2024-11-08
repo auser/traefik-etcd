@@ -1,3 +1,5 @@
+use tracing::debug;
+
 use crate::{
     config::core_traits::{EtcdPair, ToEtcdPairs, Validate},
     error::{TraefikError, TraefikResult},
@@ -158,19 +160,6 @@ impl HostConfig {
 
         self.add_root_router(pairs, base_key, &path_safe_name, &rule)?;
 
-        // pairs.push(EtcdPair::new(
-        //     format!("{}/routers/{}/rule", base_key, path_safe_name),
-        //     rule.rule_str(),
-        // ));
-        // pairs.push(EtcdPair::new(
-        //     format!("{}/routers/{}/entrypoints/0", base_key, path_safe_name),
-        //     "websecure",
-        // ));
-        // pairs.push(EtcdPair::new(
-        //     format!("{}/routers/{}/tls", base_key, path_safe_name),
-        //     "true",
-        // ));
-
         // Add strip prefix middleware if enabled
         let strip_prefix_name = if path_config.strip_prefix {
             pairs.push(EtcdPair::new(
@@ -264,6 +253,7 @@ impl HostConfig {
         service_name: &str,
         deployment: &DeploymentConfig,
     ) -> TraefikResult<()> {
+        debug!("Adding base service configuration for {}", service_name);
         pairs.push(EtcdPair::new(
             format!(
                 "{}/services/{}/loadBalancer/servers/0/url",
@@ -299,19 +289,22 @@ impl HostConfig {
         safe_name: &str,
         rule: &RuleConfig,
     ) -> TraefikResult<()> {
+        debug!("Adding root router for {}", safe_name);
         pairs.push(EtcdPair::new(
             format!("{}/routers/{}/rule", base_key, safe_name),
             rule.rule_str(),
         ));
+        debug!("Added rule: {}", rule.rule_str());
         pairs.push(EtcdPair::new(
             format!("{}/routers/{}/entrypoints/0", base_key, safe_name),
             "websecure",
         ));
+        debug!("Added entrypoint: websecure");
         pairs.push(EtcdPair::new(
             format!("{}/routers/{}/tls", base_key, safe_name),
             "true",
         ));
-
+        debug!("Added tls: true");
         pairs.push(EtcdPair::new(
             format!(
                 "{}/services/{}/loadBalancer/passHostHeader",
@@ -319,6 +312,7 @@ impl HostConfig {
             ),
             "true".to_string(),
         ));
+        debug!("Added passHostHeader: true");
         Ok(())
     }
 
@@ -344,6 +338,7 @@ impl HostConfig {
                 ),
                 "true".to_string(),
             ));
+            debug!("Added passHostHeader: true");
 
             pairs.push(EtcdPair::new(
                 format!(
@@ -352,7 +347,7 @@ impl HostConfig {
                 ),
                 "100ms".to_string(),
             ));
-
+            debug!("Added flushInterval: 100ms");
             // Add weighted service entries
             for (idx, (color, deployment)) in active_deployments.into_iter().enumerate() {
                 self.add_base_service_configuration(pairs, base_key, &service_name, deployment)?;
