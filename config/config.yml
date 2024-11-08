@@ -46,7 +46,6 @@ middlewares:
         X-Forwarded-Port: "443"
         Location: ""
         X-Forwarded-Server: "traefik"
-      pass_through: true
 
   add-www:
     headers:
@@ -54,7 +53,6 @@ middlewares:
         X-Forwarded-Proto: "https"
         X-Forwarded-Port: "443"
         Location: ""
-      pass_through: true
 
 hosts:
   - domain: "ibs.collegegreen.net"
@@ -81,3 +79,54 @@ hosts:
     middlewares:
       - enable-headers
       - forward-server
+  - domain: www.collegegreen.net
+    pass_through: true
+    www_redirect: true
+    deployments:
+      blue:
+        ip: redirector
+        port: 3000
+        weight: 100
+
+  - domain: ibs.financialpayments.com
+    pass_through: true
+    www_redirect: false
+    paths:
+      - path: /rails-sso
+        deployments:
+          blue:
+            ip: redirector
+            port: 3000
+            weight: 100
+        middlewares:
+          - enable-headers
+          - forward-server
+        strip_prefix: true
+    deployments:
+      blue:
+        ip: redirector
+        port: 3000
+        weight: 100
+
+  - domain: www.financepayments.com
+    pass_through: true
+    www_redirect: true
+    deployments:
+      blue:
+        ip: redirector
+        port: 3000
+        weight: 100
+
+  - domain: static.financialpayments.com
+    deployments:
+      blue:
+        ip: redirector
+        port: 3000
+        weight: 100
+
+  - domain: campus-commerce.collegegreen.net
+    deployments:
+      blue:
+        ip: redirector
+        port: 3000
+        weight: 100

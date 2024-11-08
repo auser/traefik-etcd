@@ -10,43 +10,9 @@ use etcd_client::{
 };
 
 use serde::{Deserialize, Serialize};
-
-use crate::error::TraefikResult;
+use tracing::debug;
 
 pub type KeyValue = KV;
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-pub struct EtcdPair(String, String);
-
-impl EtcdPair {
-    pub fn new(key: impl Into<String>, value: impl Into<String>) -> Self {
-        EtcdPair(key.into(), value.into())
-    }
-
-    pub fn key(&self) -> &str {
-        &self.0
-    }
-
-    pub fn value(&self) -> &str {
-        &self.1
-    }
-
-    #[allow(dead_code)]
-    pub fn value_as_bytes(&self) -> Vec<u8> {
-        self.1.as_bytes().to_vec()
-    }
-}
-
-impl Into<String> for EtcdPair {
-    fn into(self) -> String {
-        format!("{} {}", self.key(), self.value())
-    }
-}
-
-pub trait ToEtcdPairs {
-    #[allow(dead_code)]
-    fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>>;
-}
 
 #[derive(Clone)]
 pub struct Etcd {
@@ -84,6 +50,7 @@ impl Default for EtcdConfig {
 
 impl Etcd {
     pub async fn new(config: &EtcdConfig) -> Result<Self> {
+        debug!("Connecting to etcd with config: {:?}", config);
         let mut connect_options = ConnectOptions::new()
             .with_connect_timeout(Duration::from_millis(config.timeout))
             .with_keep_alive(

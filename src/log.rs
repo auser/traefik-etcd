@@ -18,7 +18,7 @@ impl Default for LogConfig {
     fn default() -> Self {
         Self {
             max_level: "debug".to_owned(),
-            filter: "debug".to_owned(),
+            filter: "traefik-ctl=debug".to_owned(),
             rolling_file_path: Default::default(),
         }
     }

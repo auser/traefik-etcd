@@ -9,6 +9,7 @@ use crate::{
 pub(crate) mod apply;
 pub(crate) mod clean;
 pub(crate) mod get;
+pub(crate) mod initialize;
 pub(crate) mod show;
 pub(crate) mod validate;
 #[derive(Parser)]
@@ -22,6 +23,9 @@ pub struct Cli {
 
     #[arg(long, short = 'l')]
     pub log_level: Option<String>,
+
+    #[arg(long, short = 'f')]
+    pub filter: Option<String>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -36,6 +40,8 @@ pub enum Commands {
     Get(get::GetCommand),
     /// Clean configuration
     Clean(clean::CleanCommand),
+    /// Initialize configuration
+    Initialize(initialize::InitializeCommand),
 }
 
 #[instrument]
@@ -44,7 +50,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     let log_config = LogConfig {
         max_level: cli.log_level.clone().unwrap_or("info".to_owned()),
-        filter: cli.log_level.clone().unwrap_or("info".to_owned()),
+        filter: cli.filter.clone().unwrap_or("info".to_owned()),
         ..Default::default()
     };
     init_tracing("traefik-ctl", &log_config)?;
@@ -68,6 +74,9 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         Commands::Clean(clean_command) => {
             clean::run(&clean_command, &mut etcd_client, &mut traefik_config).await?;
+        }
+        Commands::Initialize(initialize_command) => {
+            initialize::run(&initialize_command, &etcd_client, &mut traefik_config).await?;
         }
     }
 

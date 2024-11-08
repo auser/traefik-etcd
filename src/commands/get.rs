@@ -1,10 +1,7 @@
 use clap::Args;
 use tracing::debug;
 
-use crate::{
-    config::TraefikConfig,
-    {error::TraefikResult, etcd::Etcd},
-};
+use crate::{config::TraefikConfig, error::TraefikResult, etcd::Etcd};
 
 #[derive(Args, Debug)]
 pub struct GetCommand {

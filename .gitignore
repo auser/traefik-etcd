@@ -1,2 +1,3 @@
 /target
 config/tls/*
+config/config.yml
