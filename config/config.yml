@@ -130,3 +130,10 @@ hosts:
         ip: redirector
         port: 3000
         weight: 100
+
+  - domain: billing.financialpayments.com
+    deployments:
+      blue:
+        ip: redirector
+        port: 3000
+        weight: 100

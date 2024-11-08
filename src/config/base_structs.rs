@@ -1,3 +1,4 @@
+use ordermap::OrderMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -46,6 +47,52 @@ pub struct DeploymentConfig {
     pub port: u16,
     #[serde(default)]
     pub weight: u8,
+    #[serde(default)]
+    pub with_cookie: Option<WithCookieConfig>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct WithCookieConfig {
+    pub name: String,
+    #[serde(default)]
+    pub value: Option<String>,
+}
+
+impl Default for WithCookieConfig {
+    fn default() -> Self {
+        Self {
+            name: "TEST_COOKIE".to_string(),
+            value: None,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RuleConfig {
+    pub rules: OrderMap<String, String>,
+}
+
+impl Default for RuleConfig {
+    fn default() -> Self {
+        Self {
+            rules: OrderMap::new(),
+        }
+    }
+}
+
+impl RuleConfig {
+    #[allow(dead_code)]
+    pub fn add_rule(&mut self, key: &str, value: &str) {
+        self.rules.insert(key.to_string(), value.to_string());
+    }
+
+    pub fn rule_str(&self) -> String {
+        self.rules
+            .iter()
+            .map(|(k, v)| format!("{}(`{}`)", k, v))
+            .collect::<Vec<String>>()
+            .join(" && ")
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

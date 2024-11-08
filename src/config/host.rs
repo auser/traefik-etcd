@@ -5,27 +5,36 @@ use crate::{
 };
 use std::collections::{HashMap, HashSet};
 
-use super::base_structs::{DeploymentConfig, HostConfig, PathConfig};
+use super::{
+    base_structs::{DeploymentConfig, HostConfig, PathConfig},
+    RuleConfig,
+};
 
 impl ToEtcdPairs for HostConfig {
     fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
         let mut pairs = Vec::new();
         let safe_name = format!("host-{}", get_safe_key(&self.domain));
 
+        let mut rule = RuleConfig::default();
+        rule.add_rule("Host", &self.domain);
+
         // Add custom request headers middleware for root
         self.add_host_headers(&mut pairs, base_key, &safe_name)?;
 
         // Set up root path router and service
-        self.add_deployment_pairs(&mut pairs, &safe_name, base_key, "", &self.deployments)?;
+        self.add_deployment_pairs(
+            &mut pairs,
+            &safe_name,
+            base_key,
+            "",
+            &self.deployments,
+            &mut rule,
+        )?;
 
         // Add middlewares for root path
         self.add_middlewares(&mut pairs, base_key, &safe_name, &self.middlewares, None)?;
 
         // Root router configuration
-        pairs.push(EtcdPair::new(
-            format!("{}/routers/{}/rule", base_key, safe_name),
-            format!("Host(`{}`)", self.domain),
-        ));
         pairs.push(EtcdPair::new(
             format!("{}/routers/{}/entrypoints/0", base_key, safe_name),
             "websecure",
@@ -143,23 +152,24 @@ impl HostConfig {
         let path_safe_name = format!("{}-path-{}", safe_name, idx);
 
         // Router configuration
-        let path_rule = format!(
-            "Host(`{}`) && PathPrefix(`{}`)",
-            self.domain, path_config.path
-        );
+        let mut rule = RuleConfig::default();
+        rule.add_rule("Host", &self.domain);
+        rule.add_rule("PathPrefix", &path_config.path);
 
-        pairs.push(EtcdPair::new(
-            format!("{}/routers/{}/rule", base_key, path_safe_name),
-            path_rule,
-        ));
-        pairs.push(EtcdPair::new(
-            format!("{}/routers/{}/entrypoints/0", base_key, path_safe_name),
-            "websecure",
-        ));
-        pairs.push(EtcdPair::new(
-            format!("{}/routers/{}/tls", base_key, path_safe_name),
-            "true",
-        ));
+        self.add_root_router(pairs, base_key, &path_safe_name, &rule)?;
+
+        // pairs.push(EtcdPair::new(
+        //     format!("{}/routers/{}/rule", base_key, path_safe_name),
+        //     rule.rule_str(),
+        // ));
+        // pairs.push(EtcdPair::new(
+        //     format!("{}/routers/{}/entrypoints/0", base_key, path_safe_name),
+        //     "websecure",
+        // ));
+        // pairs.push(EtcdPair::new(
+        //     format!("{}/routers/{}/tls", base_key, path_safe_name),
+        //     "true",
+        // ));
 
         // Add strip prefix middleware if enabled
         let strip_prefix_name = if path_config.strip_prefix {
@@ -201,6 +211,7 @@ impl HostConfig {
             base_key,
             &path_config.path,
             &path_config.deployments,
+            &mut rule,
         )?;
 
         Ok(())
@@ -213,42 +224,101 @@ impl HostConfig {
         base_key: &str,
         _path: &str,
         deployments: &HashMap<String, DeploymentConfig>,
+        rule: &mut RuleConfig,
     ) -> TraefikResult<()> {
         // Set up services for each deployment
         for (color, deployment) in deployments {
             let service_name = format!("{}-{}", safe_name, color);
 
             // Basic URL configuration
-            pairs.push(EtcdPair::new(
-                format!(
-                    "{}/services/{}/loadBalancer/servers/0/url",
-                    base_key, service_name
-                ),
-                format!("http://{}:{}", deployment.ip, deployment.port),
-            ));
-
-            // Add passHostHeader configuration
-            pairs.push(EtcdPair::new(
-                format!(
-                    "{}/services/{}/loadBalancer/passHostHeader",
-                    base_key, service_name
-                ),
-                "true".to_string(),
-            ));
-
-            // Add response forwarding configuration
-            pairs.push(EtcdPair::new(
-                format!(
-                    "{}/services/{}/loadBalancer/responseForwarding/flushInterval",
-                    base_key, service_name
-                ),
-                "100ms".to_string(),
-            ));
+            if deployment.weight > 0 {
+                if let Some(with_cookie) = &deployment.with_cookie {
+                    let value = match &with_cookie.value {
+                        Some(value) => value.as_str(),
+                        None => "true",
+                    };
+                    rule.add_rule("Cookie", &format!("{}={}", with_cookie.name, value));
+                }
+                self.add_base_service_configuration(pairs, base_key, &service_name, deployment)?;
+                self.add_root_router(pairs, base_key, safe_name, rule)?;
+                self.add_weighted_service_configuration(
+                    pairs,
+                    base_key,
+                    safe_name,
+                    &service_name,
+                    deployments,
+                    rule,
+                )?;
+            }
         }
 
         // Handle weighted services
-        self.add_weighted_service_configuration(pairs, base_key, safe_name, deployments)?;
 
+        Ok(())
+    }
+
+    fn add_base_service_configuration(
+        &self,
+        pairs: &mut Vec<EtcdPair>,
+        base_key: &str,
+        service_name: &str,
+        deployment: &DeploymentConfig,
+    ) -> TraefikResult<()> {
+        pairs.push(EtcdPair::new(
+            format!(
+                "{}/services/{}/loadBalancer/servers/0/url",
+                base_key, service_name
+            ),
+            format!("http://{}:{}", deployment.ip, deployment.port),
+        ));
+
+        // Add passHostHeader configuration
+        pairs.push(EtcdPair::new(
+            format!(
+                "{}/services/{}/loadBalancer/passHostHeader",
+                base_key, service_name
+            ),
+            "true".to_string(),
+        ));
+
+        // Add response forwarding configuration
+        pairs.push(EtcdPair::new(
+            format!(
+                "{}/services/{}/loadBalancer/responseForwarding/flushInterval",
+                base_key, service_name
+            ),
+            "100ms".to_string(),
+        ));
+        Ok(())
+    }
+
+    fn add_root_router(
+        &self,
+        pairs: &mut Vec<EtcdPair>,
+        base_key: &str,
+        safe_name: &str,
+        rule: &RuleConfig,
+    ) -> TraefikResult<()> {
+        pairs.push(EtcdPair::new(
+            format!("{}/routers/{}/rule", base_key, safe_name),
+            rule.rule_str(),
+        ));
+        pairs.push(EtcdPair::new(
+            format!("{}/routers/{}/entrypoints/0", base_key, safe_name),
+            "websecure",
+        ));
+        pairs.push(EtcdPair::new(
+            format!("{}/routers/{}/tls", base_key, safe_name),
+            "true",
+        ));
+
+        pairs.push(EtcdPair::new(
+            format!(
+                "{}/services/{}/loadBalancer/passHostHeader",
+                base_key, safe_name
+            ),
+            "true".to_string(),
+        ));
         Ok(())
     }
 
@@ -257,7 +327,9 @@ impl HostConfig {
         pairs: &mut Vec<EtcdPair>,
         base_key: &str,
         safe_name: &str,
+        service_name: &str,
         deployments: &HashMap<String, DeploymentConfig>,
+        _rule: &mut RuleConfig,
     ) -> TraefikResult<()> {
         let active_deployments: Vec<_> = deployments.iter().filter(|(_, d)| d.weight > 0).collect();
 
@@ -283,6 +355,8 @@ impl HostConfig {
 
             // Add weighted service entries
             for (idx, (color, deployment)) in active_deployments.into_iter().enumerate() {
+                self.add_base_service_configuration(pairs, base_key, &service_name, deployment)?;
+
                 pairs.push(EtcdPair::new(
                     format!(
                         "{}/services/{}/weighted/services/{}/name",
@@ -623,7 +697,10 @@ impl HostConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{config::base_structs::DeploymentConfig, test_helpers::create_test_host};
+    use crate::{
+        config::{base_structs::DeploymentConfig, WithCookieConfig},
+        test_helpers::create_test_host,
+    };
 
     #[test]
     fn test_host_basic_configuration() {
@@ -691,6 +768,33 @@ mod tests {
     }
 
     #[test]
+    fn test_path_configuration_with_cookie() {
+        let mut host = create_test_host();
+        host.paths[0]
+            .deployments
+            .get_mut("blue")
+            .unwrap()
+            .with_cookie = Some(WithCookieConfig {
+            name: "TEST_COOKIE".to_string(),
+            value: Some("test_value".to_string()),
+        });
+        let pairs = host.to_etcd_pairs("traefik/http").unwrap();
+
+        // Verify path router rule
+        let has_path_rule = pairs.iter().any(|p| {
+            p.key().contains("path-0/rule")
+                && p.value() == "Host(`test.example.com`) && PathPrefix(`/api`) && Cookie(`TEST_COOKIE=test_value`)"
+        });
+        assert!(has_path_rule, "Path router rule not found");
+
+        // Verify strip prefix
+        let has_strip_prefix = pairs
+            .iter()
+            .any(|p| p.key().contains("stripPrefix/prefixes/0") && p.value() == "/api");
+        assert!(has_strip_prefix, "Strip prefix configuration not found");
+    }
+
+    #[test]
     fn test_weighted_deployment() {
         let mut host = create_test_host();
         host.deployments.insert(
@@ -699,6 +803,7 @@ mod tests {
                 ip: "10.0.0.2".to_string(),
                 port: 80,
                 weight: 20,
+                with_cookie: None,
             },
         );
         host.deployments.get_mut("blue").unwrap().weight = 80;
@@ -836,6 +941,7 @@ mod tests {
                 ip: "10.0.0.1".to_string(),
                 port: 80,
                 weight: 50,
+                with_cookie: None,
             },
         );
         host.deployments.insert(
@@ -844,6 +950,7 @@ mod tests {
                 ip: "10.0.0.2".to_string(),
                 port: 80,
                 weight: 30,
+                with_cookie: None,
             },
         );
         assert!(

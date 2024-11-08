@@ -12,6 +12,7 @@ pub fn create_test_deployment() -> DeploymentConfig {
         ip: "10.0.0.1".to_string(),
         port: 8080,
         weight: 100,
+        with_cookie: None,
     }
 }
 
@@ -26,6 +27,7 @@ pub fn create_test_host() -> HostConfig {
                     ip: "10.0.0.1".to_string(),
                     port: 8080,
                     weight: 100,
+                    with_cookie: None,
                 },
             )]),
             middlewares: vec!["enable-headers".to_string(), "redirect-handler".to_string()],
@@ -38,6 +40,7 @@ pub fn create_test_host() -> HostConfig {
                 ip: "10.0.0.1".to_string(),
                 port: 80,
                 weight: 100,
+                with_cookie: None,
             },
         )]),
         middlewares: vec!["enable-headers".to_string()],
