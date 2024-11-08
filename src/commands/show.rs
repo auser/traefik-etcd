@@ -1,9 +1,6 @@
 use clap::Args;
 
-use crate::{
-    common::{error::TraefikResult, etcd::Etcd},
-    config::TraefikConfig,
-};
+use crate::{config::TraefikConfig, error::TraefikResult, etcd::Etcd};
 
 #[derive(Args, Debug)]
 pub struct ShowCommand {

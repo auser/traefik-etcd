@@ -11,6 +11,12 @@ etcd:
 middlewares:
   enable-headers:
     headers:
+      custom_request_headers:
+        X-Forwarded-Proto: "https"
+        X-Forwarded-Port: "443"
+        Location: ""
+      custom_response_headers:
+        Location: ""
       access_control_allow_methods:
         - "GET"
         - "POST"
@@ -18,8 +24,6 @@ middlewares:
         - "DELETE"
         - "OPTIONS"
       access_control_allow_headers:
-        - "Content-Type"
-        - "Authorization"
         - "Content-Type"
         - Content-Length
         - Accept-Encoding
@@ -31,58 +35,49 @@ middlewares:
         - X-Requested-With
         - Host
         - "Location"
+      access_control_expose_headers:
+        - Location
+      add_vary_header: true
+
+  forward-server:
+    headers:
       custom_request_headers:
         X-Forwarded-Proto: "https"
         X-Forwarded-Port: "443"
-      custom_response_headers:
         Location: ""
-      access_control_expose_headers:
-        - "Location"
-      add_vary_header: true
+        X-Forwarded-Server: "traefik"
+      pass_through: true
 
-  pass-through:
-    headers:
-      custom_request_headers:
-        X-Pass-Through: "true"
-      access_control_expose_headers:
-        - "Location"
-      add_vary_header: true
-
-  handle-redirects:
-    headers:
-      custom_request_headers:
-        Location: ""
   add-www:
-    redirect_regex:
-      permanent: true
-      regex: "^https://([^.]+\\.[^.]+\\.[^.]+)(.*)"
-      replacement: "https://www.\\${1}\\${2}"
+    headers:
+      custom_request_headers:
+        X-Forwarded-Proto: "https"
+        X-Forwarded-Port: "443"
+        Location: ""
+      pass_through: true
 
 hosts:
   - domain: "ibs.collegegreen.net"
-    entrypoints:
-      - websecure
-    tls: true
-    middlewares:
-      - "enable-headers"
-      - "handle-redirects"
-      - "pass-through"
-      - "add-www"
-    include_redirect: true
+    pass_through: true
+    www_redirect: true
+    paths:
+      - path: "/premier-pay-tools"
+        deployments:
+          blue:
+            ip: redirector
+            port: 3000
+            weight: 100
+        middlewares:
+          - enable-headers
+          - forward-server
+        strip_prefix: true
+
+    # Root path (catch-all)
     deployments:
       blue:
         ip: redirector
         port: 3000
         weight: 100
-        tls: true
-      green:
-        ip: "10.8.29.28"
-        port: 9220
-        weight: 0
-        tls: true
-    pass_through: false
-    paths:
-      - path: "/"
-        strip_prefix: false
-      - path: "/css"
-        strip_prefix: true
+    middlewares:
+      - enable-headers
+      - forward-server

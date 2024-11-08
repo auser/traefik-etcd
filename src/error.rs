@@ -3,36 +3,31 @@ use std::{num::ParseIntError, str::ParseBoolError};
 use thiserror::Error;
 use tracing_subscriber::util::TryInitError;
 
-pub type TraefikResult<T = (), E = ConfigError> = color_eyre::Result<T, E>;
+pub type TraefikResult<T = (), E = TraefikError> = color_eyre::Result<T, E>;
 
 #[derive(Error, Debug)]
-pub enum ConfigError {
+pub enum TraefikError {
     #[error("IO error: {0}")]
     IOError(Box<dyn std::error::Error>),
+
+    #[error("Middleware config error: {0}")]
+    MiddlewareConfig(String),
 
     #[error("Deployment weight error: {0}")]
     DeploymentWeight(String),
 
-    #[error("Etcd TLS incorrectly configured: {0}")]
-    EtcdConfig(String),
+    #[error("Deployment error: {0}")]
+    DeploymentError(String),
 
-    #[error("Invalid middleware configuration: {0}")]
-    MiddlewareConfig(String),
+    #[allow(dead_code)]
+    #[error("Config error: {0}")]
+    ConfigError(String),
 
     #[error("Etcd error: {0}")]
     Etcd(#[from] etcd_client::Error),
 
     #[error("Path error: {0}")]
     PathConfig(String),
-
-    #[error("Duplicate path: {0}")]
-    DuplicatePath(String),
-
-    #[error("Backend error: {0}")]
-    BackendConfig(String),
-
-    #[error("Health check error: {0}")]
-    HealthCheckConfig(String),
 
     #[error("TryInitError: {0}")]
     TryInitError(#[from] TryInitError),
@@ -47,20 +42,20 @@ pub enum ConfigError {
     JsonError(#[from] serde_json::Error),
 }
 
-impl From<Box<dyn std::error::Error>> for ConfigError {
+impl From<Box<dyn std::error::Error>> for TraefikError {
     fn from(e: Box<dyn std::error::Error>) -> Self {
-        ConfigError::IOError(e)
+        TraefikError::IOError(e)
     }
 }
 
-impl From<ParseBoolError> for ConfigError {
+impl From<ParseBoolError> for TraefikError {
     fn from(e: ParseBoolError) -> Self {
-        ConfigError::EtcdError(e.into())
+        TraefikError::EtcdError(e.into())
     }
 }
 
-impl From<ParseIntError> for ConfigError {
+impl From<ParseIntError> for TraefikError {
     fn from(e: ParseIntError) -> Self {
-        ConfigError::EtcdError(e.into())
+        TraefikError::EtcdError(e.into())
     }
 }

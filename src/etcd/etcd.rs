@@ -11,7 +11,7 @@ use etcd_client::{
 
 use serde::{Deserialize, Serialize};
 
-use super::error::TraefikResult;
+use crate::error::TraefikResult;
 
 pub type KeyValue = KV;
 
@@ -31,6 +31,7 @@ impl EtcdPair {
         &self.1
     }
 
+    #[allow(dead_code)]
     pub fn value_as_bytes(&self) -> Vec<u8> {
         self.1.as_bytes().to_vec()
     }
@@ -45,10 +46,6 @@ impl Into<String> for EtcdPair {
 pub trait ToEtcdPairs {
     #[allow(dead_code)]
     fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>>;
-}
-
-pub trait Validate {
-    fn validate(&self) -> TraefikResult<()>;
 }
 
 #[derive(Clone)]
@@ -180,6 +177,7 @@ impl Etcd {
             .to_vec())
     }
 
+    #[allow(dead_code)]
     pub async fn delete(&self, key: impl Into<Vec<u8>>) -> Result<i64> {
         Ok(self
             .client
@@ -200,6 +198,7 @@ impl Etcd {
             .deleted())
     }
 
+    #[allow(dead_code)]
     pub async fn touch(&self, key: impl Into<Vec<u8>>) -> Result<()> {
         let mut client = self.client.clone();
         let lease = client
@@ -219,6 +218,7 @@ impl Etcd {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn put_or_touch(
         &self,
         key: &str,

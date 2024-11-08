@@ -2,17 +2,15 @@ use clap::{arg, Parser, Subcommand};
 use tracing::instrument;
 
 use crate::{
-    common::{
-        etcd::Etcd,
-        log::{init_tracing, LogConfig},
-    },
     config::TraefikConfig,
+    etcd::Etcd,
+    log::{init_tracing, LogConfig},
 };
 pub(crate) mod apply;
+pub(crate) mod clean;
 pub(crate) mod get;
 pub(crate) mod show;
 pub(crate) mod validate;
-
 #[derive(Parser)]
 #[command(name = "traefik-ctl")]
 pub struct Cli {
@@ -36,6 +34,8 @@ pub enum Commands {
     Validate,
     /// Get specific configuration
     Get(get::GetCommand),
+    /// Clean configuration
+    Clean(clean::CleanCommand),
 }
 
 #[instrument]
@@ -65,6 +65,9 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         Commands::Get(get_command) => {
             get::run(&get_command, &mut etcd_client, &mut traefik_config).await?;
+        }
+        Commands::Clean(clean_command) => {
+            clean::run(&clean_command, &mut etcd_client, &mut traefik_config).await?;
         }
     }
 

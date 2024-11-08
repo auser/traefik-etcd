@@ -2681,6 +2681,7 @@ dependencies = [
  "color-eyre",
  "colored",
  "config",
+ "convert_case",
  "etcd-client",
  "itertools",
  "notify",

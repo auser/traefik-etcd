@@ -1,8 +1,9 @@
 use clap::Args;
+use tracing::debug;
 
 use crate::{
-    common::{error::TraefikResult, etcd::Etcd},
     config::TraefikConfig,
+    {error::TraefikResult, etcd::Etcd},
 };
 
 #[derive(Args, Debug)]
@@ -26,11 +27,14 @@ pub async fn run(
         etcd_client.get_with_prefix(key).await?
     };
 
+    debug!("values: {:?}", values);
+
     let values = values
         .iter()
         .map(|v| v.value_str().unwrap_or_default())
         .collect::<Vec<&str>>();
     let value_str = values.join("\n");
+    println!("{}", value_str);
 
     Ok(())
 }

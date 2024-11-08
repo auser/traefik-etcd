@@ -40,6 +40,7 @@ clap = { version = "4.5.20", features = ["derive", "env"], optional = true }
 color-eyre = "0.6.3"
 colored = "2.1.0"
 config = { version = "0.14.1", optional = true }
+convert_case = "0.6.0"
 etcd-client = { version = "0.14.0", features = [
   "tls",
   "tls-roots",

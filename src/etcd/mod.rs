@@ -1,13 +1,7 @@
-pub mod backend;
-pub mod bluegreen;
-pub mod common;
+pub mod etcd;
 pub mod global;
 pub mod healthcheck;
-pub mod host;
-pub mod load_balancer;
-pub mod middleware;
-pub mod paths;
 pub mod router;
-pub mod service;
-pub mod testendpoint;
 pub mod util;
+
+pub use etcd::*;
