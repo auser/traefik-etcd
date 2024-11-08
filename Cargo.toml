@@ -71,6 +71,10 @@ tracing-subscriber = { version = "0.3.18", features = [
 ], optional = true }
 url = "2.5.3"
 
+[build-dependencies]
+protoc = "2.28.0"
+cargo-dist = "0.25.1"
+
 [dev-dependencies]
 pretty_assertions = "1.4"
 

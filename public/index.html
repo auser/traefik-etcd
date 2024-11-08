@@ -3,10 +3,10 @@
   <head>
     <title>traefikctl</title>
     
-      <meta property="og:url" content="https:&#x2f;&#x2f;github.com&#x2f;auser&#x2f;traefikctl" />
+      <meta property="og:url" content="https://github.com/auser/traefikctl" />
     
     
-      <link rel="icon" href="&#x2f;favicon.ico" />
+      <link rel="icon" href="/favicon.ico" />
     
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -20,7 +20,7 @@
     
     
     <meta http-equiv="Permissions-Policy" content="interest-cohort=()" />
-    <link rel="stylesheet" href="&#x2f;oranda-v0.6.1.css" />
+    <link rel="stylesheet" href="/oranda-v0.6.1.css" />
     
     
   </head>
@@ -29,7 +29,7 @@
       <div class="page-body">
         
           <div class="repo_banner">
-            <a href="https:&#x2f;&#x2f;github.com&#x2f;auser&#x2f;traefikctl">
+            <a href="https://github.com/auser/traefikctl">
               <div class="github-icon" aria-hidden="true"></div>
               Check out our GitHub!
             </a>
@@ -43,7 +43,7 @@
             
   <nav class="nav">
     <ul>
-      <li><a href="&#x2f;">Home</a></li>
+      <li><a href="/">Home</a></li>
 
       
 
@@ -54,7 +54,7 @@
       
 
       
-        <li><a href="&#x2f;changelog&#x2f;">Changelog</a></li>
+        <li><a href="/changelog/">Changelog</a></li>
       
     </ul>
   </nav>
@@ -64,72 +64,72 @@
           
 
 
-    &lt;h1&gt;Traefik Config Generator with etcd&lt;&#x2f;h1&gt;
-&lt;p&gt;This is a tool to generate Traefik configuration for a given set of hosts.&lt;&#x2f;p&gt;
-&lt;h2&gt;Usage&lt;&#x2f;h2&gt;
-&lt;pre style=&quot;background-color:#263238;&quot;&gt;&lt;span style=&quot;color:#82aaff;&quot;&gt;cargo run&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt; --&lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;bin&lt;&#x2f;span&gt;&lt;span style=&quot;color:#82aaff;&quot;&gt; traefik-config-generator&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt; --&lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;config&lt;&#x2f;span&gt;&lt;span style=&quot;color:#82aaff;&quot;&gt; config&#x2f;config.yml
-&lt;&#x2f;span&gt;&lt;&#x2f;pre&gt;
+    <h1>Traefik Config Generator with etcd</h1>
+<p>This is a tool to generate Traefik configuration for a given set of hosts.</p>
+<h2>Usage</h2>
+<pre style="background-color:#263238;"><span style="color:#82aaff;">cargo run</span><span style="color:#89ddff;"> --</span><span style="color:#f78c6c;">bin</span><span style="color:#82aaff;"> traefik-config-generator</span><span style="color:#89ddff;"> --</span><span style="color:#f78c6c;">config</span><span style="color:#82aaff;"> config/config.yml
+</span></pre>
 
-&lt;h2&gt;Configuration&lt;&#x2f;h2&gt;
-&lt;p&gt;The configuration is done in the &lt;code&gt;config&#x2f;config.yml&lt;&#x2f;code&gt; file.&lt;&#x2f;p&gt;
-&lt;h3&gt;Hosts&lt;&#x2f;h3&gt;
-&lt;p&gt;Each host has a domain, a list of paths, and a list of deployments.&lt;&#x2f;p&gt;
-&lt;h4&gt;Paths&lt;&#x2f;h4&gt;
-&lt;p&gt;Each path has a path, a list of deployments, a list of middlewares, and a boolean to strip the prefix. The deployments are keyed by the deployment name, which is used to determine which router to use.&lt;&#x2f;p&gt;
-&lt;h4&gt;Deployments&lt;&#x2f;h4&gt;
-&lt;p&gt;Each deployment has an ip, a port, a weight, and a boolean to determine if the cookie should be passed through.&lt;&#x2f;p&gt;
-&lt;pre style=&quot;background-color:#263238;&quot;&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;etcd&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;  &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;endpoints&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: [&quot;&lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;https:&#x2f;&#x2f;0.0.0.0:2379&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;&quot;]
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;  &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;timeout&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;2000
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;  &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;keep_alive&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;300
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;  &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;tls&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;    &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;cert&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &quot;&lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;.&#x2f;config&#x2f;tls&#x2f;etcd-peer.pem&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;&quot;
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;    &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;key&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &quot;&lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;.&#x2f;config&#x2f;tls&#x2f;etcd-peer-key.pem&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;&quot;
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;    &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;ca&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &quot;&lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;.&#x2f;config&#x2f;tls&#x2f;ca.pem&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;&quot;
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;    &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;domain&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;herringbank.com
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;middlewares&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;  &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;enable-headers&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;    &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;headers&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;      &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;custom_request_headers&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;        &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;X-Forwarded-Proto&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &quot;&lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;https&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;&quot;
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;        &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;X-Forwarded-Port&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &quot;&lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;443&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;&quot;
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;        &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;Location&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &quot;&quot;
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;      &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;custom_response_headers&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;        &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;Location&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &quot;&quot;
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;      &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;access_control_allow_methods&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;        &lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;- &quot;&lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;GET&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;&quot;
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;      &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;access_control_allow_headers&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;        &lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;- &quot;&lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;Content-Type&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;&quot;
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;      &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;access_control_expose_headers&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;        &lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;- &lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;Location
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;      &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;add_vary_header&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;true
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;hosts&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;  &lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;- &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;domain&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &quot;&lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;example.com&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;&quot;
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;    &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;www_redirect&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;true
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;    &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;paths&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;      &lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;- &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;path&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &quot;&lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;&#x2f;test&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;&quot;
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;        &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;deployments&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;          &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;blue&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;            &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;ip&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;10.0.0.1
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;            &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;port&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;8080
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;            &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;weight&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;50
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;          &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;green&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;            &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;ip&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;10.0.0.2
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;            &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;port&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;8080
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;            &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;weight&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;50
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;        &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;middlewares&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:  
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;          &lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;- &lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;enable-headers
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;          &lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;- &lt;&#x2f;span&gt;&lt;span style=&quot;color:#c3e88d;&quot;&gt;forward-server
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;    &lt;&#x2f;span&gt;&lt;span style=&quot;font-style:italic;color:#546e7a;&quot;&gt;# Root path (catch-all)
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;    &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;deployments&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;      &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;blue&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;:
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;        &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;ip&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;10.0.0.1
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;        &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;port&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;8080
-&lt;&#x2f;span&gt;&lt;span style=&quot;color:#eeffff;&quot;&gt;        &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f07178;&quot;&gt;weight&lt;&#x2f;span&gt;&lt;span style=&quot;color:#89ddff;&quot;&gt;: &lt;&#x2f;span&gt;&lt;span style=&quot;color:#f78c6c;&quot;&gt;100
-&lt;&#x2f;span&gt;&lt;&#x2f;pre&gt;
+<h2>Configuration</h2>
+<p>The configuration is done in the <code>config/config.yml</code> file.</p>
+<h3>Hosts</h3>
+<p>Each host has a domain, a list of paths, and a list of deployments.</p>
+<h4>Paths</h4>
+<p>Each path has a path, a list of deployments, a list of middlewares, and a boolean to strip the prefix. The deployments are keyed by the deployment name, which is used to determine which router to use.</p>
+<h4>Deployments</h4>
+<p>Each deployment has an ip, a port, a weight, and a boolean to determine if the cookie should be passed through.</p>
+<pre style="background-color:#263238;"><span style="color:#f07178;">etcd</span><span style="color:#89ddff;">:
+</span><span style="color:#eeffff;">  </span><span style="color:#f07178;">endpoints</span><span style="color:#89ddff;">: ["</span><span style="color:#c3e88d;">https://0.0.0.0:2379</span><span style="color:#89ddff;">"]
+</span><span style="color:#eeffff;">  </span><span style="color:#f07178;">timeout</span><span style="color:#89ddff;">: </span><span style="color:#f78c6c;">2000
+</span><span style="color:#eeffff;">  </span><span style="color:#f07178;">keep_alive</span><span style="color:#89ddff;">: </span><span style="color:#f78c6c;">300
+</span><span style="color:#eeffff;">  </span><span style="color:#f07178;">tls</span><span style="color:#89ddff;">:
+</span><span style="color:#eeffff;">    </span><span style="color:#f07178;">cert</span><span style="color:#89ddff;">: "</span><span style="color:#c3e88d;">./config/tls/etcd-peer.pem</span><span style="color:#89ddff;">"
+</span><span style="color:#eeffff;">    </span><span style="color:#f07178;">key</span><span style="color:#89ddff;">: "</span><span style="color:#c3e88d;">./config/tls/etcd-peer-key.pem</span><span style="color:#89ddff;">"
+</span><span style="color:#eeffff;">    </span><span style="color:#f07178;">ca</span><span style="color:#89ddff;">: "</span><span style="color:#c3e88d;">./config/tls/ca.pem</span><span style="color:#89ddff;">"
+</span><span style="color:#eeffff;">    </span><span style="color:#f07178;">domain</span><span style="color:#89ddff;">: </span><span style="color:#c3e88d;">herringbank.com
+</span><span style="color:#eeffff;">
+</span><span style="color:#f07178;">middlewares</span><span style="color:#89ddff;">:
+</span><span style="color:#eeffff;">  </span><span style="color:#f07178;">enable-headers</span><span style="color:#89ddff;">:
+</span><span style="color:#eeffff;">    </span><span style="color:#f07178;">headers</span><span style="color:#89ddff;">:
+</span><span style="color:#eeffff;">      </span><span style="color:#f07178;">custom_request_headers</span><span style="color:#89ddff;">:
+</span><span style="color:#eeffff;">        </span><span style="color:#f07178;">X-Forwarded-Proto</span><span style="color:#89ddff;">: "</span><span style="color:#c3e88d;">https</span><span style="color:#89ddff;">"
+</span><span style="color:#eeffff;">        </span><span style="color:#f07178;">X-Forwarded-Port</span><span style="color:#89ddff;">: "</span><span style="color:#c3e88d;">443</span><span style="color:#89ddff;">"
+</span><span style="color:#eeffff;">        </span><span style="color:#f07178;">Location</span><span style="color:#89ddff;">: ""
+</span><span style="color:#eeffff;">      </span><span style="color:#f07178;">custom_response_headers</span><span style="color:#89ddff;">:
+</span><span style="color:#eeffff;">        </span><span style="color:#f07178;">Location</span><span style="color:#89ddff;">: ""
+</span><span style="color:#eeffff;">      </span><span style="color:#f07178;">access_control_allow_methods</span><span style="color:#89ddff;">:
+</span><span style="color:#eeffff;">        </span><span style="color:#89ddff;">- "</span><span style="color:#c3e88d;">GET</span><span style="color:#89ddff;">"
+</span><span style="color:#eeffff;">      </span><span style="color:#f07178;">access_control_allow_headers</span><span style="color:#89ddff;">:
+</span><span style="color:#eeffff;">        </span><span style="color:#89ddff;">- "</span><span style="color:#c3e88d;">Content-Type</span><span style="color:#89ddff;">"
+</span><span style="color:#eeffff;">      </span><span style="color:#f07178;">access_control_expose_headers</span><span style="color:#89ddff;">:
+</span><span style="color:#eeffff;">        </span><span style="color:#89ddff;">- </span><span style="color:#c3e88d;">Location
+</span><span style="color:#eeffff;">      </span><span style="color:#f07178;">add_vary_header</span><span style="color:#89ddff;">: </span><span style="color:#f78c6c;">true
+</span><span style="color:#eeffff;">
+</span><span style="color:#f07178;">hosts</span><span style="color:#89ddff;">:
+</span><span style="color:#eeffff;">  </span><span style="color:#89ddff;">- </span><span style="color:#f07178;">domain</span><span style="color:#89ddff;">: "</span><span style="color:#c3e88d;">example.com</span><span style="color:#89ddff;">"
+</span><span style="color:#eeffff;">    </span><span style="color:#f07178;">www_redirect</span><span style="color:#89ddff;">: </span><span style="color:#f78c6c;">true
+</span><span style="color:#eeffff;">    </span><span style="color:#f07178;">paths</span><span style="color:#89ddff;">:
+</span><span style="color:#eeffff;">      </span><span style="color:#89ddff;">- </span><span style="color:#f07178;">path</span><span style="color:#89ddff;">: "</span><span style="color:#c3e88d;">/test</span><span style="color:#89ddff;">"
+</span><span style="color:#eeffff;">        </span><span style="color:#f07178;">deployments</span><span style="color:#89ddff;">:
+</span><span style="color:#eeffff;">          </span><span style="color:#f07178;">blue</span><span style="color:#89ddff;">:
+</span><span style="color:#eeffff;">            </span><span style="color:#f07178;">ip</span><span style="color:#89ddff;">: </span><span style="color:#f78c6c;">10.0.0.1
+</span><span style="color:#eeffff;">            </span><span style="color:#f07178;">port</span><span style="color:#89ddff;">: </span><span style="color:#f78c6c;">8080
+</span><span style="color:#eeffff;">            </span><span style="color:#f07178;">weight</span><span style="color:#89ddff;">: </span><span style="color:#f78c6c;">50
+</span><span style="color:#eeffff;">          </span><span style="color:#f07178;">green</span><span style="color:#89ddff;">:
+</span><span style="color:#eeffff;">            </span><span style="color:#f07178;">ip</span><span style="color:#89ddff;">: </span><span style="color:#f78c6c;">10.0.0.2
+</span><span style="color:#eeffff;">            </span><span style="color:#f07178;">port</span><span style="color:#89ddff;">: </span><span style="color:#f78c6c;">8080
+</span><span style="color:#eeffff;">            </span><span style="color:#f07178;">weight</span><span style="color:#89ddff;">: </span><span style="color:#f78c6c;">50
+</span><span style="color:#eeffff;">        </span><span style="color:#f07178;">middlewares</span><span style="color:#89ddff;">:  
+</span><span style="color:#eeffff;">          </span><span style="color:#89ddff;">- </span><span style="color:#c3e88d;">enable-headers
+</span><span style="color:#eeffff;">          </span><span style="color:#89ddff;">- </span><span style="color:#c3e88d;">forward-server
+</span><span style="color:#eeffff;">
+</span><span style="color:#eeffff;">    </span><span style="font-style:italic;color:#546e7a;"># Root path (catch-all)
+</span><span style="color:#eeffff;">    </span><span style="color:#f07178;">deployments</span><span style="color:#89ddff;">:
+</span><span style="color:#eeffff;">      </span><span style="color:#f07178;">blue</span><span style="color:#89ddff;">:
+</span><span style="color:#eeffff;">        </span><span style="color:#f07178;">ip</span><span style="color:#89ddff;">: </span><span style="color:#f78c6c;">10.0.0.1
+</span><span style="color:#eeffff;">        </span><span style="color:#f07178;">port</span><span style="color:#89ddff;">: </span><span style="color:#f78c6c;">8080
+</span><span style="color:#eeffff;">        </span><span style="color:#f07178;">weight</span><span style="color:#89ddff;">: </span><span style="color:#f78c6c;">100
+</span></pre>
 
 
 
@@ -139,7 +139,7 @@
 
       <footer>
         
-          <a href="https:&#x2f;&#x2f;github.com&#x2f;auser&#x2f;traefikctl"><div class="github-icon" aria-hidden="true"></div></a>
+          <a href="https://github.com/auser/traefikctl"><div class="github-icon" aria-hidden="true"></div></a>
         
         <span>
           traefikctl
