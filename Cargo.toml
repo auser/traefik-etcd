@@ -5,6 +5,13 @@ edition = "2021"
 repository = "https://github.com/auser/traefikctl"
 description = "A CLI for managing traefik with etcd"
 homepage = "https://github.com/auser/traefikctl"
+authors = ["Ari <me@ari.io>"]
+
+[package.metadata.wix]
+upgrade-guid = "F4761C69-4FF9-4810-AF9E-2AF110D7CF42"
+path-guid = "28239E20-C62B-43AD-BC64-61911768BEF6"
+license = false
+eula = false
 
 
 [features]
