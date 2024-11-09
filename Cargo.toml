@@ -12,20 +12,6 @@ license = "Apache-2.0 or MIT"
 name = "traefikctl"
 path = "src/main.rs"
 
-[package.metadata.dist]
-cargo-dist-version = "0.25.1"
-ci = "github"
-windows-archive = ".tar.gz"
-installers = ["shell", "powershell", "homebrew", "msi"]
-targets = [
-  "aarch64-apple-darwin",
-  "x86_64-apple-darwin",
-  "x86_64-unknown-linux-gnu",
-  "x86_64-pc-windows-msvc",
-]
-install-updater = true
-
-
 [package.metadata.wix]
 upgrade-guid = "F4761C69-4FF9-4810-AF9E-2AF110D7CF42"
 path-guid = "28239E20-C62B-43AD-BC64-61911768BEF6"
