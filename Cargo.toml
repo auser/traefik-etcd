@@ -1,6 +1,6 @@
 [package]
 name = "traefikctl"
-version = "0.1.49"
+version = "0.1.50"
 edition = "2021"
 repository = "https://github.com/auser/traefikctl"
 description = "A CLI for managing traefik with etcd"
@@ -87,3 +87,6 @@ pretty_assertions = "1.4"
 [profile.dist]
 inherits = "release"
 lto = "thin"
+
+[dist]
+github-build-setup = "build-setup.yml"

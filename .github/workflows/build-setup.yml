@@ -1,0 +1,2 @@
+- name: Install Protoc
+  uses: arduino/setup-protoc@v3
