@@ -1,4 +1,7 @@
 {
+  "build": {
+    "path_prefix": "traefikctl"
+  },
   "styles": {
     "theme": "axodark"
   },
