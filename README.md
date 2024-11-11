@@ -24,6 +24,8 @@ Each path has a path, a list of deployments, a list of middlewares, and a boolea
 
 Each deployment has an ip, a port, a weight, and a boolean to determine if the cookie should be passed through.
 
+It can also have a list of weights for each deployment.
+
 ```yaml
 etcd:
   endpoints: ["https://0.0.0.0:2379"]
