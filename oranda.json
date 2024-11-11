@@ -1,7 +1,4 @@
 {
-  "build": {
-    "output": "public"
-  },
   "styles": {
     "theme": "axodark"
   },
