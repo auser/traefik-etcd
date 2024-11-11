@@ -1,10 +1,13 @@
 {
+  "build": {
+    "output": "public"
+  },
   "styles": {
-    "theme": "hacker"
+    "theme": "axodark"
   },
   "components": {
+    "changelog": true,
     "artifacts": {
-      "auto": true,
       "package_managers": {
         "preferred": {},
         "additional": {
