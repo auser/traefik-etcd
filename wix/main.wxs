@@ -69,7 +69,7 @@
 
         <Package Id='*'
             Keywords='Installer'
-            Description='A CLI for managing traefik with etcd'
+            Description='A CLI for managing traefik with etcd (and more)'
             Manufacturer='Ari'
             InstallerVersion='450'
             Languages='1033'
