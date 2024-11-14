@@ -17,8 +17,15 @@ impl ToEtcdPairs for HostConfig {
         let mut pairs = Vec::new();
         let safe_name = format!("host-{}", get_safe_key(&self.domain));
 
-        let mut rule = RuleConfig::default();
-        rule.add_rule("Host", &self.domain);
+        let mut rule = self.get_host_rule();
+
+        if let Some(with_cookie) = &self.with_cookie {
+            let value = match &with_cookie.value {
+                Some(value) => value.as_str(),
+                None => "true",
+            };
+            rule.add_header_rule("Set-Cookie", &format!("{}={}", with_cookie.name, value));
+        }
 
         // Add custom request headers middleware for root
         self.add_host_headers(&mut pairs, base_key, &safe_name)?;
@@ -57,6 +64,24 @@ impl ToEtcdPairs for HostConfig {
 
 // Host configuration methods
 impl HostConfig {
+    pub fn get_host_rule(&self) -> RuleConfig {
+        let mut rule = RuleConfig::default();
+        rule.add_rule("Host", &self.domain);
+
+        if let Some(with_cookie) = &self.with_cookie {
+            let value = match &with_cookie.value {
+                Some(value) => value.as_str(),
+                None => "true",
+            };
+            rule.add_header_rule("Set-Cookie", &format!("{}={}", with_cookie.name, value));
+        }
+        rule
+    }
+
+    pub fn get_host_weight(&self) -> usize {
+        self.get_host_rule().get_weight()
+    }
+
     fn add_host_headers(
         &self,
         pairs: &mut Vec<EtcdPair>,
@@ -155,7 +180,7 @@ impl HostConfig {
 
         // Router configuration
         let mut rule = RuleConfig::default();
-        rule.add_rule("Host", &self.domain);
+        rule.add_host_rule(&self.domain);
         rule.add_rule("PathPrefix", &path_config.path);
 
         self.add_root_router(pairs, base_key, &path_safe_name, &rule)?;
@@ -221,13 +246,6 @@ impl HostConfig {
 
             // Basic URL configuration
             if deployment.weight > 0 {
-                if let Some(with_cookie) = &deployment.with_cookie {
-                    let value = match &with_cookie.value {
-                        Some(value) => value.as_str(),
-                        None => "true",
-                    };
-                    rule.add_rule("Cookie", &format!("{}={}", with_cookie.name, value));
-                }
                 self.add_base_service_configuration(pairs, base_key, &service_name, deployment)?;
                 self.add_root_router(pairs, base_key, safe_name, rule)?;
                 self.add_weighted_service_configuration(
@@ -765,11 +783,7 @@ mod tests {
     #[test]
     fn test_path_configuration_with_cookie() {
         let mut host = create_test_host();
-        host.paths[0]
-            .deployments
-            .get_mut("blue")
-            .unwrap()
-            .with_cookie = Some(WithCookieConfig {
+        host.with_cookie = Some(WithCookieConfig {
             name: "TEST_COOKIE".to_string(),
             value: Some("test_value".to_string()),
         });
@@ -777,8 +791,9 @@ mod tests {
 
         // Verify path router rule
         let has_path_rule = pairs.iter().any(|p| {
-            p.key().contains("path-0/rule")
-                && p.value() == "Host(`test.example.com`) && PathPrefix(`/api`) && Cookie(`TEST_COOKIE=test_value`)"
+            p.key().contains("rule")
+                && p.value()
+                    .contains("Header(`Set-Cookie`, `TEST_COOKIE=test_value`)")
         });
         assert!(has_path_rule, "Path router rule not found");
 
@@ -798,7 +813,6 @@ mod tests {
                 ip: "10.0.0.2".to_string(),
                 port: 80,
                 weight: 20,
-                with_cookie: None,
             },
         );
         host.deployments.get_mut("blue").unwrap().weight = 80;
@@ -936,7 +950,6 @@ mod tests {
                 ip: "10.0.0.1".to_string(),
                 port: 80,
                 weight: 50,
-                with_cookie: None,
             },
         );
         host.deployments.insert(
@@ -945,7 +958,6 @@ mod tests {
                 ip: "10.0.0.2".to_string(),
                 port: 80,
                 weight: 30,
-                with_cookie: None,
             },
         );
         assert!(

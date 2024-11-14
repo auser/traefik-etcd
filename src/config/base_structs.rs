@@ -27,6 +27,20 @@ pub struct HostConfig {
     pub deployments: HashMap<String, DeploymentConfig>,
     #[serde(default)]
     pub middlewares: Vec<String>,
+    #[serde(default)]
+    pub with_cookie: Option<WithCookieConfig>,
+}
+
+impl Default for HostConfig {
+    fn default() -> Self {
+        Self {
+            domain: "test.example.com".to_string(),
+            paths: vec![],
+            deployments: HashMap::new(),
+            middlewares: vec![],
+            with_cookie: None,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -47,8 +61,16 @@ pub struct DeploymentConfig {
     pub port: u16,
     #[serde(default)]
     pub weight: u8,
-    #[serde(default)]
-    pub with_cookie: Option<WithCookieConfig>,
+}
+
+impl Default for DeploymentConfig {
+    fn default() -> Self {
+        Self {
+            ip: "127.0.0.1".to_string(),
+            port: 80,
+            weight: 100,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -68,8 +90,15 @@ impl Default for WithCookieConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum RuleType {
+    Host,
+    Header,
+    Other,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RuleConfig {
-    pub rules: OrderMap<String, String>,
+    pub rules: OrderMap<String, (RuleType, String)>,
 }
 
 impl Default for RuleConfig {
@@ -81,15 +110,34 @@ impl Default for RuleConfig {
 }
 
 impl RuleConfig {
+    pub fn get_weight(&self) -> usize {
+        self.rules.values().count()
+    }
+
     #[allow(dead_code)]
     pub fn add_rule(&mut self, key: &str, value: &str) {
-        self.rules.insert(key.to_string(), value.to_string());
+        self.rules
+            .insert(key.to_string(), (RuleType::Other, value.to_string()));
+    }
+
+    pub fn add_host_rule(&mut self, value: &str) {
+        self.rules
+            .insert(String::from("Host"), (RuleType::Host, value.to_string()));
+    }
+
+    pub fn add_header_rule(&mut self, key: &str, value: &str) {
+        self.rules
+            .insert(key.to_string(), (RuleType::Header, value.to_string()));
     }
 
     pub fn rule_str(&self) -> String {
         self.rules
             .iter()
-            .map(|(k, v)| format!("{}(`{}`)", k, v))
+            .map(|(k, (rule_type, v))| match rule_type {
+                RuleType::Other => format!("{}(`{}`)", k, v),
+                RuleType::Header => format!("Header(`{}`, `{}`)", k, v),
+                RuleType::Host => format!("Host(`{}`)", v),
+            })
             .collect::<Vec<String>>()
             .join(" && ")
     }

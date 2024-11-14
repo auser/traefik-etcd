@@ -39,7 +39,11 @@ impl ToEtcdPairs for TraefikConfig {
         }
 
         // Add host configurations
-        for host in &self.hosts {
+        let mut sorted_hosts = self.hosts.clone();
+        // Sort in descending order
+        sorted_hosts.sort_by_key(|h| h.get_host_weight());
+        sorted_hosts.reverse();
+        for host in sorted_hosts {
             let host_pairs = host.to_etcd_pairs(base_key)?;
             pairs.extend(host_pairs);
 
@@ -68,7 +72,7 @@ impl Validate for TraefikConfig {
             // Check for duplicate domains
             if !domain_set.insert(&host.domain) {
                 return Err(TraefikError::ConfigError(format!(
-                    "Duplicate domain: {}",
+                    "Duplicate domain found: {}",
                     host.domain
                 )));
             }
@@ -344,7 +348,9 @@ impl TraefikConfig {
         let mut domain_set = HashSet::new();
         for host in &self.hosts {
             // Check for duplicate domains
-            if !domain_set.insert(&host.domain) {
+            let host_rule = host.get_host_rule();
+            let host_rule_str = String::from(host_rule.rule_str());
+            if !domain_set.insert(host_rule_str) {
                 return Err(TraefikError::ConfigError(format!(
                     "Duplicate domain: {}",
                     host.domain
@@ -396,8 +402,9 @@ mod tests {
     use std::collections::HashMap;
 
     use super::*;
-    use crate::config::base_structs::{
-        DeploymentConfig, HeadersConfig, MiddlewareConfig, PathConfig,
+    use crate::config::{
+        base_structs::{DeploymentConfig, HeadersConfig, MiddlewareConfig, PathConfig},
+        WithCookieConfig,
     };
 
     fn create_test_middleware() -> HashMap<String, MiddlewareConfig> {
@@ -446,38 +453,32 @@ mod tests {
         ])
     }
 
-    fn create_test_config() -> TraefikConfig {
-        TraefikConfig {
-            etcd: Default::default(),
-            middlewares: create_test_middleware(),
-            hosts: vec![HostConfig {
-                domain: "test1.example.com".to_string(),
-                paths: vec![PathConfig {
-                    path: "/api".to_string(),
-                    deployments: HashMap::from([(
-                        "blue".to_string(),
-                        DeploymentConfig {
-                            ip: "10.0.0.1".to_string(),
-                            port: 8080,
-                            weight: 100,
-                            with_cookie: None,
-                        },
-                    )]),
-                    middlewares: vec!["enable-headers".to_string()],
-                    strip_prefix: true,
-                    pass_through: false,
-                }],
+    fn create_test_config(host_configs: Option<Vec<HostConfig>>) -> TraefikConfig {
+        let host_configs = host_configs.unwrap_or(vec![HostConfig {
+            domain: "test.example.com".to_string(),
+            with_cookie: None,
+            paths: vec![PathConfig {
+                path: "/api".to_string(),
                 deployments: HashMap::from([(
                     "blue".to_string(),
                     DeploymentConfig {
                         ip: "10.0.0.1".to_string(),
                         port: 80,
                         weight: 100,
-                        with_cookie: None,
                     },
                 )]),
                 middlewares: vec!["enable-headers".to_string()],
+                strip_prefix: true,
+                pass_through: false,
             }],
+            deployments: HashMap::from([("blue".to_string(), DeploymentConfig::default())]),
+            middlewares: vec![],
+        }]);
+
+        TraefikConfig {
+            etcd: Default::default(),
+            middlewares: create_test_middleware(),
+            hosts: host_configs,
             www_redirect: Some(true),
             redirector: Default::default(),
         }
@@ -485,7 +486,7 @@ mod tests {
 
     #[test]
     fn test_default_middleware_generation() {
-        let config = create_test_config();
+        let config = create_test_config(None);
         let pairs = config.to_etcd_pairs("traefik/http").unwrap();
 
         // Verify default headers middleware
@@ -507,8 +508,26 @@ mod tests {
     }
 
     #[test]
+    fn test_host_weight_sorting() {
+        let mut host_config_with_cookie = HostConfig::default();
+        host_config_with_cookie.domain = "test2.example.com".to_string();
+        host_config_with_cookie.with_cookie = Some(WithCookieConfig {
+            name: "BLUEGREEN".to_string(),
+            value: Some("true".to_string()),
+        });
+        let config = create_test_config(Some(vec![HostConfig::default(), host_config_with_cookie]));
+        let mut sorted_hosts = config.hosts.clone();
+        sorted_hosts.sort_by_key(|h| h.get_host_weight());
+        sorted_hosts.reverse();
+        for host in sorted_hosts.clone() {
+            println!("host: {:?} {:?}", host.domain, host.get_host_weight());
+        }
+        assert_eq!(sorted_hosts[0].domain, "test2.example.com");
+    }
+
+    #[test]
     fn test_cookie_cleanup_middleware() {
-        let config = create_test_config();
+        let config = create_test_config(None);
         let pairs = config.to_etcd_pairs("traefik/http").unwrap();
 
         // Verify cookie cleanup headers
@@ -528,7 +547,7 @@ mod tests {
 
     #[test]
     fn test_www_redirect_configuration() {
-        let config = create_test_config();
+        let config = create_test_config(None);
         let pairs = config.to_etcd_pairs("traefik/http").unwrap();
 
         // Verify www redirect middleware
@@ -539,14 +558,15 @@ mod tests {
 
         // Verify router configuration
         let has_redirect_router = pairs.iter().any(|p| {
-            p.key().contains("/routers/to-www-") && p.value().contains("Host(`test1.example.com`)")
+            println!("p: {:?}", p);
+            p.key().contains("/routers/to-www-") && p.value().contains("Host(`test.example.com`)")
         });
         assert!(has_redirect_router, "WWW redirect router not found");
     }
 
     #[test]
     fn test_validation_middleware_references() {
-        let mut config = create_test_config();
+        let mut config = create_test_config(None);
 
         // Add invalid middleware reference
         config.hosts[0].middlewares.push("non-existent".to_string());
@@ -557,13 +577,16 @@ mod tests {
             Err(TraefikError::MiddlewareConfig(msg)) => {
                 assert!(msg.contains("Undefined middleware"));
             }
-            _ => panic!("Expected middleware reference error"),
+            other => {
+                println!("other: {:?}", other);
+                panic!("Expected middleware reference error")
+            }
         }
     }
 
     #[test]
     fn test_validation_duplicate_domains() {
-        let mut config = create_test_config();
+        let mut config = create_test_config(None);
 
         // Add duplicate domain
         config.hosts.push(config.hosts[0].clone());
@@ -580,7 +603,7 @@ mod tests {
 
     #[test]
     fn test_validation_path_middleware_references() {
-        let mut config = create_test_config();
+        let mut config = create_test_config(None);
 
         // Add invalid middleware reference to path
         config.hosts[0].paths[0]
@@ -599,7 +622,7 @@ mod tests {
 
     #[test]
     fn test_dry_run() {
-        let config = create_test_config();
+        let config = create_test_config(None);
         let pairs = config.to_etcd_pairs("traefik/http").unwrap();
 
         // Verify all required configuration is generated
