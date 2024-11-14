@@ -43,7 +43,7 @@ impl Default for HostConfig {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct PathConfig {
     pub path: String,
     pub deployments: HashMap<String, DeploymentConfig>,
@@ -61,6 +61,8 @@ pub struct DeploymentConfig {
     pub port: u16,
     #[serde(default)]
     pub weight: u8,
+    #[serde(default)]
+    pub with_cookie: Option<WithCookieConfig>,
 }
 
 impl Default for DeploymentConfig {
@@ -69,7 +71,79 @@ impl Default for DeploymentConfig {
             ip: "127.0.0.1".to_string(),
             port: 80,
             weight: 100,
+            with_cookie: None,
         }
+    }
+}
+
+#[allow(dead_code)]
+impl DeploymentConfig {
+    pub fn builder() -> DeploymentConfigBuilder {
+        DeploymentConfigBuilder::default()
+    }
+}
+
+#[derive(Default)]
+pub struct DeploymentConfigBuilder {
+    pub ip: String,
+    pub port: u16,
+    pub weight: u8,
+    pub with_cookie: Option<WithCookieConfig>,
+}
+
+#[allow(dead_code)]
+impl DeploymentConfigBuilder {
+    pub fn ip(mut self, ip: String) -> Self {
+        self.ip = ip;
+        self
+    }
+
+    pub fn port(mut self, port: u16) -> Self {
+        self.port = port;
+        self
+    }
+
+    pub fn weight(mut self, weight: u8) -> Self {
+        self.weight = weight;
+        self
+    }
+
+    pub fn with_cookie(mut self, with_cookie: WithCookieConfig) -> Self {
+        self.with_cookie = Some(with_cookie);
+        self
+    }
+
+    pub fn build(self) -> DeploymentConfig {
+        DeploymentConfig {
+            ip: self.ip,
+            port: self.port,
+            weight: self.weight,
+            with_cookie: self.with_cookie,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct InternalDeploymentConfig {
+    pub deployment: DeploymentConfig,
+    pub name: String,
+}
+
+impl DeploymentConfig {
+    pub fn get_weight(&self) -> usize {
+        self.get_rules().len()
+    }
+
+    pub fn get_rules(&self) -> Vec<String> {
+        let mut rules = Vec::new();
+        if let Some(with_cookie) = &self.with_cookie {
+            rules.push(format!(
+                "{}={}",
+                with_cookie.name,
+                with_cookie.value.as_ref().unwrap_or(&"true".to_string())
+            ));
+        }
+        rules
     }
 }
 
@@ -135,7 +209,7 @@ impl RuleConfig {
             .iter()
             .map(|(k, (rule_type, v))| match rule_type {
                 RuleType::Other => format!("{}(`{}`)", k, v),
-                RuleType::Header => format!("Header(`{}`, `{}`)", k, v),
+                RuleType::Header => format!("HeaderRegexp(`{}`, `{}`)", k, v),
                 RuleType::Host => format!("Host(`{}`)", v),
             })
             .collect::<Vec<String>>()

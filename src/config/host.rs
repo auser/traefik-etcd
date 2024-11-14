@@ -1,3 +1,4 @@
+use ordermap::OrderMap;
 use tracing::debug;
 
 use crate::{
@@ -9,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 
 use super::{
     base_structs::{DeploymentConfig, HostConfig, PathConfig},
-    RuleConfig,
+    InternalDeploymentConfig, RuleConfig,
 };
 
 impl ToEtcdPairs for HostConfig {
@@ -24,7 +25,7 @@ impl ToEtcdPairs for HostConfig {
                 Some(value) => value.as_str(),
                 None => "true",
             };
-            rule.add_header_rule("Set-Cookie", &format!("{}={}", with_cookie.name, value));
+            rule.add_header_rule("Cookie", &format!("{}={}", with_cookie.name, value));
         }
 
         // Add custom request headers middleware for root
@@ -73,7 +74,7 @@ impl HostConfig {
                 Some(value) => value.as_str(),
                 None => "true",
             };
-            rule.add_header_rule("Set-Cookie", &format!("{}={}", with_cookie.name, value));
+            rule.add_header_rule("Cookie", &format!("{}={}", with_cookie.name, value));
         }
         rule
     }
@@ -207,6 +208,14 @@ impl HostConfig {
                 ),
                 "true".to_string(),
             ));
+        } else {
+            pairs.push(EtcdPair::new(
+                format!(
+                    "{}/middlewares/{}-headers/headers/customResponseHeaders/Location",
+                    base_key, ""
+                ),
+                "false".to_string(),
+            ));
         }
 
         // Add middlewares for path
@@ -241,12 +250,20 @@ impl HostConfig {
         rule: &mut RuleConfig,
     ) -> TraefikResult<()> {
         // Set up services for each deployment
-        for (color, deployment) in deployments {
+        let sorted_deployments = self.get_sorted_deployments(deployments);
+        for (color, deployment) in sorted_deployments {
             let service_name = format!("{}-{}", safe_name, color);
 
             // Basic URL configuration
             if deployment.weight > 0 {
-                self.add_base_service_configuration(pairs, base_key, &service_name, deployment)?;
+                if let Some(with_cookie) = &deployment.with_cookie {
+                    let value = match &with_cookie.value {
+                        Some(value) => value.as_str(),
+                        None => "true",
+                    };
+                    rule.add_rule("Cookie", &format!("{}={}", with_cookie.name, value));
+                }
+                self.add_base_service_configuration(pairs, base_key, &service_name, &deployment)?;
                 self.add_root_router(pairs, base_key, safe_name, rule)?;
                 self.add_weighted_service_configuration(
                     pairs,
@@ -262,6 +279,27 @@ impl HostConfig {
         // Handle weighted services
 
         Ok(())
+    }
+
+    fn get_sorted_deployments(
+        &self,
+        deployments: &HashMap<String, DeploymentConfig>,
+    ) -> OrderMap<String, DeploymentConfig> {
+        let mut internal_deployments = Vec::new();
+        for (name, deployment) in deployments {
+            internal_deployments.push(InternalDeploymentConfig {
+                deployment: deployment.clone(),
+                name: name.clone(),
+            });
+        }
+        internal_deployments.sort_by_key(|d| d.deployment.get_weight());
+        internal_deployments.reverse();
+        let sorted_deployments = internal_deployments
+            .clone()
+            .into_iter()
+            .map(|d| (d.name, d.deployment))
+            .collect::<OrderMap<String, DeploymentConfig>>();
+        sorted_deployments
     }
 
     fn add_base_service_configuration(
@@ -613,7 +651,10 @@ impl HostConfig {
     ) -> TraefikResult<()> {
         for (color, deployment) in deployments {
             // Validate deployment name
-            if !color.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+            if !color
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+            {
                 return Err(TraefikError::DeploymentError(format!(
                     "Invalid deployment name '{}' in {}",
                     color, context
@@ -712,7 +753,7 @@ mod tests {
     use super::*;
     use crate::{
         config::{base_structs::DeploymentConfig, WithCookieConfig},
-        test_helpers::create_test_host,
+        test_helpers::{create_test_config, create_test_host},
     };
 
     #[test]
@@ -793,7 +834,31 @@ mod tests {
         let has_path_rule = pairs.iter().any(|p| {
             p.key().contains("rule")
                 && p.value()
-                    .contains("Header(`Set-Cookie`, `TEST_COOKIE=test_value`)")
+                    .contains("HeaderRegexp(`Cookie`, `TEST_COOKIE=test_value`)")
+        });
+        assert!(has_path_rule, "Path router rule not found");
+
+        // Verify strip prefix
+        let has_strip_prefix = pairs
+            .iter()
+            .any(|p| p.key().contains("stripPrefix/prefixes/0") && p.value() == "/api");
+        assert!(has_strip_prefix, "Strip prefix configuration not found");
+    }
+
+    #[test]
+    fn test_path_configuration_with_cookie_regex() {
+        let mut host = create_test_host();
+        host.with_cookie = Some(WithCookieConfig {
+            name: "TEST_COOKIE".to_string(),
+            value: Some("test_value".to_string()),
+        });
+        let pairs = host.to_etcd_pairs("traefik/http").unwrap();
+
+        // Verify path router rule
+        let has_path_rule = pairs.iter().any(|p| {
+            p.key().contains("rule")
+                && p.value()
+                    .contains("HeaderRegexp(`Cookie`, `TEST_COOKIE=test_value`)")
         });
         assert!(has_path_rule, "Path router rule not found");
 
@@ -813,6 +878,7 @@ mod tests {
                 ip: "10.0.0.2".to_string(),
                 port: 80,
                 weight: 20,
+                with_cookie: None,
             },
         );
         host.deployments.get_mut("blue").unwrap().weight = 80;
@@ -854,13 +920,72 @@ mod tests {
             .any(|p| p.key().contains("X-Pass-Through") && p.value() == "true");
 
         assert!(has_pass_through, "Pass-through header not found");
+    }
 
-        // // Verify redirect handler is NOT present
-        // let has_redirect_handler = pairs.iter().any(|p| p.value() == "redirect-handler");
-        // assert!(
-        //     !has_redirect_handler,
-        //     "Redirect handler should not be present for pass-through"
+    #[test]
+    fn test_host_deployment_weight_sorting() {
+        // let mut host_config_with_cookie = HostConfig::default();
+        // host_config_with_cookie.deployments.insert(
+        //     "blue".to_string(),
+        //     DeploymentConfig {
+        //         with_cookie: Some(WithCookieConfig {
+        //             name: "BLUEGREEN".to_string(),
+        //             value: Some("true".to_string()),
+        //         }),
+        //         ..Default::default()
+        //     },
         // );
+        // host_config_with_cookie.deployments.insert(
+        //     "green".to_string(),
+        //     DeploymentConfig {
+        //         with_cookie: Some(WithCookieConfig {
+        //             name: "GREEN".to_string(),
+        //             value: Some("true".to_string()),
+        //         }),
+        //         ..Default::default()
+        //     },
+        // );
+        // host_config_with_cookie.paths.push(PathConfig {
+        //     path: "/api".to_string(),
+
+        //     ..Default::default()
+        // });
+
+        let mut config = create_test_config(None);
+        config.hosts[0].paths[0].deployments.insert(
+            "green".to_string(),
+            DeploymentConfig::builder()
+                .ip("8.8.8.8".to_string())
+                .with_cookie(WithCookieConfig {
+                    name: "BLUEGREEN".to_string(),
+                    value: Some("true".to_string()),
+                })
+                .build(),
+        );
+        config.hosts[0].paths[0].deployments.insert(
+            "blue".to_string(),
+            DeploymentConfig::builder()
+                .ip("1.1.1.1".to_string())
+                .build(),
+        );
+        let deployments = config.hosts[0].paths[0].deployments.clone();
+        let host_deployments = config.hosts[0].get_sorted_deployments(&deployments);
+
+        assert_eq!(host_deployments["blue"].get_weight(), 0);
+        assert_eq!(host_deployments["green"].get_weight(), 1);
+    }
+
+    #[test]
+    fn test_non_pass_through_configuration() {
+        let host = create_test_host();
+        let pairs = host.to_etcd_pairs("traefik/http").unwrap();
+
+        // Verify X-Pass-Through header
+        let has_pass_through = pairs
+            .iter()
+            .any(|p| p.key().contains("Location") && p.value() == "");
+
+        assert!(!has_pass_through, "Location header should not be present");
     }
 
     #[test]
@@ -950,6 +1075,7 @@ mod tests {
                 ip: "10.0.0.1".to_string(),
                 port: 80,
                 weight: 50,
+                with_cookie: None,
             },
         );
         host.deployments.insert(
@@ -958,6 +1084,7 @@ mod tests {
                 ip: "10.0.0.2".to_string(),
                 port: 80,
                 weight: 30,
+                with_cookie: None,
             },
         );
         assert!(
