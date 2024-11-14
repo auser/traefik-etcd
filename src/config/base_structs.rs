@@ -1,6 +1,5 @@
-use ordermap::OrderMap;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::{error::TraefikResult, etcd::EtcdConfig};
 
@@ -127,8 +126,10 @@ impl DeploymentConfigBuilder {
 pub struct InternalDeploymentConfig {
     pub deployment: DeploymentConfig,
     pub name: String,
+    pub weight: usize,
 }
 
+#[allow(dead_code)]
 impl DeploymentConfig {
     pub fn get_weight(&self) -> usize {
         self.get_rules().len()
@@ -163,59 +164,125 @@ impl Default for WithCookieConfig {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub enum RuleType {
     Host,
     Header,
     Other,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+// #[derive(Debug, Serialize, Deserialize, Clone)]
+// pub struct RuleConfig {
+//     pub rules: OrderMap<String, (RuleType, String)>,
+// }
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Rule {
+    key: String,
+    value: String,
+    rule_type: RuleType,
+}
+
+impl Rule {
+    fn new(key: &str, value: &str, rule_type: RuleType) -> Self {
+        Self {
+            key: key.to_string(),
+            value: value.to_string(),
+            rule_type,
+        }
+    }
+
+    fn to_string(&self) -> String {
+        match self.rule_type {
+            RuleType::Other => format!("{}(`{}`)", self.key, self.value),
+            RuleType::Header => format!("HeaderRegexp(`{}`, `{}`)", self.key, self.value),
+            RuleType::Host => format!("Host(`{}`)", self.value),
+        }
+    }
+}
+
+impl Default for Rule {
+    fn default() -> Self {
+        Self::new("", "", RuleType::Other)
+    }
+}
+
+#[derive(Debug)]
 pub struct RuleConfig {
-    pub rules: OrderMap<String, (RuleType, String)>,
+    rules: HashSet<Rule>,
 }
 
 impl Default for RuleConfig {
     fn default() -> Self {
         Self {
-            rules: OrderMap::new(),
+            rules: HashSet::new(),
         }
     }
 }
 
 impl RuleConfig {
-    pub fn get_weight(&self) -> usize {
-        self.rules.values().count()
+    pub fn add_rule(&mut self, key: &str, value: &str, rule_type: RuleType) {
+        let rule = Rule::new(key, value, rule_type);
+        self.rules.insert(rule);
     }
 
-    #[allow(dead_code)]
-    pub fn add_rule(&mut self, key: &str, value: &str) {
-        self.rules
-            .insert(key.to_string(), (RuleType::Other, value.to_string()));
+    pub fn add_default_rule(&mut self, key: &str, value: &str) {
+        self.add_rule(key, value, RuleType::Other);
     }
 
-    pub fn add_host_rule(&mut self, value: &str) {
-        self.rules
-            .insert(String::from("Host"), (RuleType::Host, value.to_string()));
+    pub fn add_header_rule(&mut self, header: &str, value: &str) {
+        let rule = Rule::new(header, value, RuleType::Header);
+        self.rules.insert(rule);
     }
 
-    pub fn add_header_rule(&mut self, key: &str, value: &str) {
-        self.rules
-            .insert(key.to_string(), (RuleType::Header, value.to_string()));
+    pub fn add_host_rule(&mut self, domain: &str) {
+        self.add_rule("Host", domain, RuleType::Host);
     }
 
     pub fn rule_str(&self) -> String {
-        self.rules
-            .iter()
-            .map(|(k, (rule_type, v))| match rule_type {
-                RuleType::Other => format!("{}(`{}`)", k, v),
-                RuleType::Header => format!("HeaderRegexp(`{}`, `{}`)", k, v),
-                RuleType::Host => format!("Host(`{}`)", v),
-            })
-            .collect::<Vec<String>>()
-            .join(" && ")
+        let rules: Vec<_> = self.rules.iter().map(|r| r.to_string()).collect();
+        rules.join(" && ")
+    }
+
+    // Weight is now determined by the number of rules
+    pub fn get_weight(&self) -> usize {
+        self.rules.len()
     }
 }
+
+// impl RuleConfig {
+//     pub fn get_weight(&self) -> usize {
+//         self.rules.values().count()
+//     }
+
+//     #[allow(dead_code)]
+//     pub fn add_rule(&mut self, key: &str, value: &str) {
+//         self.rules
+//             .insert(key.to_string(), (RuleType::Other, value.to_string()));
+//     }
+
+//     pub fn add_host_rule(&mut self, value: &str) {
+//         self.rules
+//             .insert(String::from("Host"), (RuleType::Host, value.to_string()));
+//     }
+
+//     pub fn add_header_rule(&mut self, key: &str, value: &str) {
+//         self.rules
+//             .insert(key.to_string(), (RuleType::Header, value.to_string()));
+//     }
+
+//     pub fn rule_str(&self) -> String {
+//         self.rules
+//             .iter()
+//             .map(|(k, (rule_type, v))| match rule_type {
+//                 RuleType::Other => format!("{}(`{}`)", k, v),
+//                 RuleType::Header => format!("HeaderR(`{}`, `{}`)", k, v),
+//                 RuleType::Host => format!("Host(`{}`)", v),
+//             })
+//             .collect::<Vec<String>>()
+//             .join(" && ")
+//     }
+// }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MiddlewareConfig {

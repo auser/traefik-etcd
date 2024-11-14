@@ -438,9 +438,6 @@ mod tests {
         let mut sorted_hosts = config.hosts.clone();
         sorted_hosts.sort_by_key(|h| h.get_host_weight());
         sorted_hosts.reverse();
-        for host in sorted_hosts.clone() {
-            println!("host: {:?} {:?}", host.domain, host.get_host_weight());
-        }
         assert_eq!(sorted_hosts[0].domain, "test2.example.com");
     }
 
@@ -477,7 +474,6 @@ mod tests {
 
         // Verify router configuration
         let has_redirect_router = pairs.iter().any(|p| {
-            println!("p: {:?}", p);
             p.key().contains("/routers/to-www-") && p.value().contains("Host(`test.example.com`)")
         });
         assert!(has_redirect_router, "WWW redirect router not found");
@@ -497,7 +493,7 @@ mod tests {
                 assert!(msg.contains("Undefined middleware"));
             }
             other => {
-                println!("other: {:?}", other);
+                debug!("other: {:?}", other);
                 panic!("Expected middleware reference error")
             }
         }

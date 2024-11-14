@@ -67,7 +67,7 @@ impl ToEtcdPairs for HostConfig {
 impl HostConfig {
     pub fn get_host_rule(&self) -> RuleConfig {
         let mut rule = RuleConfig::default();
-        rule.add_rule("Host", &self.domain);
+        rule.add_host_rule(&self.domain);
 
         if let Some(with_cookie) = &self.with_cookie {
             let value = match &with_cookie.value {
@@ -79,6 +79,7 @@ impl HostConfig {
         rule
     }
 
+    // When sorting hosts, we sort by the number of rules they have
     pub fn get_host_weight(&self) -> usize {
         self.get_host_rule().get_weight()
     }
@@ -182,7 +183,7 @@ impl HostConfig {
         // Router configuration
         let mut rule = RuleConfig::default();
         rule.add_host_rule(&self.domain);
-        rule.add_rule("PathPrefix", &path_config.path);
+        rule.add_default_rule("PathPrefix", &path_config.path);
 
         self.add_root_router(pairs, base_key, &path_safe_name, &rule)?;
 
@@ -249,34 +250,33 @@ impl HostConfig {
         deployments: &HashMap<String, DeploymentConfig>,
         rule: &mut RuleConfig,
     ) -> TraefikResult<()> {
-        // Set up services for each deployment
         let sorted_deployments = self.get_sorted_deployments(deployments);
-        for (color, deployment) in sorted_deployments {
-            let service_name = format!("{}-{}", safe_name, color);
+        for (idx, (color, deployment)) in sorted_deployments.into_iter().enumerate() {
+            let service_name = format!("{}-{}-{}", safe_name, color, idx);
 
-            // Basic URL configuration
             if deployment.weight > 0 {
                 if let Some(with_cookie) = &deployment.with_cookie {
                     let value = match &with_cookie.value {
                         Some(value) => value.as_str(),
                         None => "true",
                     };
-                    rule.add_rule("Cookie", &format!("{}={}", with_cookie.name, value));
+                    rule.add_header_rule("Cookie", &format!("{}={}", with_cookie.name, value));
                 }
+                // Always create the service
                 self.add_base_service_configuration(pairs, base_key, &service_name, &deployment)?;
+
+                // Only add router and weighted configuration for deployments with weight
                 self.add_root_router(pairs, base_key, safe_name, rule)?;
                 self.add_weighted_service_configuration(
                     pairs,
                     base_key,
                     safe_name,
-                    &service_name,
+                    &service_name, // Pass the correct service name
                     deployments,
                     rule,
                 )?;
             }
         }
-
-        // Handle weighted services
 
         Ok(())
     }
@@ -287,19 +287,33 @@ impl HostConfig {
     ) -> OrderMap<String, DeploymentConfig> {
         let mut internal_deployments = Vec::new();
         for (name, deployment) in deployments {
+            // Count number of rules for this deployment
+            let mut rules = RuleConfig::default();
+            if let Some(with_cookie) = &deployment.with_cookie {
+                rules.add_header_rule(
+                    "Cookie",
+                    &format!(
+                        "{}={}",
+                        with_cookie.name,
+                        with_cookie.value.as_deref().unwrap_or("true")
+                    ),
+                );
+            }
+
             internal_deployments.push(InternalDeploymentConfig {
                 deployment: deployment.clone(),
                 name: name.clone(),
+                weight: rules.get_weight(),
             });
         }
-        internal_deployments.sort_by_key(|d| d.deployment.get_weight());
+        // Sort by number of rules (descending)
+        internal_deployments.sort_by_key(|d| d.weight);
         internal_deployments.reverse();
-        let sorted_deployments = internal_deployments
-            .clone()
+
+        internal_deployments
             .into_iter()
             .map(|d| (d.name, d.deployment))
-            .collect::<OrderMap<String, DeploymentConfig>>();
-        sorted_deployments
+            .collect()
     }
 
     fn add_base_service_configuration(
@@ -404,16 +418,23 @@ impl HostConfig {
                 "100ms".to_string(),
             ));
             debug!("Added flushInterval: 100ms");
+
             // Add weighted service entries
             for (idx, (color, deployment)) in active_deployments.into_iter().enumerate() {
-                self.add_base_service_configuration(pairs, base_key, &service_name, deployment)?;
+                let weighted_service_name = format!("{}-{}-{}", safe_name, color, idx);
+                self.add_base_service_configuration(
+                    pairs,
+                    base_key,
+                    &weighted_service_name,
+                    deployment,
+                )?;
 
                 pairs.push(EtcdPair::new(
                     format!(
                         "{}/services/{}/weighted/services/{}/name",
                         base_key, weighted_name, idx
                     ),
-                    format!("{}@internal", format!("{}-{}", safe_name, color)),
+                    format!("{}@internal", weighted_service_name),
                 ));
                 pairs.push(EtcdPair::new(
                     format!(
@@ -429,11 +450,11 @@ impl HostConfig {
                 format!("{}/routers/{}/service", base_key, safe_name),
                 weighted_name,
             ));
-        } else if let Some((color, _)) = deployments.iter().next() {
+        } else if let Some((_color, _)) = deployments.iter().next() {
             // Single deployment - use it directly
             pairs.push(EtcdPair::new(
                 format!("{}/routers/{}/service", base_key, safe_name),
-                format!("{}-{}", safe_name, color),
+                service_name.to_string(), // Use the service name passed in
             ));
         }
 
@@ -810,7 +831,8 @@ mod tests {
         // Verify path router rule
         let has_path_rule = pairs.iter().any(|p| {
             p.key().contains("path-0/rule")
-                && p.value() == "Host(`test.example.com`) && PathPrefix(`/api`)"
+                && p.value().contains("Host(`test.example.com`)")
+                && p.value().contains("PathPrefix(`/api`)")
         });
         assert!(has_path_rule, "Path router rule not found");
 
@@ -907,6 +929,46 @@ mod tests {
             has_lb_config,
             "Load balancer configuration for weighted service not found"
         );
+    }
+
+    #[test]
+    fn test_rule_weights() {
+        let mut host_config = HostConfig::default();
+        host_config.domain = "example.com".to_string();
+        assert_eq!(host_config.get_host_weight(), 1); // Just Host rule
+
+        // Add cookie
+        host_config.with_cookie = Some(WithCookieConfig {
+            name: "TEST".to_string(),
+            value: Some("true".to_string()),
+        });
+        assert_eq!(host_config.get_host_weight(), 2); // Host + Cookie rule
+    }
+
+    #[test]
+    fn test_deployment_sorting() {
+        let mut config = HostConfig::default();
+
+        // Deployment with cookie (2 rules)
+        config.deployments.insert(
+            "blue".to_string(),
+            DeploymentConfig {
+                with_cookie: Some(WithCookieConfig {
+                    name: "TEST".to_string(),
+                    value: Some("true".to_string()),
+                }),
+                ..Default::default()
+            },
+        );
+
+        // Deployment without cookie (1 rule)
+        config
+            .deployments
+            .insert("green".to_string(), DeploymentConfig::default());
+
+        let sorted = config.get_sorted_deployments(&config.deployments);
+        let deployments: Vec<_> = sorted.keys().collect();
+        assert_eq!(deployments, vec!["blue", "green"]);
     }
 
     #[test]
