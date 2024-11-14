@@ -6,7 +6,7 @@ repository = "https://github.com/auser/traefikctl"
 description = "A CLI for managing traefik with etcd (and more)"
 homepage = "https://github.com/auser/traefikctl"
 authors = ["Ari <me@ari.io>"]
-license = "Apache-2.0 or MIT"
+license = "MIT OR Apache-2.0"
 
 [[bin]]
 name = "traefikctl"
