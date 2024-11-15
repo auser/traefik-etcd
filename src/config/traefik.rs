@@ -5,11 +5,12 @@ use crate::{
     error::{TraefikError, TraefikResult},
     etcd::{util::get_safe_key, Etcd},
 };
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use super::{
     base_structs::{HostConfig, TraefikConfig},
     core_traits::EtcdPair,
+    RouterRule,
 };
 
 impl ToEtcdPairs for TraefikConfig {
@@ -294,21 +295,62 @@ impl TraefikConfig {
         Ok(())
     }
 
-    pub async fn apply_to_etcd(&mut self, etcd: &mut Etcd, dry_run: bool) -> TraefikResult<()> {
-        // First validate the configuration
+    pub async fn apply_to_etcd(
+        &mut self,
+        etcd: &mut Etcd,
+        dry_run: bool,
+        show_rules: bool,
+    ) -> TraefikResult<()> {
         self.validate()?;
-
-        // Generate all etcd pairs
         let pairs = self.to_etcd_pairs("traefik/http")?;
+        let rules = RouterRule::from_pairs(&pairs);
+
+        // Create new pairs with updated priorities and no duplicates
+        let mut new_pairs = Vec::new();
+        let mut seen_rules = HashSet::new();
+        let mut rule_to_priority: HashMap<String, i32> = HashMap::new();
+
+        // Build priority map
+        for rule in &rules {
+            rule_to_priority.insert(rule.get_rule().clone(), rule.get_priority());
+        }
+
+        // Build new pairs with updated priorities and no duplicates
+        for pair in pairs {
+            if pair.key().ends_with("/rule") {
+                let rule_str = pair.value().to_string();
+                if !seen_rules.insert(rule_str.clone()) {
+                    continue; // Skip duplicate rules
+                }
+
+                if let Some(&priority) = rule_to_priority.get(&rule_str) {
+                    // Add the rule
+                    new_pairs.push(pair.clone());
+
+                    // Add the corresponding priority
+                    let priority_key = pair.key().replace("/rule", "/priority");
+                    new_pairs.push(EtcdPair::new(priority_key, priority.to_string()));
+                }
+            } else if !pair.key().ends_with("/priority") {
+                // Keep all non-rule, non-priority pairs
+                new_pairs.push(pair);
+            }
+        }
 
         if dry_run {
-            // Just print what would be applied
-            let rules = pairs
-                .iter()
-                .filter(|p| p.key().contains("rules"))
-                .collect::<Vec<_>>();
-            for pair in rules {
-                println!("Would set: {} = {}", pair.key(), pair.value());
+            if show_rules {
+                // Print rules in priority order
+                for rule in &rules {
+                    println!(
+                        "Rule = {} (priority: {})",
+                        rule.get_rule(),
+                        rule.get_priority()
+                    );
+                }
+            } else {
+                for pair in &new_pairs {
+                    println!("Would set: {} = {}", pair.key(), pair.value());
+                }
             }
             return Ok(());
         }
@@ -316,8 +358,8 @@ impl TraefikConfig {
         // Clean existing configuration first
         self.clean_etcd(etcd, false).await?;
 
-        // Apply all pairs to etcd
-        for pair in pairs {
+        // Apply deduplicated and prioritized configuration
+        for pair in new_pairs {
             etcd.put(pair.key(), pair.value(), None)
                 .await
                 .map_err(|e| TraefikError::EtcdError(e.into()))?;

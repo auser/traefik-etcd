@@ -6,12 +6,12 @@ use crate::{
     error::{TraefikError, TraefikResult},
     etcd::{util::get_safe_key, Etcd},
 };
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use super::{
     base_structs::{DeploymentConfig, HostConfig, PathConfig},
     util::add_selection_rules,
-    InternalDeploymentConfig, RuleConfig,
+    InternalDeploymentConfig, RuleConfig, RuleEntry,
 };
 
 impl ToEtcdPairs for HostConfig {
@@ -237,28 +237,55 @@ impl HostConfig {
         base_key: &str,
         _path: &str,
         deployments: &HashMap<String, DeploymentConfig>,
-        rule: &mut RuleConfig,
+        base_rule: &mut RuleConfig,
     ) -> TraefikResult<()> {
+        let mut unique_rules = BTreeSet::new();
+
+        // First collect all unique rules sorted by complexity
         let sorted_deployments = self.get_sorted_deployments(deployments);
         for (idx, (color, deployment)) in sorted_deployments.into_iter().enumerate() {
-            let service_name = format!("{}-{}-{}", safe_name, color, idx);
-
             if deployment.weight > 0 {
-                add_selection_rules(&deployment, rule);
-                // Always create the service
-                self.add_base_service_configuration(pairs, base_key, &service_name, &deployment)?;
+                let mut rule = base_rule.clone();
+                add_selection_rules(&deployment, &mut rule);
 
-                // Only add router and weighted configuration for deployments with weight
-                self.add_root_router(pairs, base_key, safe_name, rule)?;
-                self.add_weighted_service_configuration(
-                    pairs,
-                    base_key,
-                    safe_name,
-                    &service_name, // Pass the correct service name
-                    deployments,
-                    rule,
-                )?;
+                unique_rules.insert(RuleEntry::new(rule.get_weight(), rule.rule_str()));
+
+                // Always create service configuration
+                let service_name = format!("{}-{}-{}", safe_name, color, idx);
+                self.add_base_service_configuration(pairs, base_key, &service_name, &deployment)?;
             }
+        }
+
+        // Add routers for each unique rule in order of complexity
+        for (idx, entry) in unique_rules.iter().rev().enumerate() {
+            let router_name = if idx == 0 {
+                safe_name.to_string()
+            } else {
+                format!("{}-{}", safe_name, idx)
+            };
+
+            // Add router configuration
+            pairs.push(EtcdPair::new(
+                format!("{}/routers/{}/rule", base_key, router_name),
+                entry.get_rule(),
+            ));
+
+            // Add standard router configuration
+            pairs.push(EtcdPair::new(
+                format!("{}/routers/{}/entrypoints/0", base_key, router_name),
+                "websecure".to_string(),
+            ));
+
+            pairs.push(EtcdPair::new(
+                format!("{}/routers/{}/tls", base_key, router_name),
+                "true".to_string(),
+            ));
+
+            // Set priority based on rule complexity
+            pairs.push(EtcdPair::new(
+                format!("{}/routers/{}/priority", base_key, router_name),
+                (1000 + entry.get_weight() * 10).to_string(),
+            ));
         }
 
         Ok(())
@@ -270,7 +297,6 @@ impl HostConfig {
     ) -> OrderMap<String, DeploymentConfig> {
         let mut internal_deployments = Vec::new();
         for (name, deployment) in deployments {
-            // Count number of rules for this deployment
             let mut rules = RuleConfig::default();
             add_selection_rules(deployment, &mut rules);
             internal_deployments.push(InternalDeploymentConfig {
@@ -279,9 +305,10 @@ impl HostConfig {
                 weight: rules.get_weight(),
             });
         }
-        // Sort by number of rules (descending)
-        internal_deployments.sort_by_key(|d| d.weight);
-        internal_deployments.reverse();
+
+        // Sort by complexity (descending) then by name for stability
+        internal_deployments
+            .sort_by(|a, b| b.weight.cmp(&a.weight).then_with(|| a.name.cmp(&b.name)));
 
         internal_deployments
             .into_iter()
@@ -356,81 +383,6 @@ impl HostConfig {
             "true".to_string(),
         ));
         debug!("Added passHostHeader: true");
-        Ok(())
-    }
-
-    fn add_weighted_service_configuration(
-        &self,
-        pairs: &mut Vec<EtcdPair>,
-        base_key: &str,
-        safe_name: &str,
-        service_name: &str,
-        deployments: &HashMap<String, DeploymentConfig>,
-        _rule: &mut RuleConfig,
-    ) -> TraefikResult<()> {
-        let active_deployments: Vec<_> = deployments.iter().filter(|(_, d)| d.weight > 0).collect();
-
-        if active_deployments.len() > 1 {
-            let weighted_name = format!("{}-weighted", safe_name);
-
-            // Add loadBalancer configurations for weighted service
-            pairs.push(EtcdPair::new(
-                format!(
-                    "{}/services/{}/loadBalancer/passHostHeader",
-                    base_key, weighted_name
-                ),
-                "true".to_string(),
-            ));
-            debug!("Added passHostHeader: true");
-
-            pairs.push(EtcdPair::new(
-                format!(
-                    "{}/services/{}/loadBalancer/responseForwarding/flushInterval",
-                    base_key, weighted_name
-                ),
-                "100ms".to_string(),
-            ));
-            debug!("Added flushInterval: 100ms");
-
-            // Add weighted service entries
-            for (idx, (color, deployment)) in active_deployments.into_iter().enumerate() {
-                let weighted_service_name = format!("{}-{}-{}", safe_name, color, idx);
-                self.add_base_service_configuration(
-                    pairs,
-                    base_key,
-                    &weighted_service_name,
-                    deployment,
-                )?;
-
-                pairs.push(EtcdPair::new(
-                    format!(
-                        "{}/services/{}/weighted/services/{}/name",
-                        base_key, weighted_name, idx
-                    ),
-                    format!("{}@internal", weighted_service_name),
-                ));
-                pairs.push(EtcdPair::new(
-                    format!(
-                        "{}/services/{}/weighted/services/{}/weight",
-                        base_key, weighted_name, idx
-                    ),
-                    deployment.weight.to_string(),
-                ));
-            }
-
-            // Set router service to weighted service
-            pairs.push(EtcdPair::new(
-                format!("{}/routers/{}/service", base_key, safe_name),
-                weighted_name,
-            ));
-        } else if let Some((_color, _)) = deployments.iter().next() {
-            // Single deployment - use it directly
-            pairs.push(EtcdPair::new(
-                format!("{}/routers/{}/service", base_key, safe_name),
-                service_name.to_string(), // Use the service name passed in
-            ));
-        }
-
         Ok(())
     }
 }

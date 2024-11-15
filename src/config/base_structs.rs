@@ -198,7 +198,7 @@ impl Default for WithCookieConfig {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub enum RuleType {
     Host,
     Header,
@@ -211,7 +211,7 @@ pub enum RuleType {
 //     pub rules: OrderMap<String, (RuleType, String)>,
 // }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct Rule {
     key: String,
     value: String,
@@ -243,7 +243,103 @@ impl Default for Rule {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub struct RuleEntry {
+    weight: usize,
+    rule: String,
+}
+
+impl RuleEntry {
+    pub fn new(weight: usize, rule: String) -> Self {
+        Self { weight, rule }
+    }
+
+    pub fn get_weight(&self) -> usize {
+        self.weight
+    }
+
+    pub fn get_rule(&self) -> String {
+        self.rule.clone()
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Hash)]
+pub struct RouterRule {
+    rule: String,
+    priority: i32,
+    router_name: String,
+}
+
+impl RouterRule {
+    pub fn new(rule: String, priority: i32, router_name: String) -> Self {
+        Self {
+            rule,
+            priority,
+            router_name,
+        }
+    }
+
+    pub fn from_pairs(pairs: &[EtcdPair]) -> Vec<Self> {
+        let mut rule_map = HashSet::new();
+        let mut rules = Vec::new();
+
+        // First pass: collect all rules and their metadata
+        for pair in pairs {
+            let key = pair.key();
+            if !key.ends_with("/rule") {
+                continue;
+            }
+
+            let router_name = key
+                .split("/routers/")
+                .nth(1)
+                .unwrap()
+                .split('/')
+                .next()
+                .unwrap()
+                .to_string();
+
+            let rule = pair.value().to_string();
+
+            // Calculate priority based on rule complexity
+            let conditions = rule.matches("&&").count() + 1;
+            let has_cookie = rule.contains("HeaderRegexp(`Cookie`");
+            let has_path = rule.contains("PathPrefix");
+
+            // Priority calculation:
+            // - Base priority: 1000
+            // - Cookie rules: +200
+            // - Path rules: +100
+            // - Additional conditions: +50 each
+            let priority = 1000
+                + (if has_cookie { 200 } else { 0 })
+                + (if has_path { 100 } else { 0 })
+                + (conditions * 50);
+
+            let router_rule = RouterRule::new(rule, priority as i32, router_name);
+
+            // Only add if we haven't seen this rule before
+            if rule_map.insert(router_rule.rule.clone()) {
+                rules.push(router_rule);
+            }
+        }
+
+        // Sort rules by priority (highest first)
+        rules.sort_by(|a, b| b.priority.cmp(&a.priority));
+
+        rules
+    }
+
+    pub fn get_rule(&self) -> String {
+        self.rule.clone()
+    }
+
+    pub fn get_priority(&self) -> i32 {
+        self.priority
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct RuleConfig {
     rules: HashSet<Rule>,
 }
