@@ -15,14 +15,14 @@ pub fn create_test_deployment() -> DeploymentConfig {
         ip: "10.0.0.1".to_string(),
         port: 8080,
         weight: 100,
-        with_cookie: None,
+        selection: None,
     }
 }
 
 pub fn create_test_host() -> HostConfig {
     HostConfig {
         domain: "test.example.com".to_string(),
-        with_cookie: None,
+        selection: None,
         paths: vec![PathConfig {
             path: "/api".to_string(),
             deployments: HashMap::from([(
@@ -31,7 +31,7 @@ pub fn create_test_host() -> HostConfig {
                     ip: "10.0.0.1".to_string(),
                     port: 8080,
                     weight: 100,
-                    with_cookie: None,
+                    selection: None,
                 },
             )]),
             middlewares: vec!["enable-headers".to_string(), "redirect-handler".to_string()],
@@ -44,7 +44,7 @@ pub fn create_test_host() -> HostConfig {
                 ip: "10.0.0.1".to_string(),
                 port: 80,
                 weight: 100,
-                with_cookie: None,
+                selection: None,
             },
         )]),
         middlewares: vec!["enable-headers".to_string()],
@@ -54,7 +54,7 @@ pub fn create_test_host() -> HostConfig {
 pub fn create_test_config(host_configs: Option<Vec<HostConfig>>) -> TraefikConfig {
     let host_configs = host_configs.unwrap_or(vec![HostConfig {
         domain: "test.example.com".to_string(),
-        with_cookie: None,
+        selection: None,
         paths: vec![PathConfig {
             path: "/api".to_string(),
             deployments: HashMap::from([(
@@ -63,7 +63,7 @@ pub fn create_test_config(host_configs: Option<Vec<HostConfig>>) -> TraefikConfi
                     ip: "10.0.0.1".to_string(),
                     port: 80,
                     weight: 100,
-                    with_cookie: None,
+                    selection: None,
                 },
             )]),
             middlewares: vec!["enable-headers".to_string()],

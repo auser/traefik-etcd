@@ -10,6 +10,7 @@ use std::collections::{HashMap, HashSet};
 
 use super::{
     base_structs::{DeploymentConfig, HostConfig, PathConfig},
+    util::add_selection_rules,
     InternalDeploymentConfig, RuleConfig,
 };
 
@@ -20,13 +21,7 @@ impl ToEtcdPairs for HostConfig {
 
         let mut rule = self.get_host_rule();
 
-        if let Some(with_cookie) = &self.with_cookie {
-            let value = match &with_cookie.value {
-                Some(value) => value.as_str(),
-                None => "true",
-            };
-            rule.add_header_rule("Cookie", &format!("{}={}", with_cookie.name, value));
-        }
+        add_selection_rules(self, &mut rule);
 
         // Add custom request headers middleware for root
         self.add_host_headers(&mut pairs, base_key, &safe_name)?;
@@ -69,13 +64,7 @@ impl HostConfig {
         let mut rule = RuleConfig::default();
         rule.add_host_rule(&self.domain);
 
-        if let Some(with_cookie) = &self.with_cookie {
-            let value = match &with_cookie.value {
-                Some(value) => value.as_str(),
-                None => "true",
-            };
-            rule.add_header_rule("Cookie", &format!("{}={}", with_cookie.name, value));
-        }
+        add_selection_rules(self, &mut rule);
         rule
     }
 
@@ -255,13 +244,7 @@ impl HostConfig {
             let service_name = format!("{}-{}-{}", safe_name, color, idx);
 
             if deployment.weight > 0 {
-                if let Some(with_cookie) = &deployment.with_cookie {
-                    let value = match &with_cookie.value {
-                        Some(value) => value.as_str(),
-                        None => "true",
-                    };
-                    rule.add_header_rule("Cookie", &format!("{}={}", with_cookie.name, value));
-                }
+                add_selection_rules(&deployment, rule);
                 // Always create the service
                 self.add_base_service_configuration(pairs, base_key, &service_name, &deployment)?;
 
@@ -289,17 +272,7 @@ impl HostConfig {
         for (name, deployment) in deployments {
             // Count number of rules for this deployment
             let mut rules = RuleConfig::default();
-            if let Some(with_cookie) = &deployment.with_cookie {
-                rules.add_header_rule(
-                    "Cookie",
-                    &format!(
-                        "{}={}",
-                        with_cookie.name,
-                        with_cookie.value.as_deref().unwrap_or("true")
-                    ),
-                );
-            }
-
+            add_selection_rules(deployment, &mut rules);
             internal_deployments.push(InternalDeploymentConfig {
                 deployment: deployment.clone(),
                 name: name.clone(),
@@ -773,7 +746,9 @@ impl HostConfig {
 mod tests {
     use super::*;
     use crate::{
-        config::{base_structs::DeploymentConfig, WithCookieConfig},
+        config::{
+            base_structs::DeploymentConfig, FromClientIpConfig, SelectionConfig, WithCookieConfig,
+        },
         test_helpers::{create_test_config, create_test_host},
     };
 
@@ -846,9 +821,12 @@ mod tests {
     #[test]
     fn test_path_configuration_with_cookie() {
         let mut host = create_test_host();
-        host.with_cookie = Some(WithCookieConfig {
-            name: "TEST_COOKIE".to_string(),
-            value: Some("test_value".to_string()),
+        host.selection = Some(SelectionConfig {
+            with_cookie: Some(WithCookieConfig {
+                name: "TEST_COOKIE".to_string(),
+                value: Some("test_value".to_string()),
+            }),
+            ..Default::default()
         });
         let pairs = host.to_etcd_pairs("traefik/http").unwrap();
 
@@ -870,17 +848,18 @@ mod tests {
     #[test]
     fn test_path_configuration_with_cookie_regex() {
         let mut host = create_test_host();
-        host.with_cookie = Some(WithCookieConfig {
-            name: "TEST_COOKIE".to_string(),
-            value: Some("test_value".to_string()),
+        host.selection = Some(SelectionConfig {
+            with_cookie: Some(WithCookieConfig {
+                name: "TEST".to_string(),
+                value: Some("true".to_string()),
+            }),
+            ..Default::default()
         });
         let pairs = host.to_etcd_pairs("traefik/http").unwrap();
 
         // Verify path router rule
         let has_path_rule = pairs.iter().any(|p| {
-            p.key().contains("rule")
-                && p.value()
-                    .contains("HeaderRegexp(`Cookie`, `TEST_COOKIE=test_value`)")
+            p.key().contains("rule") && p.value().contains("HeaderRegexp(`Cookie`, `TEST=true`)")
         });
         assert!(has_path_rule, "Path router rule not found");
 
@@ -900,7 +879,7 @@ mod tests {
                 ip: "10.0.0.2".to_string(),
                 port: 80,
                 weight: 20,
-                with_cookie: None,
+                selection: None,
             },
         );
         host.deployments.get_mut("blue").unwrap().weight = 80;
@@ -938,9 +917,12 @@ mod tests {
         assert_eq!(host_config.get_host_weight(), 1); // Just Host rule
 
         // Add cookie
-        host_config.with_cookie = Some(WithCookieConfig {
-            name: "TEST".to_string(),
-            value: Some("true".to_string()),
+        host_config.selection = Some(SelectionConfig {
+            with_cookie: Some(WithCookieConfig {
+                name: "TEST".to_string(),
+                value: Some("true".to_string()),
+            }),
+            ..Default::default()
         });
         assert_eq!(host_config.get_host_weight(), 2); // Host + Cookie rule
     }
@@ -953,9 +935,12 @@ mod tests {
         config.deployments.insert(
             "blue".to_string(),
             DeploymentConfig {
-                with_cookie: Some(WithCookieConfig {
-                    name: "TEST".to_string(),
-                    value: Some("true".to_string()),
+                selection: Some(SelectionConfig {
+                    with_cookie: Some(WithCookieConfig {
+                        name: "TEST".to_string(),
+                        value: Some("true".to_string()),
+                    }),
+                    ..Default::default()
                 }),
                 ..Default::default()
             },
@@ -1018,9 +1003,12 @@ mod tests {
             "green".to_string(),
             DeploymentConfig::builder()
                 .ip("8.8.8.8".to_string())
-                .with_cookie(WithCookieConfig {
-                    name: "BLUEGREEN".to_string(),
-                    value: Some("true".to_string()),
+                .selection(SelectionConfig {
+                    with_cookie: Some(WithCookieConfig {
+                        name: "BLUEGREEN".to_string(),
+                        value: Some("true".to_string()),
+                    }),
+                    ..Default::default()
                 })
                 .build(),
         );
@@ -1137,7 +1125,7 @@ mod tests {
                 ip: "10.0.0.1".to_string(),
                 port: 80,
                 weight: 50,
-                with_cookie: None,
+                selection: None,
             },
         );
         host.deployments.insert(
@@ -1146,7 +1134,7 @@ mod tests {
                 ip: "10.0.0.2".to_string(),
                 port: 80,
                 weight: 30,
-                with_cookie: None,
+                selection: None,
             },
         );
         assert!(
@@ -1187,5 +1175,172 @@ mod tests {
         assert!(!host.is_valid_ip_or_hostname("-example.com"));
         assert!(!host.is_valid_ip_or_hostname("example-.com"));
         assert!(!host.is_valid_ip_or_hostname("exam ple.com"));
+    }
+
+    #[test]
+    fn test_cookie_selection() {
+        let mut rule = RuleConfig::default();
+        let config = DeploymentConfig {
+            selection: Some(SelectionConfig {
+                with_cookie: Some(WithCookieConfig {
+                    name: "TEST".to_string(),
+                    value: Some("true".to_string()),
+                }),
+                from_client_ip: None,
+            }),
+            ..Default::default()
+        };
+
+        add_selection_rules(&config, &mut rule);
+        assert_eq!(rule.get_weight(), 1);
+        assert!(rule
+            .rule_str()
+            .contains("HeaderRegexp(`Cookie`, `TEST=true`)"));
+    }
+
+    #[test]
+    fn test_client_ip_selection() {
+        let mut rule = RuleConfig::default();
+        let config = DeploymentConfig {
+            selection: Some(SelectionConfig {
+                with_cookie: None,
+                from_client_ip: Some(FromClientIpConfig {
+                    ip: Some("192.168.1.1".to_string()),
+                    range: None,
+                }),
+            }),
+            ..Default::default()
+        };
+
+        add_selection_rules(&config, &mut rule);
+        assert_eq!(rule.get_weight(), 1);
+        assert!(rule.rule_str().contains("ClientIP(`192.168.1.1`)"));
+    }
+
+    #[test]
+    fn test_client_range_selection() {
+        let mut rule = RuleConfig::default();
+        let config = DeploymentConfig {
+            selection: Some(SelectionConfig {
+                with_cookie: None,
+                from_client_ip: Some(FromClientIpConfig {
+                    ip: None,
+                    range: Some("192.168.1.0/24".to_string()),
+                }),
+            }),
+            ..Default::default()
+        };
+
+        add_selection_rules(&config, &mut rule);
+        assert_eq!(rule.get_weight(), 1);
+        assert!(rule.rule_str().contains("ClientIP(`192.168.1.0/24`)"));
+    }
+
+    #[test]
+    fn test_client_prefers_ip_selection() {
+        let mut rule = RuleConfig::default();
+        let config = DeploymentConfig {
+            selection: Some(SelectionConfig {
+                with_cookie: None,
+                from_client_ip: Some(FromClientIpConfig {
+                    ip: Some("192.168.1.1".to_string()),
+                    range: Some("192.168.1.0/24".to_string()),
+                }),
+            }),
+            ..Default::default()
+        };
+
+        add_selection_rules(&config, &mut rule);
+        assert_eq!(rule.get_weight(), 2);
+        assert!(rule.rule_str().contains("ClientIP(`192.168.1.1`)"));
+        assert!(rule.rule_str().contains("ClientIP(`192.168.1.0/24`)"));
+    }
+
+    #[test]
+    fn test_combined_selection() {
+        let mut rule = RuleConfig::default();
+        let config = DeploymentConfig {
+            selection: Some(SelectionConfig {
+                with_cookie: Some(WithCookieConfig {
+                    name: "TEST".to_string(),
+                    value: Some("true".to_string()),
+                }),
+                from_client_ip: Some(crate::config::FromClientIpConfig {
+                    ip: Some("192.168.1.1".to_string()),
+                    range: None,
+                }),
+            }),
+            ..Default::default()
+        };
+
+        add_selection_rules(&config, &mut rule);
+        assert_eq!(rule.get_weight(), 2);
+        let rule_str = rule.rule_str();
+        assert!(rule_str.contains("HeaderRegexp(`Cookie`, `TEST=true`)"));
+        assert!(rule_str.contains("ClientIP(`192.168.1.1`)"));
+    }
+
+    #[test]
+    fn test_rule_ordering() {
+        let mut host = HostConfig::default();
+
+        // Deployment with 2 rules (cookie + IP)
+        host.deployments.insert(
+            "blue".to_string(),
+            DeploymentConfig {
+                selection: Some(SelectionConfig {
+                    with_cookie: Some(WithCookieConfig {
+                        name: "TEST".to_string(),
+                        value: Some("true".to_string()),
+                    }),
+                    from_client_ip: Some(FromClientIpConfig {
+                        ip: Some("192.168.1.1".to_string()),
+                        range: None,
+                    }),
+                }),
+                ..Default::default()
+            },
+        );
+
+        // Deployment with 1 rule (cookie only)
+        host.deployments.insert(
+            "green".to_string(),
+            DeploymentConfig {
+                selection: Some(SelectionConfig {
+                    with_cookie: Some(WithCookieConfig {
+                        name: "GREEN".to_string(),
+                        value: None,
+                    }),
+                    from_client_ip: None,
+                }),
+                ..Default::default()
+            },
+        );
+
+        let sorted = host.get_sorted_deployments(&host.deployments);
+        let deployments: Vec<_> = sorted.keys().collect();
+
+        // Blue deployment should come first as it has more rules
+        assert_eq!(deployments, vec!["blue", "green"]);
+    }
+
+    #[test]
+    fn test_default_cookie_value() {
+        let mut rule = RuleConfig::default();
+        let config = DeploymentConfig {
+            selection: Some(SelectionConfig {
+                with_cookie: Some(WithCookieConfig {
+                    name: "TEST".to_string(),
+                    value: None,
+                }),
+                from_client_ip: None,
+            }),
+            ..Default::default()
+        };
+
+        add_selection_rules(&config, &mut rule);
+        assert!(rule
+            .rule_str()
+            .contains("HeaderRegexp(`Cookie`, `TEST=true`)"));
     }
 }

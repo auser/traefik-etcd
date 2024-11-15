@@ -303,7 +303,11 @@ impl TraefikConfig {
 
         if dry_run {
             // Just print what would be applied
-            for pair in pairs {
+            let rules = pairs
+                .iter()
+                .filter(|p| p.key().contains("rules"))
+                .collect::<Vec<_>>();
+            for pair in rules {
                 println!("Would set: {} = {}", pair.key(), pair.value());
             }
             return Ok(());
@@ -401,7 +405,10 @@ impl TraefikConfig {
 mod tests {
 
     use super::*;
-    use crate::{config::WithCookieConfig, test_helpers::create_test_config};
+    use crate::{
+        config::{SelectionConfig, WithCookieConfig},
+        test_helpers::create_test_config,
+    };
 
     #[test]
     fn test_default_middleware_generation() {
@@ -430,9 +437,12 @@ mod tests {
     fn test_host_weight_sorting() {
         let mut host_config_with_cookie = HostConfig::default();
         host_config_with_cookie.domain = "test2.example.com".to_string();
-        host_config_with_cookie.with_cookie = Some(WithCookieConfig {
-            name: "BLUEGREEN".to_string(),
-            value: Some("true".to_string()),
+        host_config_with_cookie.selection = Some(SelectionConfig {
+            with_cookie: Some(WithCookieConfig {
+                name: "BLUEGREEN".to_string(),
+                value: Some("true".to_string()),
+            }),
+            ..Default::default()
         });
         let config = create_test_config(Some(vec![HostConfig::default(), host_config_with_cookie]));
         let mut sorted_hosts = config.hosts.clone();

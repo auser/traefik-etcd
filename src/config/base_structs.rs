@@ -19,6 +19,20 @@ pub struct TraefikConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct FromClientIpConfig {
+    pub range: Option<String>,
+    pub ip: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct SelectionConfig {
+    #[serde(default)]
+    pub with_cookie: Option<WithCookieConfig>,
+    #[serde(default)]
+    pub from_client_ip: Option<FromClientIpConfig>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HostConfig {
     pub domain: String,
     #[serde(default)]
@@ -26,8 +40,14 @@ pub struct HostConfig {
     pub deployments: HashMap<String, DeploymentConfig>,
     #[serde(default)]
     pub middlewares: Vec<String>,
-    #[serde(default)]
-    pub with_cookie: Option<WithCookieConfig>,
+    #[serde(default, flatten)]
+    pub selection: Option<SelectionConfig>,
+}
+
+impl Into<Option<SelectionConfig>> for HostConfig {
+    fn into(self) -> Option<SelectionConfig> {
+        self.selection
+    }
 }
 
 impl Default for HostConfig {
@@ -37,7 +57,7 @@ impl Default for HostConfig {
             paths: vec![],
             deployments: HashMap::new(),
             middlewares: vec![],
-            with_cookie: None,
+            selection: None,
         }
     }
 }
@@ -60,8 +80,14 @@ pub struct DeploymentConfig {
     pub port: u16,
     #[serde(default)]
     pub weight: u8,
-    #[serde(default)]
-    pub with_cookie: Option<WithCookieConfig>,
+    #[serde(default, flatten)]
+    pub selection: Option<SelectionConfig>,
+}
+
+impl Into<Option<SelectionConfig>> for DeploymentConfig {
+    fn into(self) -> Option<SelectionConfig> {
+        self.selection
+    }
 }
 
 impl Default for DeploymentConfig {
@@ -70,7 +96,7 @@ impl Default for DeploymentConfig {
             ip: "127.0.0.1".to_string(),
             port: 80,
             weight: 100,
-            with_cookie: None,
+            selection: None,
         }
     }
 }
@@ -87,7 +113,7 @@ pub struct DeploymentConfigBuilder {
     pub ip: String,
     pub port: u16,
     pub weight: u8,
-    pub with_cookie: Option<WithCookieConfig>,
+    pub selection: Option<SelectionConfig>,
 }
 
 #[allow(dead_code)]
@@ -107,8 +133,8 @@ impl DeploymentConfigBuilder {
         self
     }
 
-    pub fn with_cookie(mut self, with_cookie: WithCookieConfig) -> Self {
-        self.with_cookie = Some(with_cookie);
+    pub fn selection(mut self, selection: SelectionConfig) -> Self {
+        self.selection = Some(selection);
         self
     }
 
@@ -117,7 +143,7 @@ impl DeploymentConfigBuilder {
             ip: self.ip,
             port: self.port,
             weight: self.weight,
-            with_cookie: self.with_cookie,
+            selection: self.selection,
         }
     }
 }
@@ -137,12 +163,20 @@ impl DeploymentConfig {
 
     pub fn get_rules(&self) -> Vec<String> {
         let mut rules = Vec::new();
-        if let Some(with_cookie) = &self.with_cookie {
-            rules.push(format!(
-                "{}={}",
-                with_cookie.name,
-                with_cookie.value.as_ref().unwrap_or(&"true".to_string())
-            ));
+        if let Some(selection) = &self.selection {
+            if let Some(with_cookie) = &selection.with_cookie {
+                rules.push(format!(
+                    "{}={}",
+                    with_cookie.name,
+                    with_cookie.value.as_ref().unwrap_or(&"true".to_string())
+                ));
+            }
+            if let Some(from_client_ip) = &selection.from_client_ip {
+                rules.push(format!(
+                    "FromClientIP(`{}`)",
+                    from_client_ip.ip.as_ref().unwrap_or(&"".to_string())
+                ));
+            }
         }
         rules
     }
@@ -168,6 +202,7 @@ impl Default for WithCookieConfig {
 pub enum RuleType {
     Host,
     Header,
+    ClientIp,
     Other,
 }
 
@@ -197,6 +232,7 @@ impl Rule {
             RuleType::Other => format!("{}(`{}`)", self.key, self.value),
             RuleType::Header => format!("HeaderRegexp(`{}`, `{}`)", self.key, self.value),
             RuleType::Host => format!("Host(`{}`)", self.value),
+            RuleType::ClientIp => format!("ClientIP(`{}`)", self.value),
         }
     }
 }
@@ -233,6 +269,16 @@ impl RuleConfig {
     pub fn add_header_rule(&mut self, header: &str, value: &str) {
         let rule = Rule::new(header, value, RuleType::Header);
         self.rules.insert(rule);
+    }
+
+    pub fn add_client_ip_rule(&mut self, ip: Option<&str>, range: Option<&str>) {
+        if let Some(ip) = ip {
+            self.rules.insert(Rule::new("ip", ip, RuleType::ClientIp));
+        }
+        if let Some(range) = range {
+            self.rules
+                .insert(Rule::new("range", range, RuleType::ClientIp));
+        };
     }
 
     pub fn add_host_rule(&mut self, domain: &str) {
