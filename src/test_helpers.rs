@@ -20,35 +20,47 @@ pub fn create_test_deployment() -> DeploymentConfig {
 }
 
 pub fn create_test_host() -> HostConfig {
-    HostConfig {
+    let mut host = HostConfig {
         domain: "test.example.com".to_string(),
+        paths: Vec::new(),
+        deployments: HashMap::new(),
+        middlewares: vec![],
         selection: None,
-        paths: vec![PathConfig {
-            path: "/api".to_string(),
-            deployments: HashMap::from([(
+    };
+
+    // Add a default blue deployment
+    host.deployments.insert(
+        "blue".to_string(),
+        DeploymentConfig {
+            ip: "10.0.0.1".to_string(),
+            port: 80,
+            weight: 100,
+            selection: None,
+        },
+    );
+
+    // Add a default path configuration with explicit middleware order
+    host.paths.push(PathConfig {
+        path: "/api".to_string(),
+        deployments: {
+            let mut map = HashMap::new();
+            map.insert(
                 "blue".to_string(),
                 DeploymentConfig {
                     ip: "10.0.0.1".to_string(),
-                    port: 8080,
+                    port: 80,
                     weight: 100,
                     selection: None,
                 },
-            )]),
-            middlewares: vec!["enable-headers".to_string(), "redirect-handler".to_string()],
-            strip_prefix: true,
-            pass_through: true,
-        }],
-        deployments: HashMap::from([(
-            "blue".to_string(),
-            DeploymentConfig {
-                ip: "10.0.0.1".to_string(),
-                port: 80,
-                weight: 100,
-                selection: None,
-            },
-        )]),
-        middlewares: vec!["enable-headers".to_string()],
-    }
+            );
+            map
+        },
+        middlewares: vec!["enable-headers".to_string()], // Will be added after headers and strip
+        strip_prefix: true,                              // Will be added second
+        pass_through: true,
+    });
+
+    host
 }
 
 pub fn create_test_config(host_configs: Option<Vec<HostConfig>>) -> TraefikConfig {

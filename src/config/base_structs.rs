@@ -381,9 +381,23 @@ impl RuleConfig {
         self.add_rule("Host", domain, RuleType::Host);
     }
 
+
     pub fn rule_str(&self) -> String {
-        let rules: Vec<_> = self.rules.iter().map(|r| r.to_string()).collect();
-        rules.join(" && ")
+        // Sort rules to ensure consistent ordering
+        let mut rules: Vec<_> = self.rules.iter().collect();
+        rules.sort_by_key(|rule| {
+            match rule.rule_type {
+                RuleType::Host => 0,     // Host rules first
+                RuleType::Header => 1,    // Then Header rules
+                RuleType::ClientIp => 2,  // Then ClientIP rules
+                RuleType::Other => 3,     // Other rules last
+            }
+        });
+
+        rules.iter()
+            .map(|r| r.to_string())
+            .collect::<Vec<String>>()
+            .join(" && ")
     }
 
     // Weight is now determined by the number of rules
