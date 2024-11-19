@@ -8,7 +8,7 @@ use crate::{
 };
 pub(crate) mod apply;
 pub(crate) mod clean;
-pub(crate) mod diff;
+// pub(crate) mod diff;
 pub(crate) mod get;
 pub(crate) mod initialize;
 pub(crate) mod show;
@@ -44,8 +44,8 @@ pub enum Commands {
     Clean(clean::CleanCommand),
     /// Initialize configuration
     Initialize(initialize::InitializeCommand),
-    /// Diff configuration
-    Diff(diff::DiffCommand),
+    // / Diff configuration
+    // Diff(diff::DiffCommand),
 }
 
 #[instrument]
@@ -81,10 +81,9 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         Commands::Initialize(initialize_command) => {
             initialize::run(&initialize_command, &etcd_client, &mut traefik_config).await?;
-        }
-        Commands::Diff(diff_command) => {
-            diff::run(&diff_command, &mut etcd_client, &mut traefik_config).await?;
-        }
+        } // Commands::Diff(diff_command) => {
+          //     diff::run(&diff_command, &mut etcd_client, &mut traefik_config).await?;
+          // }
     }
 
     Ok(())
