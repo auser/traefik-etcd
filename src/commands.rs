@@ -44,7 +44,7 @@ pub enum Commands {
     Clean(clean::CleanCommand),
     /// Initialize configuration
     Initialize(initialize::InitializeCommand),
-    // / Diff configuration
+    // Diff configuration
     // Diff(diff::DiffCommand),
 }
 

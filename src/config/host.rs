@@ -240,25 +240,25 @@ impl HostConfig {
         base_rule: &mut RuleConfig,
     ) -> TraefikResult<()> {
         let mut unique_rules = BTreeSet::new();
+        let mut service_map = HashMap::new();
 
         // First collect all unique rules sorted by complexity
         let sorted_deployments = self.get_sorted_deployments(deployments);
         for (idx, (color, deployment)) in sorted_deployments.into_iter().enumerate() {
-            if deployment.weight > 0 {
-                let mut rule = base_rule.clone();
-                add_selection_rules(&deployment, &mut rule);
+            let mut rule = base_rule.clone();
+            add_selection_rules(&deployment, &mut rule);
 
-                unique_rules.insert(RuleEntry::new(rule.get_weight(), rule.rule_str()));
+            // Create service configuration for all deployments
+            let service_name = format!("{}-{}-{}", safe_name, color, idx);
+            self.add_base_service_configuration(pairs, base_key, &service_name, &deployment)?;
 
-                // Always create service configuration
-                let service_name = format!("{}-{}-{}", safe_name, color, idx);
-                self.add_base_service_configuration(pairs, base_key, &service_name, &deployment)?;
-
-                // Link router to service
-                pairs.push(EtcdPair::new(
-                    format!("{}/routers/{}/service", base_key, safe_name),
-                    service_name,
-                ));
+            // Only add rules for either:
+            // - Deployments with weight > 0
+            // - Deployments with selection rules
+            if deployment.weight > 0 || deployment.selection.is_some() {
+                let rule_str = rule.rule_str();
+                unique_rules.insert(RuleEntry::new(rule.get_weight(), rule_str.clone()));
+                service_map.insert(rule_str, service_name);
             }
         }
 
@@ -292,6 +292,14 @@ impl HostConfig {
                 format!("{}/routers/{}/priority", base_key, router_name),
                 (1000 + entry.get_weight() * 10).to_string(),
             ));
+
+            // Link router to the correct service based on rule
+            if let Some(service_name) = service_map.get(&entry.get_rule()) {
+                pairs.push(EtcdPair::new(
+                    format!("{}/routers/{}/service", base_key, router_name),
+                    service_name.clone(),
+                ));
+            }
         }
 
         Ok(())

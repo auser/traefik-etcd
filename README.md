@@ -8,6 +8,10 @@ This is a tool to generate Traefik configuration for a given set of hosts.
 cargo run --bin traefik-config-generator --config config/config.yml
 ```
 
+## Installation
+
+Head to [https://auser.github.io/traefikctl/](https://auser.github.io/traefikctl/) for installation instructions.
+
 ## Configuration
 
 The configuration is done in the `config/config.yml` file.
@@ -78,4 +82,10 @@ hosts:
         ip: 10.0.0.1
         port: 8080
         weight: 100
+```
+
+## Running over an ssh tunnel
+
+```
+ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -L 2379:0.0.0.0:2379 alerner@proxy
 ```
