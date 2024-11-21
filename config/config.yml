@@ -1,0 +1,51 @@
+etcd:
+  endpoints: ["https://0.0.0.0:2379"]
+  timeout: 2000
+  keep_alive: 300
+  tls:
+    cert: "./config/tls/etcd-peer.pem"
+    key: "./config/tls/etcd-peer-key.pem"
+    ca: "./config/tls/ca.pem"
+    domain: herringbank.com
+
+middlewares:
+  enable-headers:
+    headers:
+      custom_request_headers:
+        X-Forwarded-Proto: "https"
+        X-Forwarded-Port: "443"
+        Location: ""
+      custom_response_headers:
+        Location: ""
+      access_control_allow_methods:
+        - "GET"
+      access_control_allow_headers:
+        - "Content-Type"
+      access_control_expose_headers:
+        - Location
+      add_vary_header: true
+
+hosts:
+  - domain: "example.com"
+    www_redirect: true
+    paths:
+      - path: "/test"
+        deployments:
+          blue:
+            ip: 10.0.0.1
+            port: 8080
+            weight: 50
+          green:
+            ip: 10.0.0.2
+            port: 8080
+            weight: 50
+        middlewares:
+          - enable-headers
+          - forward-server
+
+    # Root path (catch-all)
+    deployments:
+      blue:
+        ip: 10.0.0.1
+        port: 8080
+        weight: 100

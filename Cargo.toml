@@ -11,6 +11,39 @@ keywords = ["traefik", "etcd"]
 
 [[bin]]
 name = "traefikctl"
-path = "src/bin/main.rs"
+path = "bin/traefikctl.rs"
 
 [dependencies]
+async-trait = "0.1.83"
+chrono = { version = "0.4.38", optional = true }
+clap = { version = "4.5.21", features = ["derive", "env"], optional = true }
+color-eyre = { version = "0.6.3", optional = true }
+config = { version = "0.14.1" }
+etcd-client = { version = "0.14.0", features = [
+  "tls",
+  "tls-roots",
+], optional = true }
+serde = { version = "1.0.215", features = ["derive"] }
+serde_json = "1.0.133"
+serde_yaml = "0.9.34"
+thiserror = "2.0.3"
+time = { version = "0.3.36", optional = true }
+tokio = { version = "1.41.1", features = ["rt-multi-thread"] }
+tracing = { version = "0.1.40", optional = true }
+tracing-appender = { version = "0.2.3", optional = true }
+tracing-subscriber = { version = "0.3.18", optional = true, features = [
+  "env-filter",
+  "time",
+] }
+
+[features]
+default = ["cli", "tracing", "etcd"]
+cli = ["dep:color-eyre", "dep:clap"]
+tracing = [
+  "dep:chrono",
+  "dep:time",
+  "dep:tracing",
+  "dep:tracing-appender",
+  "dep:tracing-subscriber",
+]
+etcd = ["dep:etcd-client"]
