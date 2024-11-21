@@ -1,0 +1,76 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.224.3/containers/rust-postgres
+{
+  "name": "Traefikctl",
+  "dockerComposeFile": [
+    "docker-compose.yml"
+  ],
+  "service": "development",
+  "workspaceFolder": "/workspace",
+  "mounts": [
+    // "source=kube,target=/home/vscode/.kube,type=volume",
+    "source=${localEnv:HOME}/.kube,target=/home/vscode/.kube,type=bind",
+    "source=${env:HOME}${env:USERPROFILE}/.kube,target=/usr/local/share/kube-localhost,type=bind"
+  ],
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {},
+    "ghcr.io/devcontainers/features/rust:1": {},
+    "devwasm.azurecr.io/dev-wasm/dev-wasm-feature/rust-wasi:0": {}
+  },
+  // Set *default* container specific settings.json values on container create.
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "lldb.executable": "/usr/bin/lldb",
+        // VS Code don't watch files under ./target
+        "files.watcherExclude": {
+          "**/target/**": true
+        },
+        "rust-analyzer.checkOnSave.command": "clippy"
+      },
+      // Add the IDs of extensions you want installed when the container is created.
+      "extensions": [
+        "ms-azuretools.vscode-docker",
+        "mutantdino.resourcemonitor",
+        "rust-lang.rust-analyzer",
+        "tamasfe.even-better-toml",
+        "NathanRidley.autotrim",
+        "samverschueren.final-newline",
+        "tamasfe.even-better-toml",
+        "vadimcn.vscode-lldb",
+        "Github.copilot",
+        "formulahendry.code-runner",
+        "ms-vscode-remote.remote-containers",
+        "zxh404.vscode-proto3",
+        "serayuzgur.crates"
+      ],
+      "vscode": {
+        "extensions": [
+          "rust-lang.rust-analyzer",
+          "bungcip.better-toml",
+          "skellock.just"
+        ]
+      }
+    }
+  },
+  "remoteEnv": {
+    // You can create env vars on your local machine and they will get passed into your container.
+    "EMAIL": "${localEnv:EMAIL}",
+    "NAME": "${localEnv:NAME}",
+    // Pass in the host directory for Docker mount commands from inside the container
+    "HOST_PROJECT_PATH": "${localWorkspaceFolder}",
+    "PATH": "/home/vscode/bin:/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/workspace/scripts:/usr/local/bin:/usr/bin:/bin:/home/vscode/bin:/usr/local/cargo/bin:$PATH",
+    "HOSTNAME": "main.cluster.local",
+    "SYNC_LOCALHOST_KUBECONFIG": "true",
+    "MYSQL_USER": "${localEnv:MYSQL_USER}",
+    "MYSQL_PASSWORD": "${localEnv:MYSQL_PASSWORD}",
+    "MYSQL_DATABASE": "${localEnv:MYSQL_DATABASE}",
+    "MYSQL_ROOT_PASSWORD": "${localEnv:MYSQL_ROOT_PASSWORD}"
+  },
+  // Use 'forwardPorts' to make a list of ports inside the container available locally.
+  // "forwardPorts": [5432],
+  // Use 'postCreateCommand' to run commands after the container is created.
+  // "postCreateCommand": "rustc --version",
+  // Comment out to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
+  "remoteUser": "vscode"
+}

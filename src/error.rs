@@ -13,6 +13,9 @@ pub enum TraefikError {
     #[error("Config error: {0}")]
     ConfigError(String),
 
+    #[error("Middleware config error: {0}")]
+    MiddlewareConfig(String),
+
     #[error("Parsing error: {0}")]
     ParsingError(#[from] color_eyre::Report),
 

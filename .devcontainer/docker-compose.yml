@@ -1,0 +1,106 @@
+
+services:      
+  mysql:
+    image: mysql:8.0
+    hostname: MYSQL
+    environment:
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-testpassword}
+      MYSQL_USER: ${MYSQL_USER:-mysql}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-traefikctl}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-testpassword}
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    expose:
+      - "3306:3306"
+
+  etcd:
+    build:
+      context: ..
+      dockerfile: ./.devcontainer/etcd/Dockerfile
+    environment:
+      - ALLOW_NONE_AUTHENTICATION=yes
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
+    ports:
+      - 2379:2379
+      - 2380:2380
+      - 4001:4001
+      - 7001:7001
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-c", "/etcd-healthcheck.sh"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - etcd_data:/opt/bitnami/etcd/data
+
+# - ETCD_DATA_DIR=/etcd/data
+# - ./dockerfiles/etcd/etcd-healthcheck.sh:/etcd-healthcheck.sh
+# - ./cert/etcd/etcd.pem:/etc/etcd/server.pem:ro
+# - ./cert/etcd/etcd-key.pem:/etc/etcd/server-key.pem:ro
+# - ../cert/ca.pem:/etc/etcd/ca.pem:ro
+
+  traefik:
+    build:
+      context: ..
+      dockerfile: ./.devcontainer/traefik/Dockerfile
+    hostname: traefik
+    ports:
+      - 80:80
+      - 443:443
+      - 8080:8080
+      - 8899:8899
+    volumes:
+      - traefik_plugin_data:/plugins-storage
+      - ./logs:/logs:rw
+    cap_add:
+      - NET_BIND_SERVICE
+    depends_on:
+      etcd:
+        condition: service_healthy
+
+  development:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    privileged: true
+    init: true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    user: vscode
+    volumes:
+      - ..:/workspace:cached
+      # Give access to ssh keys on the host (Is there a better way to do this?)
+      - ~/.ssh:/home/host-ssh:cached
+      # We need this so docker in docker works
+      - /var/run/docker.sock:/var/run/docker.sock
+      - target:/workspace/target # Set target as a volume for performance. 
+      # Uncomment the next line to improve performance when using node.
+      #- node_modules:/workspace/crates/asset-pipeline/node_modules 
+
+    environment:
+      RUST_LOG: debug
+      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE}
+
+    # Overrides default command so things don't shut down after the process ends.
+    command: sleep infinity
+
+    working_dir: /workspace
+    ports:
+      - "8777:8777"
+    
+    depends_on:
+      - mysql
+      # - mailhog
+
+networks:
+  traefikctl:
+    driver: bridge
+
+volumes:
+  target:
+  node_modules:
+  etcd_data:
+  traefik_plugin_data:
