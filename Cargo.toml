@@ -1,0 +1,16 @@
+[package]
+name = "traefikctl"
+version = "0.2.4"
+edition = "2021"
+repository = "https://github.com/auser/traefikctl"
+description = "A CLI for managing traefik with etcd (and more)"
+homepage = "https://github.com/auser/traefikctl"
+authors = ["Ari <me@ari.io>"]
+license = "MIT OR Apache-2.0"
+keywords = ["traefik", "etcd"]
+
+[[bin]]
+name = "traefikctl"
+path = "src/bin/main.rs"
+
+[dependencies]
