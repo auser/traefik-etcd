@@ -10,3 +10,13 @@ pub mod etcd_trait;
 pub trait Validate {
     fn validate(&self) -> TraefikResult<()>;
 }
+
+pub type ClientBuildResult = (String, String);
+
+pub trait Build {
+    fn build(
+        &self,
+        rule_prefix: &str,
+        builder: &impl Build,
+    ) -> TraefikResult<Vec<ClientBuildResult>>;
+}

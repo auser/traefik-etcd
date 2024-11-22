@@ -16,6 +16,11 @@ pub fn assert_contains_pair(pairs: &[EtcdPair], key: &str, value: &str) {
     assert!(pairs.iter().any(|p| p.key() == key && p.value() == value));
 }
 
+pub fn read_test_config() -> TraefikConfig {
+    let config_str = include_str!("../config/config.yml");
+    serde_yaml::from_str(config_str).unwrap()
+}
+
 pub fn create_test_deployment() -> DeploymentConfig {
     DeploymentConfig {
         ip: "10.0.0.1".to_string(),
@@ -100,6 +105,7 @@ pub fn create_test_config(host_configs: Option<Vec<HostConfig>>) -> TraefikConfi
         etcd: Default::default(),
         middlewares: create_test_middleware(),
         hosts: host_configs,
+        rule_prefix: "test".to_string(),
     }
 }
 
@@ -108,6 +114,7 @@ pub fn create_test_middleware() -> HashMap<String, MiddlewareConfig> {
         (
             "enable-headers".to_string(),
             MiddlewareConfig {
+                protocol: "http".to_string(),
                 name: "enable-headers".to_string(),
                 headers: Some(HeadersConfig {
                     custom_request_headers: HashMap::from([
@@ -136,6 +143,7 @@ pub fn create_test_middleware() -> HashMap<String, MiddlewareConfig> {
         (
             "handle-redirects".to_string(),
             MiddlewareConfig {
+                protocol: "http".to_string(),
                 name: "handle-redirects".to_string(),
                 headers: Some(HeadersConfig {
                     custom_request_headers: HashMap::from([(

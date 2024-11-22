@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    core::Validate,
+    core::{
+        etcd_trait::{EtcdPair, ToEtcdPairs},
+        Validate,
+    },
     error::{TraefikError, TraefikResult},
 };
 
@@ -15,11 +18,42 @@ pub struct MiddlewareConfig {
     /// The headers configuration for the middleware
     #[serde(skip_serializing_if = "Option::is_none")]
     pub headers: Option<HeadersConfig>,
+    /// The type of middleware
+    #[serde(default = "default_protocol")]
+    pub protocol: String,
+}
+
+fn default_protocol() -> String {
+    "http".to_string()
 }
 
 impl MiddlewareConfig {
     pub fn set_name(&mut self, name: &str) {
         self.name = name.to_string();
+    }
+
+    pub fn set_protocol(&mut self, protocol: &str) {
+        self.protocol = protocol.to_string();
+    }
+}
+
+impl ToEtcdPairs for MiddlewareConfig {
+    /// Convert the middleware configuration to etcd pairs
+    ///
+    /// The middleware configuration is stored in etcd under the following path:
+    /// `{base_key}/{protocol}/middlewares/{name}`
+    fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
+        // First set the middleware name to true
+        let mut pairs = vec![EtcdPair::new(
+            format!("{}/{}", base_key, self.name),
+            "true".to_string(),
+        )];
+        // Next add the headers if they are present
+        if let Some(headers) = &self.headers {
+            let headers_pairs = headers.to_etcd_pairs(base_key)?;
+            pairs.extend(headers_pairs);
+        }
+        Ok(pairs)
     }
 }
 

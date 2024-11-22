@@ -2016,6 +2016,7 @@ dependencies = [
  "clap",
  "color-eyre",
  "config",
+ "convert_case",
  "etcd-client",
  "serde",
  "serde_json",

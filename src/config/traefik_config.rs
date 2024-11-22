@@ -3,7 +3,10 @@ use std::collections::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    core::Validate,
+    core::{
+        etcd_trait::{EtcdPair, ToEtcdPairs},
+        Validate,
+    },
     error::{TraefikError, TraefikResult},
     features::etcd,
 };
@@ -12,12 +15,35 @@ use super::{host::HostConfig, middleware::MiddlewareConfig};
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct TraefikConfig {
+    #[serde(default = "default_rule_prefix")]
+    pub rule_prefix: String,
     #[cfg(feature = "etcd")]
     pub etcd: etcd::EtcdConfig,
     #[serde(default)]
     pub hosts: Vec<HostConfig>,
     #[serde(default)]
     pub middlewares: HashMap<String, MiddlewareConfig>,
+}
+
+fn default_rule_prefix() -> String {
+    "traefik".to_string()
+}
+
+impl ToEtcdPairs for TraefikConfig {
+    fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
+        let mut pairs = Vec::new();
+        // Start with middleware rules
+        for (name, middleware) in self.middlewares.iter() {
+            let mw_prefix = format!("{}/{}/middlewares/{}", base_key, middleware.protocol, name);
+            let new_rules = middleware.to_etcd_pairs(&mw_prefix)?;
+            pairs.extend(new_rules);
+        }
+        pairs.push(EtcdPair::new(
+            format!("{}/rule_prefix", base_key),
+            self.rule_prefix.clone(),
+        ));
+        Ok(pairs)
+    }
 }
 
 impl Validate for TraefikConfig {
