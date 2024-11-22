@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     core::{
         etcd_trait::{EtcdPair, ToEtcdPairs},
-        util::{format_etcd_value, format_list_value},
+        util::format_list_value,
         Validate,
     },
     error::{TraefikError, TraefikResult},
@@ -38,7 +38,7 @@ impl ToEtcdPairs for HeadersConfig {
         for (key, value) in self.custom_request_headers.iter() {
             pairs.push(EtcdPair::new(
                 format!("{}/customRequestHeaders/{}", headers_base_key, key),
-                format_etcd_value(value),
+                value.to_string(),
             ));
         }
 
@@ -46,7 +46,7 @@ impl ToEtcdPairs for HeadersConfig {
         for (key, value) in self.custom_response_headers.iter() {
             pairs.push(EtcdPair::new(
                 format!("{}/customResponseHeaders/{}", headers_base_key, key),
-                format_etcd_value(value),
+                value.to_string(),
             ));
         }
 

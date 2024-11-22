@@ -79,15 +79,7 @@ http:
       service: catch-all-service
       entryPoints:
         - websecure
-  #   #   tls:
-  #   #     domains:
-  #   #       - main: "herringbank.com"
-  #   #         sans: ["*.herringbank.com"]
-  #   #       - main: "financialpayments.com"
-  #   #         sans: ["*.financialpayments.com"]
-  #   #       - main: "collegegreen.net"
-  #   #         sans: ["*.collegegreen.net"]
-
+  
   #   #  traefik-dashboard:
   #   #    rule: "PathPrefix(`/api`) || PathPrefix(`/dashboard`)"
   #   #    service: "api@internal"
@@ -138,10 +130,10 @@ tls:
       minVersion: VersionTLS12
       sniStrict: false # Allow requests without SNI
   certificates:
-    - certFile: /etc/traefik/server.pem
-      keyFile: /etc/traefik/server-key.pem
+    - certFile: /etc/traefik/traefik.pem
+      keyFile: /etc/traefik/traefik-key.pem
   stores:
     default:
       defaultCertificate:
-        certFile: /etc/traefik/server.pem
-        keyFile: /etc/traefik/server-key.pem
+        certFile: /etc/traefik/traefik.pem
+        keyFile: /etc/traefik/traefik-key.pem

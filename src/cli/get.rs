@@ -28,7 +28,13 @@ pub async fn run(
 
     let values = values
         .iter()
-        .map(|v| v.value_str().unwrap_or_default())
+        .map(|v| {
+            format!(
+                "{} = {}",
+                v.key_str().unwrap_or_default(),
+                v.value_str().unwrap_or_default()
+            )
+        })
         .collect::<Vec<_>>();
     let value_str = values.join("\n");
     println!("{}", value_str);

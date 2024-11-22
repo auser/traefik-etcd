@@ -4,6 +4,7 @@ use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 
+use crate::error::TraefikError;
 use crate::{
     config::{
         deployment::DeploymentConfig,
@@ -265,6 +266,8 @@ where
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct InternalDeploymentConfig {
+    /// The traefik configuration
+    pub traefik_config: TraefikConfig,
     /// The deployment configuration
     #[serde(default)]
     pub deployment: DeploymentConfig,
@@ -354,11 +357,17 @@ fn collect_all_deployments(
 
     for host in traefik_config.hosts.iter() {
         // First get all the deployments from the host
-        internal_deployments.extend(get_all_internal_deployments(host, &host.deployments, None)?);
+        internal_deployments.extend(get_all_internal_deployments(
+            traefik_config,
+            host,
+            &host.deployments,
+            None,
+        )?);
 
         // next get all the deployments from the paths
         for path in host.paths.iter() {
             internal_deployments.extend(get_all_internal_deployments(
+                traefik_config,
                 host,
                 &path.deployments,
                 Some(path),
@@ -383,6 +392,7 @@ fn collect_all_deployments(
 
 /// Get all the internal deployments for a given host or path
 fn get_all_internal_deployments(
+    traefik_config: &TraefikConfig,
     host_config: &HostConfig,
     deployments: &HashMap<String, DeploymentConfig>,
     path: Option<&PathConfig>,
@@ -405,6 +415,7 @@ fn get_all_internal_deployments(
                 weight: idx,
                 path_config: path.cloned(),
                 rules: RuleConfig::default(),
+                traefik_config: traefik_config.clone(),
             });
         }
     }
@@ -434,6 +445,7 @@ pub fn add_deployment_rules(
         )?;
 
         add_middlewares(
+            &deployment.traefik_config,
             pairs,
             &base_key,
             &router_name,
@@ -477,7 +489,7 @@ pub fn add_root_router(
         rule.get_weight()
     );
     pairs.push(EtcdPair::new(
-        format!("{}/entrypoints/0", router_key),
+        format!("{}/entryPoints/0", router_key),
         "websecure",
     ));
     debug!("Added entrypoint: websecure");
@@ -530,6 +542,7 @@ fn add_base_service_configuration(
 }
 
 pub fn add_middlewares(
+    traefik_config: &TraefikConfig,
     pairs: &mut Vec<EtcdPair>,
     base_key: &str,
     router_name: &str,
@@ -564,14 +577,27 @@ pub fn add_middlewares(
 
     // Add additional middlewares
     for middleware in additional_middlewares {
-        pairs.push(EtcdPair::new(
-            format!(
-                "{}/routers/{}/middlewares/{}",
-                base_key, router_name, middleware_idx
-            ),
-            middleware.clone(),
-        ));
-        middleware_idx += 1;
+        match traefik_config.middlewares.get(middleware) {
+            Some(middleware_config) => {
+                let mw_base_key = format!("{}/middlewares/{}", base_key, middleware);
+                let mw_pairs = middleware_config.to_etcd_pairs(&mw_base_key)?;
+                pairs.extend(mw_pairs);
+                pairs.push(EtcdPair::new(
+                    format!(
+                        "{}/routers/{}/middlewares/{}",
+                        base_key, router_name, middleware_idx
+                    ),
+                    middleware.clone(),
+                ));
+                middleware_idx += 1;
+            }
+            None => {
+                return Err(TraefikError::MiddlewareConfig(format!(
+                    "middleware {} not found",
+                    middleware
+                )));
+            }
+        }
     }
 
     Ok(())
@@ -628,9 +654,12 @@ pub fn add_pass_through_middleware(
 #[cfg(test)]
 mod tests {
 
-    use crate::test_helpers::{
-        assert_contains_pair, create_complex_test_config, create_test_deployment, create_test_host,
-        read_test_config,
+    use crate::{
+        config::middleware::MiddlewareConfig,
+        test_helpers::{
+            assert_contains_pair, create_complex_test_config, create_test_deployment,
+            create_test_host, read_test_config,
+        },
     };
 
     use super::*;
@@ -841,7 +870,7 @@ mod tests {
         // Verify router configurations
         assert_contains_pair(
             &pairs,
-            "test/http/routers/test1-router/entrypoints/0 websecure",
+            "test/http/routers/test1-router/entryPoints/0 websecure",
         );
 
         // Verify strip prefix middleware for path deployment
@@ -860,13 +889,21 @@ mod tests {
 
     #[test]
     fn test_add_deployment_rules_with_middlewares() {
+        let mut test_traefik_config = read_test_config();
         let mut host = create_test_host();
         host.middlewares = vec!["test-middleware".to_string()];
+
+        test_traefik_config
+            .middlewares
+            .insert("test-middleware".to_string(), MiddlewareConfig::default());
+
+        test_traefik_config.hosts.push(host.clone());
 
         let mut deployment = InternalDeploymentConfig {
             name: "test".to_string(),
             deployment: create_test_deployment(),
             host_config: host.clone(),
+            traefik_config: test_traefik_config,
             ..Default::default()
         };
         deployment.init();
@@ -960,7 +997,7 @@ mod tests {
         );
         assert_contains_pair(
             &pairs,
-            "test/http/routers/test-router/entrypoints/0 websecure",
+            "test/http/routers/test-router/entryPoints/0 websecure",
         );
         assert_contains_pair(&pairs, "test/http/routers/test-router/tls true");
         assert_contains_pair(

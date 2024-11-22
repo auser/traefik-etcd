@@ -57,7 +57,7 @@ impl ToEtcdPairs for MiddlewareConfig {
         // First set the middleware name to true
         // The middleware config path is `{base_key}/{protocol}/middlewares/{name}`
         let headers_base_key = self.get_path(base_key);
-        let mut pairs = vec![EtcdPair::new(&headers_base_key, "true".to_string())];
+        let mut pairs = vec![];
         // Next add the headers if they are present
         if let Some(headers) = &self.headers {
             let headers_pairs = headers.to_etcd_pairs(&headers_base_key)?;
@@ -152,8 +152,9 @@ mod tests {
             result_pairs.extend(pairs);
         }
         let pair_strs: Vec<String> = result_pairs.iter().map(|p| p.to_string()).collect();
-        assert!(pair_strs.contains(&"test/http/middlewares/enable-headers true".to_string()));
-        assert!(pair_strs.contains(&"test/http/middlewares/handle-redirects true".to_string()));
+
+        // assert!(pair_strs.contains(&"test/http/middlewares/enable-headers true".to_string()));
+        // assert!(pair_strs.contains(&"test/http/middlewares/handle-redirects true".to_string()));
         assert!(pair_strs.contains(
             &"test/http/middlewares/enable-headers/headers/customRequestHeaders/X-Forwarded-Proto https"
                 .to_string()
@@ -164,7 +165,7 @@ mod tests {
         ));
 
         assert!(pair_strs.contains(
-            &"test/http/middlewares/enable-headers/headers/customResponseHeaders/Location \"\""
+            &"test/http/middlewares/enable-headers/headers/customResponseHeaders/Location "
                 .to_string()
         ));
         assert!(pair_strs.contains(

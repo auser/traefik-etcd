@@ -8,6 +8,7 @@ use crate::{
         client::StoreClient,
         etcd_trait::{EtcdPair, ToEtcdPairs},
         rules::{add_deployment_rules, get_sorted_deployments, RouterRule},
+        util::get_safe_key,
         Validate,
     },
     error::{TraefikError, TraefikResult},
@@ -35,6 +36,8 @@ fn default_rule_prefix() -> String {
 impl ToEtcdPairs for TraefikConfig {
     fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
         let mut pairs = Vec::new();
+
+        self.add_defaults(&mut pairs, base_key)?;
         // Start with middleware rules
         for (name, middleware) in self.middlewares.clone().iter_mut() {
             debug!("Applying middleware: {}", name);
@@ -156,18 +159,67 @@ impl TraefikConfig {
         }
 
         let mut client = client.actor.client.clone();
-        client
-            .put("traefik/http/routers/test", "test", None)
-            .await
-            .expect("msg");
 
         for pair in pairs.iter() {
-            debug!("applying: {:#?}", pair);
+            debug!("applying: {:#?}", pair.to_string());
             match client.put(pair.key(), pair.value(), None).await {
-                Ok(kv) => debug!("result: {:#?}", kv),
+                Ok(_kv) => {}
                 Err(e) => error!("error: {:?}", e),
             }
         }
+
+        for pair in pairs.iter() {
+            debug!("applying: {:#?}", pair.to_string());
+            match client.put(pair.key(), pair.value(), None).await {
+                Ok(_kv) => {}
+                Err(e) => error!("error: {:?}", e),
+            }
+        }
+
+        Ok(())
+    }
+
+    fn add_defaults(&self, pairs: &mut Vec<EtcdPair>, base_key: &str) -> TraefikResult<()> {
+        for host in self.hosts.iter() {
+            self.add_default_redirect_router(pairs, base_key, &host.domain)?;
+        }
+        Ok(())
+    }
+
+    fn add_default_redirect_router(
+        &self,
+        pairs: &mut Vec<EtcdPair>,
+        base_key: &str,
+        domain: &str,
+    ) -> TraefikResult<()> {
+        let safe_name = format!("to-www-{}", get_safe_key(domain));
+
+        // Add router to catch non-www version
+        pairs.push(EtcdPair::new(
+            format!("{}/routers/{}/rule", base_key, safe_name),
+            format!("Host(`{}`)", domain),
+        ));
+
+        pairs.push(EtcdPair::new(
+            format!("{}/routers/{}/entrypoints/0", base_key, safe_name),
+            "websecure".to_string(),
+        ));
+
+        pairs.push(EtcdPair::new(
+            format!("{}/routers/{}/middlewares/0", base_key, safe_name),
+            "add-www".to_string(),
+        ));
+
+        pairs.push(EtcdPair::new(
+            format!("{}/routers/{}/tls", base_key, safe_name),
+            "true".to_string(),
+        ));
+
+        // Set higher priority for the redirect router
+        pairs.push(EtcdPair::new(
+            format!("{}/routers/{}/priority", base_key, safe_name),
+            "200".to_string(),
+        ));
 
         Ok(())
     }

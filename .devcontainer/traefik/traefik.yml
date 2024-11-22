@@ -17,7 +17,9 @@ entryPoints:
       tls:
         domains:
           - main: "ari.io"
-            sans: ["*.ari.io"]
+            sans: ["*.ari.io", "localhost"]
+          - main: "example.com"
+            sans: ["localhost", "*.example.com"]
   metrics:
     address: ":8899"
 
