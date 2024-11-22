@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     core::{util::validate_is_alphanumeric, Validate},
@@ -63,9 +63,16 @@ impl HostConfig {
     fn validate_paths(&self) -> TraefikResult<()> {
         self.validate_has_deployments()?;
 
+        let mut path_set = HashSet::new();
         for path in &self.paths {
             validate_is_alphanumeric(&path.path)?;
             self.validate_path(path)?;
+            if !path_set.insert(&path.path) {
+                return Err(TraefikError::HostConfig(format!(
+                    "Duplicate path '{}'",
+                    path.path
+                )));
+            }
         }
 
         self.validate_has_valid_middlewares()?;

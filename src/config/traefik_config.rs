@@ -25,14 +25,6 @@ impl Validate for TraefikConfig {
         // Validate middlewares
         let mut middlewares = self.middlewares.clone();
         for (name, middleware) in middlewares.iter_mut() {
-            // Validate middleware isn't already used
-            if self.middlewares.contains_key(name) {
-                return Err(TraefikError::MiddlewareConfig(format!(
-                    "middleware {} already exists",
-                    name
-                )));
-            }
-
             middleware.set_name(name);
             middleware.validate()?;
         }
@@ -80,6 +72,8 @@ impl TraefikConfig {
 
 #[cfg(test)]
 mod tests {
+    use crate::config::host::HostConfigBuilder;
+
     use super::*;
 
     #[test]
@@ -93,19 +87,6 @@ mod tests {
         let mut config = TraefikConfig::default();
         config.hosts.push(HostConfig::default());
         config.hosts.push(HostConfig::default());
-        let result = config.validate();
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_validate_middleware_references_duplicate_middleware() {
-        let mut config = TraefikConfig::default();
-        config
-            .middlewares
-            .insert("test".to_string(), MiddlewareConfig::default());
-        config
-            .middlewares
-            .insert("test".to_string(), MiddlewareConfig::default());
         let result = config.validate();
         assert!(result.is_err());
     }
@@ -135,11 +116,17 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_middleware_references_middleware_already_exists() {
+    fn test_validate_middleware_references_middleware_found_in_host() {
         let mut config = TraefikConfig::default();
         config
             .middlewares
             .insert("test".to_string(), MiddlewareConfig::default());
+        config.hosts.push(
+            HostConfigBuilder::default()
+                .middleware("test".to_string())
+                .build()
+                .unwrap(),
+        );
         let result = config.validate();
         assert!(result.is_err());
     }
@@ -202,5 +189,13 @@ mod tests {
         assert_eq!(path.deployments["green_with_cookie"].port, 80);
         assert_eq!(path.deployments["green_with_cookie"].weight, 100);
         assert_eq!(path.deployments["green_with_cookie"].ip, "10.0.0.1");
+    }
+
+    #[test]
+    fn test_validate_middleware_references_www_redirect() {
+        let config_str = include_str!("../../config/config.yml");
+        let config: TraefikConfig = serde_yaml::from_str(config_str).unwrap();
+        let validation_result = config.validate();
+        assert!(validation_result.is_ok());
     }
 }
