@@ -42,7 +42,7 @@ log:
   format: json
 
 accessLog:
-  # filePath: "/dev/stdout"
+  filePath: "/dev/stdout"
   format: json
   fields:
     headers:

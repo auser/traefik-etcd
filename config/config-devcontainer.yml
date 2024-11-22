@@ -32,12 +32,12 @@ hosts:
       - path: "/test"
         deployments:
           blue:
-            ip: 10.0.0.1
-            port: 8080
+            ip: google.com
+            port: 443
             weight: 50
           green:
-            ip: 10.0.0.2
-            port: 8080
+            ip: yahoo.com
+            port: 443
             weight: 50
         middlewares:
           - enable-headers
@@ -46,6 +46,6 @@ hosts:
     # Root path (catch-all)
     deployments:
       catch-all:
-        ip: 10.0.0.1
-        port: 8080
+        ip: google.com
+        port: 443
         weight: 100

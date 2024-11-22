@@ -71,62 +71,67 @@ http:
           - default-headers
 
   routers:
-    # catch-all-router:
-    #   rule: "HostRegexp(`{host:.+}`)"
-    #   priority: 1
-    #   middlewares:
-    #     - default-redirect-middleware
-    #   service: catch-all-service
-    #   entryPoints:
-    #     - websecure
-    #   tls:
-    #     domains:
-    #       - main: "herringbank.com"
-    #         sans: ["*.herringbank.com"]
-    #       - main: "financialpayments.com"
-    #         sans: ["*.financialpayments.com"]
-    #       - main: "collegegreen.net"
-    #         sans: ["*.collegegreen.net"]
+    catch-all-router:
+      rule: "HostRegexp(`{host:.+}`)"
+      priority: 1
+      middlewares:
+        - default-redirect-middleware
+      service: catch-all-service
+      entryPoints:
+        - websecure
+  #   #   tls:
+  #   #     domains:
+  #   #       - main: "herringbank.com"
+  #   #         sans: ["*.herringbank.com"]
+  #   #       - main: "financialpayments.com"
+  #   #         sans: ["*.financialpayments.com"]
+  #   #       - main: "collegegreen.net"
+  #   #         sans: ["*.collegegreen.net"]
 
-    #  traefik-dashboard:
-    #    rule: "PathPrefix(`/api`) || PathPrefix(`/dashboard`)"
-    #    service: "api@internal"
-    #    middlewares:
-    #      - traefikAuth
-    #    entrypoints:
-    #      - dashboard
+  #   #  traefik-dashboard:
+  #   #    rule: "PathPrefix(`/api`) || PathPrefix(`/dashboard`)"
+  #   #    service: "api@internal"
+  #   #    middlewares:
+  #   #      - traefikAuth
+  #   #    entrypoints:
+  #   #      - dashboard
 
-    # prometheus-router:
-    #   rule: "Host(`www.financialpayments.com`) && PathPrefix(`/prometheus`)"
-    #   service: prometheus-service
-    #   entrypoints:
-    #     - web
-    #   tls: false
+  #   # prometheus-router:
+  #   #   rule: "Host(`www.financialpayments.com`) && PathPrefix(`/prometheus`)"
+  #   #   service: prometheus-service
+  #   #   entrypoints:
+  #   #     - web
+  #   #   tls: false
 
-    # grafana-router:
-    #   rule: "Host(`www.financialpayments.com`) && PathPrefix(`/grafana`)"
-    #   service: grafana-service
-    #   middlewares:
-    #     - default
-    #     - default-auth
-    #   entrypoints:
-    #     - web
-    #   tls: false
+  #   # grafana-router:
+  #   #   rule: "Host(`www.financialpayments.com`) && PathPrefix(`/grafana`)"
+  #   #   service: grafana-service
+  #   #   middlewares:
+  #   #     - default
+  #   #     - default-auth
+  #   #   entrypoints:
+  #   #     - web
+  #   #   tls: false
 
-  # services:
-  #   # catch-all-service:
-  #   #   loadBalancer:
-  #   #     servers:
-  #   #       - url: "http://localhost" # This is a dummy URL
+  services:
+    catch-all-service:
+      loadBalancer:
+        servers:
+          - url: "http://localhost" # This is a dummy URL
 
-  #   prometheus-service:
-  #     loadBalancer:
-  #       servers:
-  #         - port: 9090
-  #   grafana-service:
-  #     loadBalancer:
-  #       servers:
-  #         - port: 3000
+  # #   # catch-all-service:
+  # #   #   loadBalancer:
+  # #   #     servers:
+  # #   #       - url: "http://localhost" # This is a dummy URL
+
+  # #   prometheus-service:
+  # #     loadBalancer:
+  # #       servers:
+  # #         - port: 9090
+  # #   grafana-service:
+  # #     loadBalancer:
+  # #       servers:
+  # #         - port: 3000
 tls:
   options:
     default:
