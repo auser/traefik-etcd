@@ -3,10 +3,11 @@ use std::collections::HashMap;
 
 use crate::{
     config::{
-        deployment::DeploymentConfig,
+        deployment::{DeploymentConfig, DeploymentProtocol},
         headers::HeadersConfig,
         host::{HostConfig, PathConfig},
         middleware::MiddlewareConfig,
+        selections::{SelectionConfig, WithCookieConfig},
     },
     core::etcd_trait::EtcdPair,
     TraefikConfig,
@@ -27,7 +28,8 @@ pub fn create_test_deployment() -> DeploymentConfig {
         port: 8080,
         weight: 100,
         selection: None,
-        protocol: "http".to_string(),
+        protocol: DeploymentProtocol::Http,
+        middlewares: None,
     }
 }
 
@@ -48,7 +50,8 @@ pub fn create_test_host() -> HostConfig {
             port: 80,
             weight: 100,
             selection: None,
-            protocol: "http".to_string(),
+            protocol: DeploymentProtocol::Http,
+            middlewares: None,
         },
     );
 
@@ -64,7 +67,8 @@ pub fn create_test_host() -> HostConfig {
                     port: 80,
                     weight: 100,
                     selection: None,
-                    protocol: "http".to_string(),
+                    protocol: DeploymentProtocol::Http,
+                    middlewares: None,
                 },
             );
             map
@@ -75,6 +79,92 @@ pub fn create_test_host() -> HostConfig {
     });
 
     host
+}
+
+pub fn create_complex_test_config() -> TraefikConfig {
+    let host_configs = vec![
+        HostConfig::builder()
+            .deployment(
+                "green".to_string(),
+                DeploymentConfig::builder()
+                    .ip("10.0.0.2".to_string())
+                    .port(8080)
+                    .weight(50)
+                    .selection(SelectionConfig {
+                        with_cookie: Some(WithCookieConfig {
+                            name: "test".to_string(),
+                            value: Some("test".to_string()),
+                        }),
+                        ..Default::default()
+                    })
+                    .build(),
+            )
+            .deployment(
+                "blue".to_string(),
+                DeploymentConfig::builder()
+                    .ip("10.0.0.3".to_string())
+                    .port(8080)
+                    .weight(50)
+                    .build(),
+            )
+            .deployment(
+                "catch-all".to_string(),
+                DeploymentConfig::builder()
+                    .ip("10.0.0.1".to_string())
+                    .port(8080)
+                    .weight(100)
+                    .build(),
+            )
+            .domain("example.com".to_string())
+            .path(
+                "/test".to_string(),
+                PathConfig::builder()
+                    .deployment(
+                        "test-1".to_string(),
+                        DeploymentConfig::builder()
+                            .ip("11.11.11.11".to_string())
+                            .port(8080)
+                            .weight(30)
+                            .selection(SelectionConfig {
+                                with_cookie: Some(WithCookieConfig {
+                                    name: "test".to_string(),
+                                    value: Some("test".to_string()),
+                                }),
+                                ..Default::default()
+                            })
+                            .build(),
+                    )
+                    .deployment(
+                        "test-2".to_string(),
+                        DeploymentConfig::builder()
+                            .ip("22.22.22.22".to_string())
+                            .port(8080)
+                            .weight(40)
+                            .build(),
+                    )
+                    .deployment(
+                        "test-3".to_string(),
+                        DeploymentConfig::builder()
+                            .ip("33.33.33.33".to_string())
+                            .port(8080)
+                            .weight(30)
+                            .build(),
+                    )
+                    .build(),
+            )
+            .build()
+            .unwrap(),
+        HostConfig::builder()
+            .deployment(
+                "bingo".to_string(),
+                DeploymentConfig::builder()
+                    .ip("1.1.1.1".to_string())
+                    .build(),
+            )
+            .build()
+            .unwrap(),
+    ];
+    create_test_config(Some(host_configs))
 }
 
 pub fn create_test_config(host_configs: Option<Vec<HostConfig>>) -> TraefikConfig {
@@ -90,7 +180,8 @@ pub fn create_test_config(host_configs: Option<Vec<HostConfig>>) -> TraefikConfi
                     port: 80,
                     weight: 100,
                     selection: None,
-                    protocol: "http".to_string(),
+                    protocol: DeploymentProtocol::Http,
+                    middlewares: None,
                 },
             )]),
             middlewares: vec!["enable-headers".to_string()],

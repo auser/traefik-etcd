@@ -39,6 +39,13 @@ impl ToEtcdPairs for TraefikConfig {
             pairs.extend(new_rules);
         }
 
+        let sorted_hosts = self.get_sorted_hosts();
+        for host in sorted_hosts.iter() {
+            let host_prefix = format!("{}/hosts/{}", base_key, host.domain);
+            let new_rules = host.to_etcd_pairs(&host_prefix)?;
+            pairs.extend(new_rules);
+        }
+
         Ok(pairs)
     }
 }
@@ -93,9 +100,18 @@ impl TraefikConfig {
     }
 }
 
+impl TraefikConfig {
+    pub fn get_sorted_hosts(&self) -> Vec<HostConfig> {
+        let mut sorted_hosts: Vec<HostConfig> = self.hosts.clone();
+        sorted_hosts.sort_by_key(|h| h.get_host_weight());
+        sorted_hosts.reverse();
+        sorted_hosts
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::config::host::HostConfigBuilder;
+    use crate::config::{deployment::DeploymentProtocol, host::HostConfigBuilder};
 
     use super::*;
 
@@ -203,8 +219,14 @@ mod tests {
         assert_eq!(config.hosts[0].deployments["blue"].port, 80);
         assert_eq!(config.hosts[0].deployments["green"].weight, 50);
         assert_eq!(config.hosts[0].deployments["blue"].weight, 50);
-        assert_eq!(config.hosts[0].deployments["green"].protocol, "http");
-        assert_eq!(config.hosts[0].deployments["blue"].protocol, "http");
+        assert_eq!(
+            config.hosts[0].deployments["green"].protocol,
+            DeploymentProtocol::Http
+        );
+        assert_eq!(
+            config.hosts[0].deployments["blue"].protocol,
+            DeploymentProtocol::Http
+        );
         let paths = config.hosts[0].paths.iter().find(|p| p.path == "/");
         assert!(paths.is_some());
         let path = paths.unwrap();

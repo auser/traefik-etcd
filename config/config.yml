@@ -45,7 +45,7 @@ hosts:
 
     # Root path (catch-all)
     deployments:
-      blue:
+      catch-all:
         ip: 10.0.0.1
         port: 8080
         weight: 100

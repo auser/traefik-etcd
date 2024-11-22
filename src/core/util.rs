@@ -42,6 +42,10 @@ pub fn format_etcd_value(value: &str) -> String {
     }
 }
 
+pub fn get_safe_key(key: &str) -> String {
+    key.replace(".", "-").replace("/", "-")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -85,5 +89,10 @@ mod tests {
             format_list_value(&["test".to_string(), "test2".to_string()]),
             "test, test2"
         );
+    }
+
+    #[test]
+    fn test_get_safe_key() {
+        assert_eq!(get_safe_key("test.com"), "test-com");
     }
 }

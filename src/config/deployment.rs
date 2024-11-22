@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -10,6 +12,52 @@ use crate::{
 
 use super::selections::SelectionConfig;
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+pub enum DeploymentProtocol {
+    #[default]
+    #[serde(rename = "http")]
+    Http,
+    #[serde(rename = "https")]
+    Https,
+    #[serde(rename = "tcp")]
+    Tcp,
+    #[serde(other)]
+    Invalid,
+}
+
+impl From<DeploymentProtocol> for String {
+    fn from(protocol: DeploymentProtocol) -> Self {
+        match protocol {
+            DeploymentProtocol::Http => "http".to_string(),
+            DeploymentProtocol::Https => "https".to_string(),
+            DeploymentProtocol::Tcp => "tcp".to_string(),
+            DeploymentProtocol::Invalid => "invalid".to_string(),
+        }
+    }
+}
+
+impl From<&str> for DeploymentProtocol {
+    fn from(value: &str) -> Self {
+        match value {
+            "http" => DeploymentProtocol::Http,
+            "https" => DeploymentProtocol::Https,
+            "tcp" => DeploymentProtocol::Tcp,
+            _ => DeploymentProtocol::Invalid,
+        }
+    }
+}
+
+impl Display for DeploymentProtocol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DeploymentProtocol::Http => write!(f, "http"),
+            DeploymentProtocol::Https => write!(f, "https"),
+            DeploymentProtocol::Tcp => write!(f, "tcp"),
+            DeploymentProtocol::Invalid => write!(f, "invalid"),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DeploymentConfig {
     /// The ip address of the deployment
@@ -19,14 +67,17 @@ pub struct DeploymentConfig {
     #[serde(default = "default_port")]
     pub port: u16,
     /// The weight of the deployment
-    #[serde(default)]
-    pub weight: u8,
+    #[serde(default = "default_weight")]
+    pub weight: usize,
     /// The selection of the deployment
     #[serde(default, flatten)]
     pub selection: Option<SelectionConfig>,
     /// The protocol of the deployment
     #[serde(default = "default_protocol")]
-    pub protocol: String,
+    pub protocol: DeploymentProtocol,
+    /// The middlewares of the deployment
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub middlewares: Option<Vec<String>>,
 }
 
 impl Default for DeploymentConfig {
@@ -34,19 +85,24 @@ impl Default for DeploymentConfig {
         Self {
             ip: default_ip(),
             port: default_port(),
-            weight: 100,
+            weight: default_weight(),
             selection: None,
             protocol: default_protocol(),
+            middlewares: None,
         }
     }
 }
 
-fn default_protocol() -> String {
-    "http".to_string()
+fn default_protocol() -> DeploymentProtocol {
+    DeploymentProtocol::Http
 }
 
 fn default_port() -> u16 {
     80
+}
+
+fn default_weight() -> usize {
+    100
 }
 
 fn default_ip() -> String {
@@ -59,28 +115,35 @@ impl DeploymentConfig {
     }
 }
 
+impl From<DeploymentConfig> for Option<SelectionConfig> {
+    fn from(deployment: DeploymentConfig) -> Self {
+        deployment.selection
+    }
+}
+
 #[derive(Default)]
 pub struct DeploymentConfigBuilder {
-    ip: String,
-    port: u16,
-    weight: u8,
+    ip: Option<String>,
+    port: Option<u16>,
+    weight: Option<usize>,
     selection: Option<SelectionConfig>,
-    protocol: String,
+    protocol: Option<DeploymentProtocol>,
+    middlewares: Option<Vec<String>>,
 }
 
 impl DeploymentConfigBuilder {
     pub fn ip(mut self, ip: String) -> Self {
-        self.ip = ip;
+        self.ip = Some(ip);
         self
     }
 
     pub fn port(mut self, port: u16) -> Self {
-        self.port = port;
+        self.port = Some(port);
         self
     }
 
-    pub fn weight(mut self, weight: u8) -> Self {
-        self.weight = weight;
+    pub fn weight(mut self, weight: usize) -> Self {
+        self.weight = Some(weight);
         self
     }
 
@@ -89,25 +152,31 @@ impl DeploymentConfigBuilder {
         self
     }
 
-    pub fn protocol(mut self, protocol: String) -> Self {
-        self.protocol = protocol;
+    pub fn protocol(mut self, protocol: DeploymentProtocol) -> Self {
+        self.protocol = Some(protocol);
+        self
+    }
+
+    pub fn middlewares(mut self, middlewares: Vec<String>) -> Self {
+        self.middlewares = Some(middlewares);
         self
     }
 
     pub fn build(self) -> DeploymentConfig {
         DeploymentConfig {
-            ip: self.ip,
-            port: self.port,
-            weight: self.weight,
+            ip: self.ip.unwrap_or(default_ip()),
+            port: self.port.unwrap_or(default_port()),
+            weight: self.weight.unwrap_or(default_weight()),
             selection: self.selection,
-            protocol: self.protocol,
+            protocol: self.protocol.unwrap_or(default_protocol()),
+            middlewares: self.middlewares,
         }
     }
 }
 
 impl Validate for DeploymentConfig {
     fn validate(&self) -> TraefikResult<()> {
-        if self.protocol != "http" && self.protocol != "https" {
+        if self.protocol != DeploymentProtocol::Http && self.protocol != DeploymentProtocol::Https {
             return Err(TraefikError::DeploymentConfig(format!(
                 "protocol must be http, https, or tcp, got {}",
                 self.protocol
@@ -195,9 +264,28 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_default_config() {
+        let deployment = DeploymentConfig::default();
+        assert_eq!(deployment.ip, "127.0.0.1".to_string());
+        assert_eq!(deployment.port, 80);
+        assert_eq!(deployment.weight, 100);
+    }
+
+    #[test]
+    fn test_protocol_from_str() {
+        assert_eq!(DeploymentProtocol::from("http"), DeploymentProtocol::Http);
+        assert_eq!(DeploymentProtocol::from("https"), DeploymentProtocol::Https);
+        assert_eq!(DeploymentProtocol::from("tcp"), DeploymentProtocol::Tcp);
+        assert_eq!(
+            DeploymentProtocol::from("invalid"),
+            DeploymentProtocol::Invalid
+        );
+    }
+
+    #[test]
     fn test_default_protocol() {
         let deployment = DeploymentConfig::default();
-        assert_eq!(deployment.protocol, "http".to_string());
+        assert_eq!(deployment.protocol, DeploymentProtocol::Http);
     }
 
     #[test]
@@ -211,7 +299,7 @@ mod tests {
     #[test]
     fn test_deployment_config_is_invalid_if_protocol_is_not_http_or_https() {
         let deployment = DeploymentConfig {
-            protocol: "invalid".to_string(),
+            protocol: DeploymentProtocol::Tcp,
             ..Default::default()
         };
         assert!(deployment.validate().is_err());
