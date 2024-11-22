@@ -1,0 +1,12 @@
+[tasks.watch-tailwind]
+command = "npm"
+cwd = "./frontend"
+args = ["run", "watch"]
+
+[tasks.watch-leptos]
+command = "cargo"
+cwd = "./frontend"
+args = ["leptos", "watch"]
+
+[tasks.dev]
+run_task = [{ name = ["watch-tailwind", "watch-leptos"] }]

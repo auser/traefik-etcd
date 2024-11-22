@@ -1,0 +1,23 @@
+{
+  "build": {
+    "path_prefix": "traefikctl"
+  },
+  "styles": {
+    "theme": "axodark"
+  },
+  "components": {
+    "changelog": true,
+    "artifacts": {
+      "package_managers": {
+        "preferred": {},
+        "additional": {
+          "cargo": "cargo install traefikctl",
+          "homebrew": "brew install traefikctl",
+          "binstall": "cargo binstall traefikctl",
+          "macos/linux/unix": "curl -L https://raw.githubusercontent.com/auser/traefikctl/main/install.sh | bash",
+          "windows": "Start-BitsTransfer -Source https://raw.githubusercontent.com/auser/traefikctl/main/install.ps1 -Destination $env:TMP/install_traefikctl.ps1; Unblock-File $env:TMP/install_traefikctl.ps1; Invoke-Expression $env:TMP/install_traefikctl.ps1"
+        }
+      }
+    }
+  }
+}

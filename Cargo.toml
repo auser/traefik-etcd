@@ -13,6 +13,13 @@ keywords = ["traefik", "etcd"]
 name = "traefikctl"
 path = "bin/traefikctl.rs"
 
+
+[package.metadata.wix]
+upgrade-guid = "F4761C69-4FF9-4810-AF9E-2AF110D7CF42"
+path-guid = "28239E20-C62B-43AD-BC64-61911768BEF6"
+license = false
+eula = false
+
 [dependencies]
 async-trait = "0.1.83"
 chrono = { version = "0.4.38", optional = true }
@@ -48,3 +55,20 @@ tracing = [
   "dep:tracing-subscriber",
 ]
 etcd = ["dep:etcd-client"]
+
+[build-dependencies]
+protoc = "2.28.0"
+cargo-dist = "0.25.1"
+
+[dev-dependencies]
+pretty_assertions = "1.4"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
+
+[package.metadata.scripts]
+dev = """
+npm run watch & cargo leptos watch
+"""

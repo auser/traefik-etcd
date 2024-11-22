@@ -20,8 +20,7 @@ RUN curl https://github.com/watchexec/cargo-watch/releases/download/v8.5.2/cargo
     && tar -xf cargo-watch.tar.xz \
     && mv cargo-watch-v8.5.2-aarch64-apple-darwin/cargo-watch /home
 
-RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo install cornucopia 
-RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo install cargo-chef --locked
+RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo install cargo-release
 
 # Install cargo-binstall, which makes it easier to install other
 # cargo extensions like cargo-leptos
