@@ -349,55 +349,6 @@ pub fn add_deployment_rules(
     Ok(())
 }
 
-// pub fn add_deployment_rules(
-//     deployments: &HashMap<String, DeploymentConfig>,
-//     pairs: &mut Vec<EtcdPair>,
-//     safe_name: &str,
-//     base_key: &str,
-//     rules: &mut RuleConfig,
-// ) -> TraefikResult<()> {
-//     let mut unique_rules = BTreeSet::new();
-//     let mut service_map = HashMap::new();
-
-//     let sorted_deployments = get_sorted_deployments(deployments)?;
-//     for (idx, (name, deployment)) in sorted_deployments.iter().enumerate() {
-//         let mut rule = rules.clone();
-//         add_selection_rules(deployment, &mut rule);
-
-//         let service_name = format!("{}-{}-{}", safe_name, name, idx);
-//         add_base_service_configuration(pairs, base_key, &service_name, deployment)?;
-
-//         if deployment.weight > 0 || deployment.selection.is_some() {
-//             let rule_str = rule.rule_str();
-//             // unique_rules.insert(deployment.clone());
-//             unique_rules.insert(RuleEntry::new(rule.get_weight(), rule_str.clone()));
-//             service_map.insert(rule_str, service_name);
-//         }
-//     }
-
-//     for (idx, entry) in unique_rules.iter().rev().enumerate() {
-//         let router_name = if idx == 0 {
-//             safe_name.to_string()
-//         } else {
-//             format!("{}-{}", safe_name, idx)
-//         };
-
-//         // rules.add_host_rule(domain);
-
-//         // Add router configuration
-//         add_root_router(pairs, base_key, &router_name, rules)?;
-
-//         // Link router to the correct service based on rule
-//         if let Some(service_name) = service_map.get(&entry.get_rule()) {
-//             pairs.push(EtcdPair::new(
-//                 format!("{}/routers/{}/service", base_key, router_name),
-//                 service_name.clone(),
-//             ));
-//         }
-//     }
-//     Ok(())
-// }
-
 pub fn add_root_router(
     pairs: &mut Vec<EtcdPair>,
     base_key: &str,
@@ -521,47 +472,6 @@ pub fn add_middlewares(
 
     Ok(())
 }
-
-// pub fn add_path_configuration(
-//     pairs: &mut Vec<EtcdPair>,
-//     domain: &str,
-//     base_key: &str,
-//     safe_name: &str,
-//     idx: usize,
-//     path_config: &PathConfig,
-// ) -> TraefikResult<()> {
-//     let path_safe_name = format!("{}-path-{}", safe_name, idx);
-
-//     // Router configuration
-//     let mut rule = RuleConfig::default();
-//     rule.add_host_rule(domain);
-//     rule.add_default_rule("PathPrefix", &path_config.path);
-
-//     add_root_router(pairs, base_key, &path_safe_name, &rule)?;
-
-//     let strip_prefix_name =
-//         add_strip_prefix_middleware(pairs, base_key, &path_safe_name, path_config)?;
-
-//     // Add middlewares for path
-//     add_middlewares(
-//         pairs,
-//         base_key,
-//         &path_safe_name,
-//         &path_config.middlewares,
-//         strip_prefix_name.as_deref(),
-//     )?;
-
-//     // Set up deployments for this path
-//     add_deployment_rules(
-//         &path_config.deployments,
-//         pairs,
-//         &path_safe_name,
-//         base_key,
-//         &mut rule,
-//     )?;
-
-//     Ok(())
-// }
 
 pub fn add_strip_prefix_middleware(
     pairs: &mut Vec<EtcdPair>,
