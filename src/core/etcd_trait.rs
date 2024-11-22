@@ -23,8 +23,8 @@ impl EtcdPair {
     }
 }
 
-impl Into<String> for EtcdPair {
-    fn into(self) -> String {
-        format!("{} {}", self.key(), self.value())
+impl From<EtcdPair> for String {
+    fn from(pair: EtcdPair) -> Self {
+        format!("{} {}", pair.key(), pair.value())
     }
 }

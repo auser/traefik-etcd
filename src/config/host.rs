@@ -1,5 +1,10 @@
 use std::collections::HashMap;
 
+use crate::{
+    core::Validate,
+    error::{TraefikError, TraefikResult},
+};
+
 use super::{deployment::DeploymentConfig, selections::SelectionConfig};
 use serde::{Deserialize, Serialize};
 
@@ -23,6 +28,31 @@ pub struct HostConfig {
     pub selection: Option<SelectionConfig>,
 }
 
+impl Validate for HostConfig {
+    fn validate(&self) -> TraefikResult<()> {
+        // validate domain is not empty
+        if self.domain.is_empty() {
+            return Err(TraefikError::HostConfig("domain is empty".to_string()));
+        }
+
+        // validate paths if they exist
+        for path in self.paths.iter() {
+            path.validate()?;
+        }
+
+        // validate deployments if they exist
+        for deployment in self.deployments.values() {
+            deployment.validate()?;
+        }
+
+        if self.selection.is_some() {
+            self.selection.as_ref().unwrap().validate()?;
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct PathConfig {
     /// The path of the host
@@ -38,4 +68,20 @@ pub struct PathConfig {
     /// Whether to pass through the path to the backend
     #[serde(default)]
     pub pass_through: bool,
+}
+
+impl Validate for PathConfig {
+    fn validate(&self) -> TraefikResult<()> {
+        // validate path is not empty
+        if self.path.is_empty() {
+            return Err(TraefikError::HostConfig("path is empty".to_string()));
+        }
+
+        // validate deployments if they exist
+        for deployment in self.deployments.values() {
+            deployment.validate()?;
+        }
+
+        Ok(())
+    }
 }

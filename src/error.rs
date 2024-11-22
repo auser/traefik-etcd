@@ -13,11 +13,17 @@ pub enum TraefikError {
     #[error("Config error: {0}")]
     ConfigError(String),
 
+    #[error("Host config error: {0}")]
+    HostConfig(String),
+
     #[error("Middleware config error: {0}")]
     MiddlewareConfig(String),
 
     #[error("Deployment config error: {0}")]
     DeploymentConfig(String),
+
+    #[error("Selection config error: {0}")]
+    SelectionConfig(String),
 
     #[error("Health check config error: {0}")]
     HealthCheckConfig(String),
