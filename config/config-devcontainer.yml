@@ -1,12 +1,12 @@
 etcd:
-  endpoints: ["https://0.0.0.0:2379"]
+  endpoints: ["https://etcd:2379"]
   timeout: 2000
   keep_alive: 300
   tls:
     cert: "./config/tls/etcd-peer.pem"
     key: "./config/tls/etcd-peer-key.pem"
     ca: "./config/tls/ca.pem"
-    domain: ari.io
+    domain: localhost
 
 middlewares:
   enable-headers:

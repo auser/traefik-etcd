@@ -1,6 +1,6 @@
 api:
-  dashboard: false
-  insecure: false
+  dashboard: true
+  insecure: true
   debug: true
 
 entryPoints:
@@ -78,14 +78,14 @@ metrics:
 # Plugins
 # Static configuration for plugins
 
-experimental:
-  plugins:
-    session-max-age:
-      moduleName: github.com/longbridgeapp/traefik-session-max-age
-      version: v0.1.0
-    traefik-plugin-proxy-cookie:
-      moduleName: github.com/SchmitzDan/traefik-plugin-proxy-cookie
-      version: v0.0.2
-    traefik-cookie-handler-plugin:
-      moduleName: github.com/vaspapadopoulos/traefik-cookie-handler-plugin
-      version: v0.1.0
+# experimental:
+#   plugins:
+#     session-max-age:
+#       moduleName: github.com/longbridgeapp/traefik-session-max-age
+#       version: v0.1.0
+#     traefik-plugin-proxy-cookie:
+#       moduleName: github.com/SchmitzDan/traefik-plugin-proxy-cookie
+#       version: v0.0.2
+#     traefik-cookie-handler-plugin:
+#       moduleName: github.com/vaspapadopoulos/traefik-cookie-handler-plugin
+#       version: v0.1.0

@@ -13,7 +13,7 @@ RUN arch=$(arch | sed s/aarch64/arm64/ | sed s/x86_64/amd64/) && \
     apk del --purge tar openssl && \
     rm -Rf /tmp/etcd-download /var/cache/apk/*
 
-FROM docker.io/traefik:v3.1.6
+FROM docker.io/traefik:v3.2.1
 
 # Install envsubst
 RUN apk update && apk add --no-cache gettext shadow
@@ -37,6 +37,9 @@ COPY ./config/tls/ca.pem /etc/traefik/ca.pem
 
 COPY ./config/tls/etcd-peer.pem /etc/traefik/peer.pem
 COPY ./config/tls/etcd-peer-key.pem /etc/traefik/peer-key.pem
+
+COPY ./config/tls/traefik-etcd-client.pem /etc/traefik/etcd-client.pem
+COPY ./config/tls/traefik-etcd-client-key.pem /etc/traefik/etcd-client-key.pem
 
 COPY --from=etcd /bin/etcd /bin/etcd
 COPY --from=etcd /bin/etcdctl /bin/etcdctl

@@ -4,7 +4,6 @@ use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 
-use crate::error::TraefikError;
 use crate::{
     config::{
         deployment::DeploymentConfig,
@@ -72,59 +71,13 @@ impl RouterRule {
     }
 
     pub fn from_pairs(pairs: &[EtcdPair]) -> Vec<Self> {
-        let mut rule_map = HashSet::new();
-        let mut rules = Vec::new();
-
-        // First pass: collect all rules and their metadata
-        let (router_name, pair) = Self::get_router_name(pairs).expect("Router name not found");
-        let router_priority =
-            Self::get_router_priority(pairs, &router_name).expect("Router priority not found");
-        let router_rule = RouterRule::new(pair.value().to_string(), router_priority, router_name);
-
-        // Only add if we haven't seen this rule before
-        if rule_map.insert(router_rule.rule.clone()) {
-            rules.push(router_rule);
-        }
+        let rules = parse_pairs(pairs);
+        let mut router_rules: Vec<RouterRule> = rules.into_iter().map(|r| r.into()).collect();
 
         // Sort rules by priority (highest first)
-        rules.sort_by(|a, b| b.priority.cmp(&a.priority));
+        router_rules.sort_by(|a, b| b.priority.cmp(&a.priority));
 
-        rules
-    }
-
-    fn get_router_name(pairs: &[EtcdPair]) -> TraefikResult<(String, EtcdPair)> {
-        for pair in pairs {
-            let key = pair.key();
-            if !key.ends_with("/rule") {
-                continue;
-            }
-
-            let router_name = key
-                .split("/routers/")
-                .nth(1)
-                .unwrap()
-                .split('/')
-                .next()
-                .unwrap()
-                .to_string();
-            return Ok((router_name, pair.clone()));
-        }
-        Err(TraefikError::EtcdError(
-            "Router name not found for rule".to_string(),
-        ))
-    }
-
-    fn get_router_priority(pairs: &[EtcdPair], router_name: &str) -> TraefikResult<i32> {
-        for pair in pairs {
-            let key = pair.key();
-            if key.ends_with(&format!("/routers/{}/priority", router_name)) {
-                return Ok(pair.value().to_string().parse::<i32>()?);
-            }
-        }
-        Err(TraefikError::EtcdError(format!(
-            "Router priority not found for rule: {}",
-            router_name
-        )))
+        router_rules
     }
 
     pub fn get_rule(&self) -> String {
@@ -134,6 +87,48 @@ impl RouterRule {
     pub fn get_priority(&self) -> i32 {
         self.priority
     }
+}
+
+struct RuleLine {
+    rule: String,
+    router_name: String,
+    priority: usize,
+}
+
+impl From<RuleLine> for RouterRule {
+    fn from(rule_line: RuleLine) -> Self {
+        RouterRule::new(
+            rule_line.rule,
+            rule_line.priority as i32,
+            rule_line.router_name,
+        )
+    }
+}
+
+fn parse_pairs(pairs: &[EtcdPair]) -> Vec<RuleLine> {
+    let mut rule_lines = Vec::new();
+
+    for (i, pair) in pairs.iter().enumerate() {
+        if pair.key().ends_with("/rule") {
+            // Extract router name from the key
+            let parts = pair.key().split('/').collect::<Vec<&str>>();
+            let router_name = parts[parts.len() - 2].to_string();
+
+            // Look ahead for matching priority
+            let priority_key = format!("traefik/http/routers/{}/priority", router_name);
+            if let Some(priority_pair) = pairs[i..].iter().find(|p| p.key() == priority_key) {
+                if let Ok(priority) = priority_pair.value().parse::<usize>() {
+                    rule_lines.push(RuleLine {
+                        rule: pair.value().to_string(),
+                        router_name,
+                        priority,
+                    });
+                }
+            }
+        }
+    }
+
+    rule_lines
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
@@ -306,7 +301,6 @@ impl ToEtcdPairs for InternalDeploymentConfig {
             base_key,
             &mut rules,
         )?;
-        println!("rules: {}", rules.rule_str());
         Ok(pairs)
     }
 }
@@ -452,6 +446,12 @@ pub fn add_deployment_rules(
 
         let service_name = format!("{}-service", router_name);
         add_base_service_configuration(pairs, &base_key, &service_name, deployment)?;
+
+        // Link router to the correct service based on rule
+        pairs.push(EtcdPair::new(
+            format!("{}/routers/{}/service", base_key, router_name),
+            service_name.clone(),
+        ));
     }
 
     Ok(())
@@ -470,7 +470,12 @@ pub fn add_root_router(
         format!("{}/rule", router_key),
         rule.rule_str(),
     ));
-    debug!("Added rule: {}", rule.rule_str());
+    debug!(
+        "Added rule router {}: {} (weight: {})",
+        router_name,
+        rule.rule_str(),
+        rule.get_weight()
+    );
     pairs.push(EtcdPair::new(
         format!("{}/entrypoints/0", router_key),
         "websecure",
@@ -948,8 +953,6 @@ mod tests {
         deployment.init();
 
         let pairs = deployment.to_etcd_pairs(base_key).unwrap();
-        let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
-        println!("test_internal_deployment_to_etcd_pairs: {:#?}", pair_strs);
 
         assert_contains_pair(
             &pairs,
@@ -965,5 +968,9 @@ mod tests {
             "test/http/services/test-router-service/loadBalancer/passHostHeader true",
         );
         assert_contains_pair(&pairs, "test/http/routers/test-router/priority 1010");
+        assert_contains_pair(
+            &pairs,
+            "test/http/routers/test-router/service test-router-service",
+        );
     }
 }

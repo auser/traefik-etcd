@@ -14,7 +14,7 @@ http:
           X-Forwarded-Proto: https
         customResponseHeaders:
           server: ""
-          x-powered-by: "Herring Bank"
+          x-powered-by: "Ari dot io"
 
     traefikAuth:
       basicAuth:
@@ -30,7 +30,7 @@ http:
     default-redirect-middleware:
       redirectRegex:
         regex: "^https?://(.+)"
-        replacement: "https://herringbank.com"
+        replacement: "https://ari.io"
         permanent: true
 
     handle-service-redirect-middleware:
@@ -96,37 +96,37 @@ http:
     #    entrypoints:
     #      - dashboard
 
-    prometheus-router:
-      rule: "Host(`www.financialpayments.com`) && PathPrefix(`/prometheus`)"
-      service: prometheus-service
-      entrypoints:
-        - web
-      tls: false
+    # prometheus-router:
+    #   rule: "Host(`www.financialpayments.com`) && PathPrefix(`/prometheus`)"
+    #   service: prometheus-service
+    #   entrypoints:
+    #     - web
+    #   tls: false
 
-    grafana-router:
-      rule: "Host(`www.financialpayments.com`) && PathPrefix(`/grafana`)"
-      service: grafana-service
-      middlewares:
-        - default
-        - default-auth
-      entrypoints:
-        - web
-      tls: false
+    # grafana-router:
+    #   rule: "Host(`www.financialpayments.com`) && PathPrefix(`/grafana`)"
+    #   service: grafana-service
+    #   middlewares:
+    #     - default
+    #     - default-auth
+    #   entrypoints:
+    #     - web
+    #   tls: false
 
-  services:
-    # catch-all-service:
-    #   loadBalancer:
-    #     servers:
-    #       - url: "http://localhost" # This is a dummy URL
+  # services:
+  #   # catch-all-service:
+  #   #   loadBalancer:
+  #   #     servers:
+  #   #       - url: "http://localhost" # This is a dummy URL
 
-    prometheus-service:
-      loadBalancer:
-        servers:
-          - port: 9090
-    grafana-service:
-      loadBalancer:
-        servers:
-          - port: 3000
+  #   prometheus-service:
+  #     loadBalancer:
+  #       servers:
+  #         - port: 9090
+  #   grafana-service:
+  #     loadBalancer:
+  #       servers:
+  #         - port: 3000
 tls:
   options:
     default:
@@ -135,14 +135,8 @@ tls:
   certificates:
     - certFile: /etc/traefik/server.pem
       keyFile: /etc/traefik/server-key.pem
-    - certFile: /etc/traefik/herringbank_com.pem
-      keyFile: /etc/traefik/herringbank_com-key.pem
-    - certFile: /etc/traefik/asterisk_fp.pem
-      keyFile: /etc/traefik/asterisk_fp-key.pem
-    - certFile: /etc/traefik/wildcard_herringbank_com.pem
-      keyFile: /etc/traefik/wildcard_herringbank_com-key.pem
   stores:
     default:
       defaultCertificate:
-        certFile: /etc/traefik/asterisk_fp.pem
-        keyFile: /etc/traefik/asterisk_fp-key.pem
+        certFile: /etc/traefik/server.pem
+        keyFile: /etc/traefik/server-key.pem

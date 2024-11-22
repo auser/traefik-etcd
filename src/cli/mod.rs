@@ -13,6 +13,7 @@ use crate::{
 };
 
 mod apply;
+mod clean;
 mod get;
 mod show;
 
@@ -22,10 +23,15 @@ pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
 
-    #[arg(long, default_value = "info", global = true)]
+    #[arg(long, short = 'l', default_value = "info", global = true)]
     pub log_level: String,
 
-    #[arg(long, global = true, default_value = "/etc/traefikctl/traefikctl.yaml")]
+    #[arg(
+        long,
+        short = 'f',
+        global = true,
+        default_value = "/etc/traefikctl/traefikctl.yaml"
+    )]
     pub config_file: Option<PathBuf>,
 }
 
@@ -37,6 +43,8 @@ pub enum Commands {
     Show(show::ShowCommand),
     /// Apply the current traefik configuration
     Apply(apply::ApplyCommand),
+    /// Clean the current traefik configuration
+    Clean(clean::CleanCommand),
 }
 
 #[instrument]
@@ -70,6 +78,9 @@ pub async fn run() -> TraefikResult<()> {
         }
         Commands::Apply(apply_command) => {
             apply::run(&apply_command, &client, &mut traefik_config).await?;
+        }
+        Commands::Clean(clean_command) => {
+            clean::run(&clean_command, &client, &mut traefik_config).await?;
         }
     }
 

@@ -26,7 +26,7 @@ pub async fn run(
         traefik_config.clean_etcd(client, command.all).await?;
     }
     traefik_config
-        .apply_to_etcd(client, command.dry_run, command.rules)
+        .apply_to_etcd(client, command.dry_run, command.rules, command.clean)
         .await?;
 
     Ok(())

@@ -1,14 +1,14 @@
 use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
-use tracing::debug;
+use tracing::{debug, error};
 
 use crate::{
     core::{
         client::StoreClient,
         etcd_trait::{EtcdPair, ToEtcdPairs},
         rules::{add_deployment_rules, get_sorted_deployments, RouterRule},
-        Validate, HTTP_BASE_KEY, TCP_BASE_KEY,
+        Validate,
     },
     error::{TraefikError, TraefikResult},
     features::etcd::{self, Etcd},
@@ -111,40 +111,63 @@ impl TraefikConfig {
 }
 
 impl TraefikConfig {
-    pub async fn clean_etcd(&self, client: &StoreClient<Etcd>, all: bool) -> TraefikResult<()> {
-        if all {
-            client.delete_with_prefix(HTTP_BASE_KEY).await?;
-            client.delete_with_prefix(TCP_BASE_KEY).await?;
-        } else {
-            client.delete_with_prefix(self.rule_prefix.as_str()).await?;
-        }
+    pub async fn clean_etcd(&self, client: &StoreClient<Etcd>, _all: bool) -> TraefikResult<()> {
+        client.delete_with_prefix(self.rule_prefix.as_str()).await?;
         Ok(())
     }
 
     pub async fn apply_to_etcd(
         &mut self,
-        _client: &StoreClient<Etcd>,
-        _dry_run: bool,
-        _show_rules: bool,
+        client: &StoreClient<Etcd>,
+        dry_run: bool,
+        show_rules: bool,
+        should_clean: bool,
     ) -> TraefikResult<()> {
         self.validate()?;
         let pairs = self.to_etcd_pairs(&self.rule_prefix)?;
-        let _rules = RouterRule::from_pairs(&pairs);
+        let rules = RouterRule::from_pairs(&pairs);
 
-        for pair in pairs.iter() {
-            println!("Pair: {:?}", pair);
+        let mut rule_to_priority: HashMap<String, i32> = HashMap::new();
+
+        // Build priority map
+        for rule in &rules {
+            rule_to_priority.insert(rule.get_rule().clone(), rule.get_priority());
         }
 
-        // if dry_run {
-        //     if show_rules {
-        //         println!("Rules: {:?}", rules);
-        //         println!("Rules: {:?}", rules);
-        //     } else {
-        //         println!("Pairs: {:?}", pairs);
-        //     }
-        // } else {
-        //     client.put_all(pairs).await?;
-        // }
+        if dry_run {
+            if show_rules {
+                for rule in rules.iter() {
+                    println!(
+                        "Rule = {} (priority: {})",
+                        rule.get_rule(),
+                        rule.get_priority()
+                    );
+                }
+            } else {
+                for pair in &pairs {
+                    println!("Would set: {} = {}", pair.key(), pair.value());
+                }
+            }
+            return Ok(());
+        }
+
+        if should_clean {
+            self.clean_etcd(client, false).await?;
+        }
+
+        let mut client = client.actor.client.clone();
+        client
+            .put("traefik/http/routers/test", "test", None)
+            .await
+            .expect("msg");
+
+        for pair in pairs.iter() {
+            debug!("applying: {:#?}", pair);
+            match client.put(pair.key(), pair.value(), None).await {
+                Ok(kv) => debug!("result: {:#?}", kv),
+                Err(e) => error!("error: {:?}", e),
+            }
+        }
 
         Ok(())
     }

@@ -110,6 +110,11 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash 
 RUN curl https://raw.githubusercontent.com/microsoft/vscode-dev-containers/main/script-library/docker-debian.sh \
 | bash -s -- true /var/run/docker-host.sock /var/run/docker.sock vscode false latest
 
+# Install cfssl
+RUN curl -fsSL https://github.com/cloudflare/cfssl/releases/download/v1.6.4/cfssl_1.6.4_linux_arm64 -o /usr/local/bin/cfssl \
+    && curl -fsSL https://github.com/cloudflare/cfssl/releases/download/v1.6.4/cfssljson_1.6.4_linux_arm64 -o /usr/local/bin/cfssljson \
+    && chmod +x /usr/local/bin/cfssl /usr/local/bin/cfssljson
+
 RUN mkdir -p /workspace && chown -R $USERNAME:$USERNAME /workspace
 
 USER $USERNAME

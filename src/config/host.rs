@@ -3,7 +3,6 @@ use std::collections::{HashMap, HashSet};
 use crate::{
     core::{
         client::StoreClient,
-        etcd_trait::{EtcdPair, ToEtcdPairs},
         rules::{add_selection_rules, RuleConfig},
         util::{get_safe_key, validate_is_alphanumeric},
         Validate,
@@ -173,41 +172,6 @@ impl HostConfig {
 impl From<HostConfig> for Option<SelectionConfig> {
     fn from(host: HostConfig) -> Self {
         host.selection
-    }
-}
-
-impl ToEtcdPairs for HostConfig {
-    fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
-        let mut pairs = Vec::new();
-        // let safe_name = format!("host-{}", get_safe_key(&self.domain));
-
-        // let mut rule = self.get_host_rule();
-
-        // add_selection_rules(self, &mut rule);
-        // add_deployment_rules(
-        //     &self.deployments,
-        //     &mut pairs,
-        //     base_key,
-        //     &safe_name,
-        //     &mut rule,
-        // )?;
-        // add_middlewares(&mut pairs, base_key, &safe_name, &self.middlewares, None)?;
-
-        // // Root router configuration
-        // add_root_router(&mut pairs, base_key, &safe_name, &rule)?;
-
-        // for (idx, path_config) in self.paths.iter().enumerate() {
-        //     add_path_configuration(
-        //         &mut pairs,
-        //         &self.domain,
-        //         base_key,
-        //         &safe_name,
-        //         idx,
-        //         path_config,
-        //     )?;
-        // }
-
-        Ok(pairs)
     }
 }
 
