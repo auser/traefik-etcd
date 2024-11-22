@@ -1,6 +1,7 @@
 use crate::error::TraefikResult;
 
 pub mod client;
+pub mod rules;
 pub mod util;
 
 #[cfg(feature = "etcd")]

@@ -38,10 +38,7 @@ impl ToEtcdPairs for TraefikConfig {
             let new_rules = middleware.to_etcd_pairs(&mw_prefix)?;
             pairs.extend(new_rules);
         }
-        pairs.push(EtcdPair::new(
-            format!("{}/rule_prefix", base_key),
-            self.rule_prefix.clone(),
-        ));
+
         Ok(pairs)
     }
 }
