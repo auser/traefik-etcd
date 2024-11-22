@@ -13,6 +13,7 @@ pub trait Validate {
 
 pub type ClientBuildResult = (String, String);
 
+// TODO: implement this trait for all config types?
 pub trait Build {
     fn build(
         &self,

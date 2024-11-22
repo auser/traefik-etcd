@@ -34,6 +34,14 @@ pub fn format_list_value(values: &[String]) -> String {
     values.join(", ")
 }
 
+pub fn format_etcd_value(value: &str) -> String {
+    if value.is_empty() {
+        r#""""#.to_string()
+    } else {
+        value.to_string()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

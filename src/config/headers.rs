@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     core::{
         etcd_trait::{EtcdPair, ToEtcdPairs},
+        util::{format_etcd_value, format_list_value},
         Validate,
     },
     error::{TraefikError, TraefikResult},
@@ -30,63 +31,61 @@ pub struct HeadersConfig {
 
 impl ToEtcdPairs for HeadersConfig {
     /// Convert the headers configuration to etcd pairs
-    ///
-    /// The headers configuration is stored in etcd under the following path:
-    /// `{base_key}/headers`
     fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
         let mut pairs = Vec::new();
+        let headers_base_key = format!("{}/headers", base_key);
         // process custom request headers
         for (key, value) in self.custom_request_headers.iter() {
             pairs.push(EtcdPair::new(
-                format!("{}/customRequestHeaders/{}", base_key, key),
-                value.clone(),
+                format!("{}/customRequestHeaders/{}", headers_base_key, key),
+                format_etcd_value(value),
             ));
         }
 
         // process custom response headers
         for (key, value) in self.custom_response_headers.iter() {
             pairs.push(EtcdPair::new(
-                format!("{}/customResponseHeaders/{}", base_key, key),
-                value.clone(),
+                format!("{}/customResponseHeaders/{}", headers_base_key, key),
+                format_etcd_value(value),
             ));
         }
 
         // Process access control allow methods
-        for method in self.access_control_allow_methods.iter() {
+        if !self.access_control_allow_methods.is_empty() {
             pairs.push(EtcdPair::new(
-                format!("{}/accessControlAllowMethods/{}", base_key, method),
-                "true".to_string(),
+                format!("{}/accessControlAllowMethods", headers_base_key),
+                format_list_value(&self.access_control_allow_methods),
             ));
         }
 
         // Process access control allow headers
-        for header in self.access_control_allow_headers.iter() {
+        if !self.access_control_allow_headers.is_empty() {
             pairs.push(EtcdPair::new(
-                format!("{}/accessControlAllowHeaders/{}", base_key, header),
-                "true".to_string(),
+                format!("{}/accessControlAllowHeaders", headers_base_key),
+                format_list_value(&self.access_control_allow_headers),
             ));
         }
 
         // Process access control expose headers
-        for header in self.access_control_expose_headers.iter() {
+        if !self.access_control_expose_headers.is_empty() {
             pairs.push(EtcdPair::new(
-                format!("{}/accessControlExposeHeaders/{}", base_key, header),
-                "true".to_string(),
+                format!("{}/accessControlExposeHeaders", headers_base_key),
+                format_list_value(&self.access_control_expose_headers),
             ));
         }
 
         // Process access control allow origin list
-        for origin in self.access_control_allow_origin_list.iter() {
+        if !self.access_control_allow_origin_list.is_empty() {
             pairs.push(EtcdPair::new(
-                format!("{}/accessControlAllowOriginList/{}", base_key, origin),
-                "true".to_string(),
+                format!("{}/accessControlAllowOriginList", headers_base_key),
+                format_list_value(&self.access_control_allow_origin_list),
             ));
         }
 
         // Process add vary header
         if self.add_vary_header {
             pairs.push(EtcdPair::new(
-                format!("{}/addVaryHeader", base_key),
+                format!("{}/addVaryHeader", headers_base_key),
                 "true".to_string(),
             ));
         }
@@ -305,7 +304,7 @@ mod tests {
             .add_custom_request_header("X-Forwarded-Proto", "https")
             .add_custom_request_header("X-Forwarded-Port", "80")
             .build();
-        let pairs = headers.to_etcd_pairs("test/headers").unwrap();
+        let pairs = headers.to_etcd_pairs("test").unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
         assert!(pair_strs
             .contains(&"test/headers/customRequestHeaders/X-Forwarded-Proto https".to_string()));
@@ -320,11 +319,10 @@ mod tests {
             .add_access_control_allow_method("POST")
             .add_access_control_allow_method("PUT")
             .build();
-        let pairs = headers.to_etcd_pairs("test/headers").unwrap();
+        let pairs = headers.to_etcd_pairs("test").unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
-        assert!(pair_strs.contains(&"test/headers/accessControlAllowMethods/GET true".to_string()));
-        assert!(pair_strs.contains(&"test/headers/accessControlAllowMethods/POST true".to_string()));
-        assert!(pair_strs.contains(&"test/headers/accessControlAllowMethods/PUT true".to_string()));
+        assert!(pair_strs
+            .contains(&"test/headers/accessControlAllowMethods GET, POST, PUT".to_string()));
     }
 
     #[test]
@@ -333,12 +331,11 @@ mod tests {
             .add_access_control_allow_header("Content-Type")
             .add_access_control_allow_header("Content-Length")
             .build();
-        let pairs = headers.to_etcd_pairs("test/headers").unwrap();
+        let pairs = headers.to_etcd_pairs("test").unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
-        assert!(pair_strs
-            .contains(&"test/headers/accessControlAllowHeaders/Content-Type true".to_string()));
-        assert!(pair_strs
-            .contains(&"test/headers/accessControlAllowHeaders/Content-Length true".to_string()));
+        assert!(pair_strs.contains(
+            &"test/headers/accessControlAllowHeaders Content-Type, Content-Length".to_string()
+        ));
     }
 
     #[test]
@@ -347,12 +344,11 @@ mod tests {
             .add_access_control_expose_header("Content-Type")
             .add_access_control_expose_header("Content-Length")
             .build();
-        let pairs = headers.to_etcd_pairs("test/headers").unwrap();
+        let pairs = headers.to_etcd_pairs("test").unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
-        assert!(pair_strs
-            .contains(&"test/headers/accessControlExposeHeaders/Content-Type true".to_string()));
-        assert!(pair_strs
-            .contains(&"test/headers/accessControlExposeHeaders/Content-Length true".to_string()));
+        assert!(pair_strs.contains(
+            &"test/headers/accessControlExposeHeaders Content-Type, Content-Length".to_string()
+        ));
     }
 
     #[test]
@@ -360,17 +356,29 @@ mod tests {
         let headers = HeadersConfig::builder()
             .add_access_control_allow_origin("example.com")
             .build();
-        let pairs = headers.to_etcd_pairs("test/headers").unwrap();
+        let pairs = headers.to_etcd_pairs("test").unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
         assert!(pair_strs
-            .contains(&"test/headers/accessControlAllowOriginList/example.com true".to_string()));
+            .contains(&"test/headers/accessControlAllowOriginList example.com".to_string()));
     }
 
     #[test]
     fn test_to_etcd_pairs_with_add_vary_header() {
         let headers = HeadersConfig::builder().add_vary_header(true).build();
-        let pairs = headers.to_etcd_pairs("test/headers").unwrap();
+        let pairs = headers.to_etcd_pairs("test").unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
         assert!(pair_strs.contains(&"test/headers/addVaryHeader true".to_string()));
+    }
+
+    #[test]
+    fn test_to_etcd_pairs_with_custom_response_headers() {
+        let headers = HeadersConfig::builder()
+            .add_custom_response_header("Content-Type", "application/json")
+            .build();
+        let pairs = headers.to_etcd_pairs("test").unwrap();
+        let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
+        assert!(pair_strs.contains(
+            &"test/headers/customResponseHeaders/Content-Type application/json".to_string()
+        ));
     }
 }
