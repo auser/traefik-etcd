@@ -5,6 +5,9 @@ pub mod core;
 pub mod error;
 pub mod features;
 
+#[cfg(test)]
+pub(crate) mod test_helpers;
+
 #[cfg(feature = "cli")]
 pub mod cli;
 

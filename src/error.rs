@@ -16,6 +16,12 @@ pub enum TraefikError {
     #[error("Middleware config error: {0}")]
     MiddlewareConfig(String),
 
+    #[error("Deployment config error: {0}")]
+    DeploymentConfig(String),
+
+    #[error("Health check config error: {0}")]
+    HealthCheckConfig(String),
+
     #[error("Parsing error: {0}")]
     ParsingError(#[from] color_eyre::Report),
 

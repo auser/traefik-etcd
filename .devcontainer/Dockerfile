@@ -115,7 +115,8 @@ RUN mkdir -p /workspace && chown -R $USERNAME:$USERNAME /workspace
 USER $USERNAME
 
 # Copy the binaries we built in builder container
-COPY --chown=$USERNAME --from=builder /home/cargo-watch $CARGO_HOME/bin
-
 
 RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+
+COPY --chown=$USERNAME --from=builder /home/cargo-watch $CARGO_HOME/bin
+COPY --chown=$USERNAME ./zshrc /home/$USERNAME/.zshrc

@@ -16,6 +16,7 @@ use crate::{
 
 use super::KeyValue;
 
+/// The configuration for the etcd client
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct EtcdConfig {
@@ -26,6 +27,7 @@ pub struct EtcdConfig {
     pub tls: Option<TlsOptions>,
 }
 
+/// The configuration for the TLS options
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct TlsOptions {
     pub domain: Option<String>,
@@ -48,6 +50,12 @@ impl Default for EtcdConfig {
 #[derive(Clone)]
 pub struct Etcd {
     pub client: Client,
+}
+
+impl std::fmt::Debug for Etcd {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Etcd {{ client: <hidden> }}")
+    }
 }
 
 #[async_trait]
@@ -100,8 +108,8 @@ impl StoreClientActor for Etcd {
             .await
             .map_err(|e| eyre!("etcd get failed: {e}"))?
             .kvs()
-            .to_vec()
-            .into_iter()
+            .iter()
+            .cloned()
             .map(Into::into)
             .collect())
     }
@@ -114,8 +122,8 @@ impl StoreClientActor for Etcd {
             .await
             .map_err(|e| eyre!("etcd get failed: {e}"))?
             .kvs()
-            .to_vec()
-            .into_iter()
+            .iter()
+            .cloned()
             .map(Into::into)
             .collect())
     }
@@ -224,5 +232,26 @@ impl Etcd {
             .await
             .map_err(|e| eyre!("etcd connect failed: {e}"))?;
         Ok(Self { client })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_etcd_config_default_values() {
+        let config = EtcdConfig::default();
+        assert_eq!(config.endpoints, vec!["http://127.0.0.1:2379".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn test_etcd_new_returns_error_if_connect_fails() {
+        let config = EtcdConfig {
+            endpoints: vec!["http://1.2.3.4:2380".to_string()],
+            ..Default::default()
+        };
+        let result = Etcd::new(&config).await;
+        assert!(result.is_ok());
     }
 }

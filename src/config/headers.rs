@@ -7,7 +7,7 @@ use crate::{
     error::{TraefikError, TraefikResult},
 };
 
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq)]
 pub struct HeadersConfig {
     #[serde(default)]
     pub custom_request_headers: HashMap<String, String>,
@@ -130,7 +130,7 @@ impl HeadersConfig {
                 }
             }
             "x-forwarded-port" => {
-                if !value.parse::<u16>().is_ok() {
+                if value.parse::<u16>().is_err() {
                     return Err(TraefikError::MiddlewareConfig(format!(
                         "Invalid value for X-Forwarded-Port: must be a valid port number, got '{}'",
                         value
@@ -141,5 +141,25 @@ impl HeadersConfig {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_header_value() {
+        let headers = HeadersConfig::default();
+        assert!(headers.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_header_names() {
+        let mut headers = HeadersConfig::default();
+        headers
+            .custom_request_headers
+            .insert("X-Forwarded-Proto".to_string(), "http".to_string());
+        assert!(headers.validate().is_ok());
     }
 }
