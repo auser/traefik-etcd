@@ -27,20 +27,20 @@ middlewares:
 
 hosts:
   - domain: ari.io
-    # paths:
-    #   - path: "/test"
-    #     deployments:
-    #       blue:
-    #         ip: google.com
-    #         port: 443
-    #         weight: 50
-    #       green:
-    #         ip: yahoo.com
-    #         port: 443
-    #         weight: 50
-    #     middlewares:
-    #       - enable-headers
-    #       - forward-server
+    paths:
+      - path: "/test"
+        deployments:
+          blue:
+            ip: google.com
+            port: 443
+            weight: 50
+          green:
+            ip: yahoo.com
+            port: 443
+            weight: 50
+        middlewares:
+          - enable-headers
+          - forward-server
 
     # Root path (catch-all)
     deployments:

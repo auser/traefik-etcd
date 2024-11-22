@@ -437,12 +437,12 @@ pub fn add_deployment_rules(
 
         debug!("Adding deployment middlewares for {}", router_name);
         let additional_middlewares = host.middlewares.clone();
-        let strip_prefix_name = add_strip_prefix_middleware(
-            pairs,
-            &format!("{}/routers/{}", base_key, router_name),
-            &router_name,
-            deployment.path_config.clone(),
-        )?;
+        // let strip_prefix_name = add_strip_prefix_middleware(
+        //     pairs,
+        //     &format!("{}/routers/{}", base_key, router_name),
+        //     &router_name,
+        //     deployment.path_config.clone(),
+        // )?;
 
         add_middlewares(
             &deployment.traefik_config,
@@ -450,11 +450,8 @@ pub fn add_deployment_rules(
             &base_key,
             &router_name,
             &additional_middlewares,
-            strip_prefix_name.as_deref(),
+            // strip_prefix_name.as_deref(),
         )?;
-
-        debug!("Adding deployment rules for {}", router_name);
-        add_root_router(pairs, &base_key, &router_name, &rule)?;
 
         let service_name = format!("{}-service", router_name);
         add_base_service_configuration(pairs, &base_key, &service_name, deployment)?;
@@ -464,6 +461,9 @@ pub fn add_deployment_rules(
             format!("{}/routers/{}/service", base_key, router_name),
             service_name.clone(),
         ));
+
+        debug!("Adding deployment rules for {}", router_name);
+        add_root_router(pairs, &base_key, &router_name, &rule)?;
     }
 
     Ok(())
@@ -495,11 +495,6 @@ pub fn add_root_router(
     debug!("Added entrypoint: websecure");
     pairs.push(EtcdPair::new(format!("{}/tls", router_key), "true"));
     debug!("Added tls: true");
-    pairs.push(EtcdPair::new(
-        format!("{}/loadBalancer/passHostHeader", router_key),
-        "true".to_string(),
-    ));
-    debug!("Added passHostHeader: true");
 
     // Set priority based on rule complexity
     pairs.push(EtcdPair::new(
@@ -547,12 +542,12 @@ pub fn add_middlewares(
     base_key: &str,
     router_name: &str,
     additional_middlewares: &[String],
-    strip_prefix_name: Option<&str>,
+    // strip_prefix_name: Option<&str>,
 ) -> TraefikResult<()> {
     let mut middleware_idx = 0;
 
     // Add headers middleware first
-    let headers_name = format!("{}-headers", router_name);
+    let headers_name = format!("{}", router_name);
     pairs.push(EtcdPair::new(
         format!(
             "{}/routers/{}/middlewares/{}",
@@ -563,25 +558,26 @@ pub fn add_middlewares(
     middleware_idx += 1;
 
     // Add strip prefix if provided
-    if let Some(strip_name) = strip_prefix_name {
-        let strip_prefix_name = format!("{}-strip", strip_name);
-        pairs.push(EtcdPair::new(
-            format!(
-                "{}/routers/{}/middlewares/{}",
-                base_key, router_name, strip_prefix_name
-            ),
-            "true".to_string(),
-        ));
-        middleware_idx += 1;
-    }
+    // if let Some(strip_name) = strip_prefix_name {
+    //     let strip_prefix_name = format!("{}-strip", strip_name);
+    //     pairs.push(EtcdPair::new(
+    //         format!(
+    //             "{}/routers/{}/middlewares/{}",
+    //             base_key, router_name, strip_prefix_name
+    //         ),
+    //         "true".to_string(),
+    //     ));
+    //     middleware_idx += 1;
+    // }
 
     // Add additional middlewares
     for middleware in additional_middlewares {
         match traefik_config.middlewares.get(middleware) {
-            Some(middleware_config) => {
-                let mw_base_key = format!("{}/middlewares/{}", base_key, middleware);
-                let mw_pairs = middleware_config.to_etcd_pairs(&mw_base_key)?;
-                pairs.extend(mw_pairs);
+            Some(_middleware_config) => {
+                // let middleware_custom_name = format!("{}-{}", router_name, middleware);
+                // let mw_base_key = format!("{}/middlewares/{}", base_key, middleware_custom_name);
+                // let mw_pairs = middleware_config.to_etcd_pairs(&mw_base_key)?;
+                // pairs.extend(mw_pairs);
                 pairs.push(EtcdPair::new(
                     format!(
                         "{}/routers/{}/middlewares/{}",
@@ -916,7 +912,7 @@ mod tests {
         // Verify middleware configuration
         assert_contains_pair(
             &pairs,
-            "test/http/routers/test-router/middlewares/0 test-router-headers",
+            "test/http/routers/test-router/middlewares/0 test-router",
         );
         assert_contains_pair(
             &pairs,

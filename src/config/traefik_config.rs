@@ -167,14 +167,6 @@ impl TraefikConfig {
             }
         }
 
-        for pair in pairs.iter() {
-            debug!("applying: {:#?}", pair.to_string());
-            match client.put(pair.key(), pair.value(), None).await {
-                Ok(_kv) => {}
-                Err(e) => error!("error: {:?}", e),
-            }
-        }
-
         Ok(())
     }
 

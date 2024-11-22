@@ -70,15 +70,15 @@ http:
         middlewares:
           - default-headers
 
-  routers:
-    catch-all-router:
-      rule: "HostRegexp(`{host:.+}`)"
-      priority: 1
-      middlewares:
-        - default-redirect-middleware
-      service: catch-all-service
-      entryPoints:
-        - websecure
+  # routers:
+  #   catch-all-router:
+  #     rule: "HostRegexp(`{host:.+}`)"
+  #     priority: 1
+  #     middlewares:
+  #       - default-redirect-middleware
+  #     service: catch-all-service
+  #     entryPoints:
+  #       - websecure
   
   #   #  traefik-dashboard:
   #   #    rule: "PathPrefix(`/api`) || PathPrefix(`/dashboard`)"
@@ -105,11 +105,11 @@ http:
   #   #     - web
   #   #   tls: false
 
-  services:
-    catch-all-service:
-      loadBalancer:
-        servers:
-          - url: "http://localhost" # This is a dummy URL
+  # services:
+  #   catch-all-service:
+  #     loadBalancer:
+  #       servers:
+  #         - url: "http://localhost" # This is a dummy URL
 
   # #   # catch-all-service:
   # #   #   loadBalancer:
