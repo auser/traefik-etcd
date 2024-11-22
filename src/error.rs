@@ -16,6 +16,9 @@ pub enum TraefikError {
     #[error("Host config error: {0}")]
     HostConfig(String),
 
+    #[error("Deployment config error: {0}")]
+    DeploymentError(String),
+
     #[error("Middleware config error: {0}")]
     MiddlewareConfig(String),
 
@@ -30,6 +33,9 @@ pub enum TraefikError {
 
     #[error("Parsing error: {0}")]
     ParsingError(#[from] color_eyre::Report),
+
+    #[error("Parse error: {0}")]
+    ParseError(String),
 
     #[error("Tracing error: {0}")]
     TracingError(#[from] TryInitError),

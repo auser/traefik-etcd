@@ -143,4 +143,64 @@ mod tests {
         let result = config.validate();
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_valid_with_complex_config() {
+        let config_str = r#"
+        etcd:
+            endpoints: ["https://0.0.0.0:2379"]
+            timeout: 2000
+            keep_alive: 300
+            tls:
+                cert: "./config/tls/etcd-peer.pem"
+                key: "./config/tls/etcd-peer-key.pem"
+                ca: "./config/tls/ca.pem"
+                domain: herringbank.com
+        middlewares:
+        enable-headers:
+            headers:
+            custom_request_headers:
+                X-Forwarded-Proto: "https"
+                X-Forwarded-Port: "443"
+                Location: ""
+
+        hosts:
+            - domain: ari.io
+              paths:
+                - path: /
+                  deployments:
+                    green_with_cookie:
+                        ip: 10.0.0.1
+                        port: 80
+                        weight: 100
+              deployments:
+                green:
+                    protocol: http
+                    port: 80
+                    weight: 50
+                blue:
+                    protocol: http
+                    port: 80
+                    weight: 50
+        "#;
+        let config: TraefikConfig = serde_yaml::from_str(config_str).unwrap();
+        let validation_result = config.validate();
+        assert!(validation_result.is_ok());
+        assert_eq!(config.hosts.len(), 1);
+        assert_eq!(config.hosts[0].domain, "ari.io");
+        assert_eq!(config.hosts[0].deployments.len(), 2);
+        assert_eq!(config.hosts[0].deployments["green"].port, 80);
+        assert_eq!(config.hosts[0].deployments["blue"].port, 80);
+        assert_eq!(config.hosts[0].deployments["green"].weight, 50);
+        assert_eq!(config.hosts[0].deployments["blue"].weight, 50);
+        assert_eq!(config.hosts[0].deployments["green"].protocol, "http");
+        assert_eq!(config.hosts[0].deployments["blue"].protocol, "http");
+        let paths = config.hosts[0].paths.iter().find(|p| p.path == "/");
+        assert!(paths.is_some());
+        let path = paths.unwrap();
+        assert_eq!(path.deployments.len(), 1);
+        assert_eq!(path.deployments["green_with_cookie"].port, 80);
+        assert_eq!(path.deployments["green_with_cookie"].weight, 100);
+        assert_eq!(path.deployments["green_with_cookie"].ip, "10.0.0.1");
+    }
 }
