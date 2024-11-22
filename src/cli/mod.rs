@@ -12,7 +12,9 @@ use crate::{
     NAME,
 };
 
+mod apply;
 mod get;
+mod show;
 
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None, name = NAME)]
@@ -31,15 +33,20 @@ pub struct Cli {
 pub enum Commands {
     /// Get specific key or prefix
     Get(get::GetCommand),
+    /// Show the current traefik configuration
+    Show(show::ShowCommand),
+    /// Apply the current traefik configuration
+    Apply(apply::ApplyCommand),
 }
 
 #[instrument]
 pub async fn run() -> TraefikResult<()> {
     color_eyre::install()?;
     let cli: Cli = Cli::parse();
+    let log_level = cli.log_level.clone();
     let log_config = LogConfig {
-        max_level: cli.log_level,
-        filter: format!("{}=info", NAME),
+        max_level: log_level.clone(),
+        filter: format!("{}={}", NAME, &log_level),
         rolling_file_path: None,
     };
     init_tracing(NAME, &log_config)?;
@@ -56,7 +63,13 @@ pub async fn run() -> TraefikResult<()> {
 
     match cli.command {
         Commands::Get(get_command) => {
-            get::run(&get_command, &client, &mut traefik_config).await?;
+            get::run(&get_command, &client, &traefik_config).await?;
+        }
+        Commands::Show(show_command) => {
+            show::run(&show_command, &client, &traefik_config).await?;
+        }
+        Commands::Apply(apply_command) => {
+            apply::run(&apply_command, &client, &mut traefik_config).await?;
         }
     }
 

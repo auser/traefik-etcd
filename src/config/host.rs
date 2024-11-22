@@ -2,12 +2,14 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     core::{
+        client::StoreClient,
         etcd_trait::{EtcdPair, ToEtcdPairs},
         rules::{add_selection_rules, RuleConfig},
-        util::validate_is_alphanumeric,
+        util::{get_safe_key, validate_is_alphanumeric},
         Validate,
     },
     error::{TraefikError, TraefikResult},
+    features::etcd::Etcd,
 };
 
 use super::{deployment::DeploymentConfig, selections::SelectionConfig};
@@ -219,6 +221,47 @@ impl HostConfig {
 
     pub fn get_host_weight(&self) -> usize {
         self.get_host_rule().get_weight()
+    }
+}
+
+impl HostConfig {
+    pub fn get_host_name(&self) -> String {
+        format!("host-{}", get_safe_key(&self.domain))
+    }
+    pub async fn clean_etcd(&self, etcd: &mut StoreClient<Etcd>) -> TraefikResult<()> {
+        let safe_name = self.get_host_name();
+        let base_key = "traefik/http";
+
+        // Delete root configuration
+        etcd.delete_with_prefix(format!("{}/routers/{}", base_key, safe_name))
+            .await
+            .map_err(|e| TraefikError::EtcdError(e.to_string()))?;
+
+        etcd.delete_with_prefix(format!("{}/services/{}", base_key, safe_name))
+            .await
+            .map_err(|e| TraefikError::EtcdError(e.to_string()))?;
+
+        // Delete path-specific configurations
+        for (idx, _) in self.paths.iter().enumerate() {
+            let path_safe_name = format!("{}-path-{}", safe_name, idx);
+
+            // Clean up path routers
+            etcd.delete_with_prefix(format!("{}/routers/{}", base_key, path_safe_name))
+                .await
+                .map_err(|e| TraefikError::EtcdError(e.to_string()))?;
+
+            // Clean up path services
+            etcd.delete_with_prefix(format!("{}/services/{}", base_key, path_safe_name))
+                .await
+                .map_err(|e| TraefikError::EtcdError(e.to_string()))?;
+
+            // Clean up path middlewares (strip prefix)
+            etcd.delete_with_prefix(format!("{}/middlewares/{}-strip", base_key, path_safe_name))
+                .await
+                .map_err(|e| TraefikError::EtcdError(e.to_string()))?;
+        }
+
+        Ok(())
     }
 }
 

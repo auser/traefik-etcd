@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     core::{
         etcd_trait::{EtcdPair, ToEtcdPairs},
-        util::validate_is_alphanumeric,
+        util::{get_safe_key, validate_is_alphanumeric},
         Validate,
     },
     error::{TraefikError, TraefikResult},
@@ -52,14 +52,12 @@ impl ToEtcdPairs for MiddlewareConfig {
     /// Convert the middleware configuration to etcd pairs
     ///
     /// The middleware configuration is stored in etcd under the following path:
-    /// `{base_key}/{protocol}/middlewares/{name}`
+    /// `{base_key}/{protocol}/middlewares`
     fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
         // First set the middleware name to true
-        let mut pairs = vec![EtcdPair::new(
-            format!("{}/{}", base_key, self.name),
-            "true".to_string(),
-        )];
-        let headers_base_key = format!("{}/{}", base_key, self.name);
+        // The middleware config path is `{base_key}/{protocol}/middlewares/{name}`
+        let headers_base_key = self.get_path(base_key);
+        let mut pairs = vec![EtcdPair::new(&headers_base_key, "true".to_string())];
         // Next add the headers if they are present
         if let Some(headers) = &self.headers {
             let headers_pairs = headers.to_etcd_pairs(&headers_base_key)?;
@@ -84,6 +82,21 @@ impl Validate for MiddlewareConfig {
             headers.validate()?;
         }
         Ok(())
+    }
+}
+
+impl MiddlewareConfig {
+    pub fn get_safe_key(&self) -> String {
+        get_safe_key(&self.name)
+    }
+
+    pub fn get_path(&self, base_key: &str) -> String {
+        format!(
+            "{}/{}/middlewares/{}",
+            base_key,
+            self.protocol,
+            self.get_safe_key()
+        )
     }
 }
 
@@ -135,31 +148,31 @@ mod tests {
         let middleware = create_test_middleware();
         let mut result_pairs = vec![];
         for (_name, middleware) in middleware {
-            let pairs = middleware.to_etcd_pairs("test/middlewares").unwrap();
+            let pairs = middleware.to_etcd_pairs("test").unwrap();
             result_pairs.extend(pairs);
         }
         let pair_strs: Vec<String> = result_pairs.iter().map(|p| p.to_string()).collect();
-        assert!(pair_strs.contains(&"test/middlewares/enable-headers true".to_string()));
-        assert!(pair_strs.contains(&"test/middlewares/handle-redirects true".to_string()));
+        assert!(pair_strs.contains(&"test/http/middlewares/enable-headers true".to_string()));
+        assert!(pair_strs.contains(&"test/http/middlewares/handle-redirects true".to_string()));
         assert!(pair_strs.contains(
-            &"test/middlewares/enable-headers/headers/customRequestHeaders/X-Forwarded-Proto https"
+            &"test/http/middlewares/enable-headers/headers/customRequestHeaders/X-Forwarded-Proto https"
                 .to_string()
         ));
         assert!(pair_strs.contains(
-            &"test/middlewares/enable-headers/headers/customRequestHeaders/X-Forwarded-Port 443"
+            &"test/http/middlewares/enable-headers/headers/customRequestHeaders/X-Forwarded-Port 443"
                 .to_string()
         ));
 
         assert!(pair_strs.contains(
-            &"test/middlewares/enable-headers/headers/customResponseHeaders/Location \"\""
+            &"test/http/middlewares/enable-headers/headers/customResponseHeaders/Location \"\""
                 .to_string()
         ));
         assert!(pair_strs.contains(
-            &"test/middlewares/enable-headers/headers/accessControlAllowMethods GET, POST, OPTIONS"
+            &"test/http/middlewares/enable-headers/headers/accessControlAllowMethods GET, POST, OPTIONS"
                 .to_string()
         ));
         assert!(pair_strs.contains(
-            &"test/middlewares/enable-headers/headers/accessControlAllowHeaders Content-Type, Authorization"
+            &"test/http/middlewares/enable-headers/headers/accessControlAllowHeaders Content-Type, Authorization"
                 .to_string()
         ));
     }

@@ -4,6 +4,9 @@ pub mod client;
 pub mod rules;
 pub mod util;
 
+pub static TCP_BASE_KEY: &str = "traefik/tcp";
+pub static HTTP_BASE_KEY: &str = "traefik/http";
+
 #[cfg(feature = "etcd")]
 pub mod etcd_trait;
 

@@ -10,6 +10,9 @@ pub enum TraefikError {
     #[error("IO error: {0}")]
     IOError(Box<dyn std::error::Error>),
 
+    #[error("Etcd error: {0}")]
+    EtcdError(String),
+
     #[error("Config error: {0}")]
     ConfigError(String),
 

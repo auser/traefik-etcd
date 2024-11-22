@@ -1,14 +1,17 @@
 use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
+use tracing::debug;
 
 use crate::{
     core::{
+        client::StoreClient,
         etcd_trait::{EtcdPair, ToEtcdPairs},
-        Validate,
+        rules::{add_deployment_rules, get_sorted_deployments, RouterRule},
+        Validate, HTTP_BASE_KEY, TCP_BASE_KEY,
     },
     error::{TraefikError, TraefikResult},
-    features::etcd,
+    features::etcd::{self, Etcd},
 };
 
 use super::{host::HostConfig, middleware::MiddlewareConfig};
@@ -33,17 +36,24 @@ impl ToEtcdPairs for TraefikConfig {
     fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
         let mut pairs = Vec::new();
         // Start with middleware rules
-        for (name, middleware) in self.middlewares.iter() {
-            let mw_prefix = format!("{}/{}/middlewares/{}", base_key, middleware.protocol, name);
-            let new_rules = middleware.to_etcd_pairs(&mw_prefix)?;
+        for (name, middleware) in self.middlewares.clone().iter_mut() {
+            debug!("Applying middleware: {}", name);
+            middleware.set_name(name);
+            let new_rules = middleware.to_etcd_pairs(base_key)?;
             pairs.extend(new_rules);
         }
 
-        let sorted_hosts = self.get_sorted_hosts();
-        for host in sorted_hosts.iter() {
-            let host_prefix = format!("{}/hosts/{}", base_key, host.domain);
-            let new_rules = host.to_etcd_pairs(&host_prefix)?;
-            pairs.extend(new_rules);
+        let sorted_hosts = get_sorted_deployments(self)?;
+        for deployment_config in sorted_hosts.iter() {
+            let mut rules = deployment_config.rules.clone();
+            let host = deployment_config.host_config.clone();
+            add_deployment_rules(
+                &host,
+                &[deployment_config.clone()],
+                &mut pairs,
+                base_key,
+                &mut rules,
+            )?;
         }
 
         Ok(pairs)
@@ -101,11 +111,76 @@ impl TraefikConfig {
 }
 
 impl TraefikConfig {
-    pub fn get_sorted_hosts(&self) -> Vec<HostConfig> {
-        let mut sorted_hosts: Vec<HostConfig> = self.hosts.clone();
-        sorted_hosts.sort_by_key(|h| h.get_host_weight());
-        sorted_hosts.reverse();
-        sorted_hosts
+    pub async fn clean_etcd(&self, client: &StoreClient<Etcd>, all: bool) -> TraefikResult<()> {
+        if all {
+            client.delete_with_prefix(HTTP_BASE_KEY).await?;
+            client.delete_with_prefix(TCP_BASE_KEY).await?;
+        } else {
+            client.delete_with_prefix(self.rule_prefix.as_str()).await?;
+        }
+        Ok(())
+    }
+
+    pub async fn apply_to_etcd(
+        &mut self,
+        _client: &StoreClient<Etcd>,
+        _dry_run: bool,
+        _show_rules: bool,
+    ) -> TraefikResult<()> {
+        self.validate()?;
+        let pairs = self.to_etcd_pairs(&self.rule_prefix)?;
+        let _rules = RouterRule::from_pairs(&pairs);
+
+        for pair in pairs.iter() {
+            println!("Pair: {:?}", pair);
+        }
+
+        // if dry_run {
+        //     if show_rules {
+        //         println!("Rules: {:?}", rules);
+        //         println!("Rules: {:?}", rules);
+        //     } else {
+        //         println!("Pairs: {:?}", pairs);
+        //     }
+        // } else {
+        //     client.put_all(pairs).await?;
+        // }
+
+        Ok(())
+    }
+}
+
+impl TraefikConfig {
+    pub fn builder() -> TraefikConfigBuilder {
+        TraefikConfigBuilder::default()
+    }
+}
+
+#[derive(Default)]
+pub struct TraefikConfigBuilder {
+    pub rule_prefix: String,
+    pub hosts: Vec<HostConfig>,
+    pub middlewares: HashMap<String, MiddlewareConfig>,
+}
+
+impl TraefikConfigBuilder {
+    pub fn rule_prefix(mut self, rule_prefix: String) -> Self {
+        self.rule_prefix = rule_prefix;
+        self
+    }
+
+    pub fn hosts(mut self, hosts: Vec<HostConfig>) -> Self {
+        self.hosts = hosts;
+        self
+    }
+
+    pub fn middlewares(mut self, middlewares: HashMap<String, MiddlewareConfig>) -> Self {
+        self.middlewares = middlewares;
+        self
+    }
+
+    pub fn build(&self) -> TraefikResult<TraefikConfig> {
+        Ok(TraefikConfig::default())
     }
 }
 

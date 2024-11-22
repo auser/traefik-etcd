@@ -128,7 +128,6 @@ impl StoreClientActor for Etcd {
             .collect())
     }
 
-    #[allow(dead_code)]
     async fn delete(&self, key: impl Into<Vec<u8>> + Send) -> TraefikResult<i64> {
         Ok(self
             .client

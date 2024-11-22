@@ -1,12 +1,7 @@
 use clap::Args;
 use tracing::debug;
 
-use crate::{
-    core::client::{StoreClient, StoreClientActor},
-    error::TraefikResult,
-    features::etcd::Etcd,
-    TraefikConfig,
-};
+use crate::{core::client::StoreClient, error::TraefikResult, features::etcd::Etcd, TraefikConfig};
 
 #[derive(Args, Debug)]
 pub struct GetCommand {
@@ -22,11 +17,11 @@ pub async fn run(
     client: &StoreClient<Etcd>,
     _traefik_config: &TraefikConfig,
 ) -> TraefikResult<()> {
-    let key = format!("{}", command.name);
+    let key = command.name.as_str();
     let values: Vec<_> = if command.keys {
-        client.actor.get_keys(key).await?
+        client.get_keys(key).await?
     } else {
-        client.actor.get_with_prefix(key).await?
+        client.get_with_prefix(key).await?
     };
 
     debug!("values: {:?}", values);

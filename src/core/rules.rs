@@ -4,6 +4,7 @@ use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 
+use crate::error::TraefikError;
 use crate::{
     config::{
         deployment::DeploymentConfig,
@@ -14,7 +15,7 @@ use crate::{
     TraefikConfig,
 };
 
-use super::etcd_trait::EtcdPair;
+use super::etcd_trait::{EtcdPair, ToEtcdPairs};
 
 // use super::etcd_trait::EtcdPair;
 
@@ -51,6 +52,87 @@ impl Display for Rule {
 impl Default for Rule {
     fn default() -> Self {
         Self::new("", "", RuleType::Other)
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Hash)]
+pub struct RouterRule {
+    rule: String,
+    priority: i32,
+    router_name: String,
+}
+
+impl RouterRule {
+    pub fn new(rule: String, priority: i32, router_name: String) -> Self {
+        Self {
+            rule,
+            priority,
+            router_name,
+        }
+    }
+
+    pub fn from_pairs(pairs: &[EtcdPair]) -> Vec<Self> {
+        let mut rule_map = HashSet::new();
+        let mut rules = Vec::new();
+
+        // First pass: collect all rules and their metadata
+        let (router_name, pair) = Self::get_router_name(pairs).expect("Router name not found");
+        let router_priority =
+            Self::get_router_priority(pairs, &router_name).expect("Router priority not found");
+        let router_rule = RouterRule::new(pair.value().to_string(), router_priority, router_name);
+
+        // Only add if we haven't seen this rule before
+        if rule_map.insert(router_rule.rule.clone()) {
+            rules.push(router_rule);
+        }
+
+        // Sort rules by priority (highest first)
+        rules.sort_by(|a, b| b.priority.cmp(&a.priority));
+
+        rules
+    }
+
+    fn get_router_name(pairs: &[EtcdPair]) -> TraefikResult<(String, EtcdPair)> {
+        for pair in pairs {
+            let key = pair.key();
+            if !key.ends_with("/rule") {
+                continue;
+            }
+
+            let router_name = key
+                .split("/routers/")
+                .nth(1)
+                .unwrap()
+                .split('/')
+                .next()
+                .unwrap()
+                .to_string();
+            return Ok((router_name, pair.clone()));
+        }
+        Err(TraefikError::EtcdError(
+            "Router name not found for rule".to_string(),
+        ))
+    }
+
+    fn get_router_priority(pairs: &[EtcdPair], router_name: &str) -> TraefikResult<i32> {
+        for pair in pairs {
+            let key = pair.key();
+            if key.ends_with(&format!("/routers/{}/priority", router_name)) {
+                return Ok(pair.value().to_string().parse::<i32>()?);
+            }
+        }
+        Err(TraefikError::EtcdError(format!(
+            "Router priority not found for rule: {}",
+            router_name
+        )))
+    }
+
+    pub fn get_rule(&self) -> String {
+        self.rule.clone()
+    }
+
+    pub fn get_priority(&self) -> i32 {
+        self.priority
     }
 }
 
@@ -210,6 +292,40 @@ fn default_weight() -> usize {
     100
 }
 
+impl ToEtcdPairs for InternalDeploymentConfig {
+    fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
+        let mut internal_deployment = self.clone();
+        internal_deployment.init();
+        let mut pairs = Vec::new();
+        let mut rules = internal_deployment.rules.clone();
+
+        add_deployment_rules(
+            &self.host_config,
+            &[internal_deployment],
+            &mut pairs,
+            base_key,
+            &mut rules,
+        )?;
+        println!("rules: {}", rules.rule_str());
+        Ok(pairs)
+    }
+}
+
+impl InternalDeploymentConfig {
+    pub fn init(&mut self) -> &mut Self {
+        let mut rules = self.rules.clone();
+        rules.add_host_rule(&self.host_config.domain);
+        // Add the path rule if it exists
+        rules.add_default_rule_from_optional_path("PathPrefix", self.path_config.as_ref());
+        // Add the selection rules
+        add_selection_rules(&self.deployment, &mut rules);
+        self.rules = rules;
+        // Add the weight of the rules to the weight of the deployment
+        self.weight += 1000 + self.rules.get_weight();
+        self
+    }
+}
+
 pub fn get_sorted_deployments(
     traefik_config: &TraefikConfig,
 ) -> TraefikResult<Vec<InternalDeploymentConfig>> {
@@ -265,20 +381,7 @@ fn collect_all_deployments(
     let mut internal_deployments_result = Vec::new();
     for internal_deployment in internal_deployments.iter_mut() {
         // Add the host rule
-        let mut rules = internal_deployment.rules.clone();
-        rules.add_host_rule(&internal_deployment.host_config.domain);
-        // Add the path rule if it exists
-        rules.add_default_rule_from_optional_path(
-            "PathPrefix",
-            internal_deployment.path_config.as_ref(),
-        );
-        // Add the selection rules
-        add_selection_rules(&internal_deployment.deployment, &mut rules);
-        let mut internal_deployment = internal_deployment.clone();
-        internal_deployment.rules = rules;
-        // Add the weight of the rules to the weight of the deployment
-        internal_deployment.weight += 1000 + internal_deployment.rules.get_weight();
-        internal_deployments_result.push(internal_deployment.clone());
+        internal_deployments_result.push(internal_deployment.init().clone());
     }
 
     Ok(internal_deployments_result)
@@ -299,6 +402,8 @@ fn get_all_internal_deployments(
     for (idx, key) in deployment_keys.iter().enumerate() {
         let deployment = &deployments[*key];
         if deployment.weight > 0 || deployment.selection.is_some() {
+            let mut deployment = deployment.clone();
+            deployment.set_name(&format!("{}-deployment", *key));
             internal_deployments.push(InternalDeploymentConfig {
                 deployment: deployment.clone(),
                 name: (*key).clone(),
@@ -322,28 +427,31 @@ pub fn add_deployment_rules(
     for deployment in sorted_deployments.iter() {
         let router_name = format!("{}-router", deployment.name);
         let rule = rules.clone();
+        let deployment_protocol = &deployment.deployment.protocol;
+        let base_key = format!("{}/{}", base_key, deployment_protocol);
 
         debug!("Adding deployment middlewares for {}", router_name);
         let additional_middlewares = host.middlewares.clone();
         let strip_prefix_name = add_strip_prefix_middleware(
             pairs,
-            base_key,
+            &format!("{}/routers/{}", base_key, router_name),
             &router_name,
             deployment.path_config.clone(),
         )?;
+
         add_middlewares(
             pairs,
-            base_key,
+            &base_key,
             &router_name,
             &additional_middlewares,
             strip_prefix_name.as_deref(),
         )?;
 
         debug!("Adding deployment rules for {}", router_name);
-        add_root_router(pairs, base_key, &router_name, &rule)?;
+        add_root_router(pairs, &base_key, &router_name, &rule)?;
 
         let service_name = format!("{}-service", router_name);
-        add_base_service_configuration(pairs, base_key, &service_name, deployment)?;
+        add_base_service_configuration(pairs, &base_key, &service_name, deployment)?;
     }
 
     Ok(())
@@ -356,33 +464,29 @@ pub fn add_root_router(
     rule: &RuleConfig,
 ) -> TraefikResult<()> {
     debug!("Adding root router for {}", router_name);
+
+    let router_key = format!("{}/routers/{}", base_key, router_name);
     pairs.push(EtcdPair::new(
-        format!("{}/routers/{}/rule", base_key, router_name),
+        format!("{}/rule", router_key),
         rule.rule_str(),
     ));
     debug!("Added rule: {}", rule.rule_str());
     pairs.push(EtcdPair::new(
-        format!("{}/routers/{}/entrypoints/0", base_key, router_name),
+        format!("{}/entrypoints/0", router_key),
         "websecure",
     ));
     debug!("Added entrypoint: websecure");
-    pairs.push(EtcdPair::new(
-        format!("{}/routers/{}/tls", base_key, router_name),
-        "true",
-    ));
+    pairs.push(EtcdPair::new(format!("{}/tls", router_key), "true"));
     debug!("Added tls: true");
     pairs.push(EtcdPair::new(
-        format!(
-            "{}/services/{}/loadBalancer/passHostHeader",
-            base_key, router_name
-        ),
+        format!("{}/loadBalancer/passHostHeader", router_key),
         "true".to_string(),
     ));
     debug!("Added passHostHeader: true");
 
     // Set priority based on rule complexity
     pairs.push(EtcdPair::new(
-        format!("{}/routers/{}/priority", base_key, router_name),
+        format!("{}/priority", router_key),
         (1000 + rule.get_weight() * 10).to_string(),
     ));
     Ok(())
@@ -395,32 +499,25 @@ fn add_base_service_configuration(
     internal_deployment_config: &InternalDeploymentConfig,
 ) -> TraefikResult<()> {
     let deployment = internal_deployment_config.deployment.clone();
+    // let deployment_protocol = deployment.protocol;
+    let base_key = format!("{}/services/{}", base_key, service_name);
     debug!(
         "Adding service {} pointing to http://{}:{}",
         service_name, deployment.ip, deployment.port
     );
 
     pairs.push(EtcdPair::new(
-        format!(
-            "{}/services/{}/loadBalancer/servers/0/url",
-            base_key, service_name
-        ),
+        format!("{}/loadBalancer/servers/0/url", base_key),
         format!("http://{}:{}", deployment.ip, deployment.port),
     ));
 
     pairs.push(EtcdPair::new(
-        format!(
-            "{}/services/{}/loadBalancer/passHostHeader",
-            base_key, service_name
-        ),
+        format!("{}/loadBalancer/passHostHeader", base_key),
         "true".to_string(),
     ));
 
     pairs.push(EtcdPair::new(
-        format!(
-            "{}/services/{}/loadBalancer/responseForwarding/flushInterval",
-            base_key, service_name
-        ),
+        format!("{}/loadBalancer/responseForwarding/flushInterval", base_key),
         "100ms".to_string(),
     ));
 
@@ -437,23 +534,25 @@ pub fn add_middlewares(
     let mut middleware_idx = 0;
 
     // Add headers middleware first
+    let headers_name = format!("{}-headers", router_name);
     pairs.push(EtcdPair::new(
         format!(
             "{}/routers/{}/middlewares/{}",
             base_key, router_name, middleware_idx
         ),
-        format!("{}-headers", router_name),
+        headers_name,
     ));
     middleware_idx += 1;
 
     // Add strip prefix if provided
     if let Some(strip_name) = strip_prefix_name {
+        let strip_prefix_name = format!("{}-strip", strip_name);
         pairs.push(EtcdPair::new(
             format!(
                 "{}/routers/{}/middlewares/{}",
-                base_key, router_name, middleware_idx
+                base_key, router_name, strip_prefix_name
             ),
-            strip_name.to_string(),
+            "true".to_string(),
         ));
         middleware_idx += 1;
     }
@@ -708,7 +807,7 @@ mod tests {
         let mut rules = RuleConfig::default();
 
         // Create test deployments
-        let deployment1 = InternalDeploymentConfig {
+        let mut deployment1 = InternalDeploymentConfig {
             name: "test1".to_string(),
             deployment: create_test_deployment(),
             host_config: host.clone(),
@@ -719,14 +818,16 @@ mod tests {
             }),
             ..Default::default()
         };
+        deployment1.init();
 
-        let deployment2 = InternalDeploymentConfig {
+        let mut deployment2 = InternalDeploymentConfig {
             name: "test2".to_string(),
             deployment: create_test_deployment(),
             host_config: host.clone(),
             path_config: None,
             ..Default::default()
         };
+        deployment2.init();
 
         let deployments = vec![deployment1, deployment2];
 
@@ -735,32 +836,20 @@ mod tests {
         // Verify router configurations
         assert_contains_pair(
             &pairs,
-            "test/routers/test1-router/entrypoints/0",
-            "websecure",
-        );
-        assert_contains_pair(
-            &pairs,
-            "test/routers/test2-router/entrypoints/0",
-            "websecure",
+            "test/http/routers/test1-router/entrypoints/0 websecure",
         );
 
         // Verify strip prefix middleware for path deployment
         assert_contains_pair(
             &pairs,
-            "test/middlewares/test1-router-strip/stripPrefix/prefixes/0",
-            "/api",
+            "test/http/routers/test1-router/middlewares/test1-router-strip/stripPrefix/prefixes/0 /api",
         );
 
         // Verify service configurations
+        // test/http/services/test1-router-service/loadBalancer/servers/0/url
         assert_contains_pair(
             &pairs,
-            "test/services/test1-router-service/loadBalancer/servers/0/url",
-            "http://10.0.0.1:8080",
-        );
-        assert_contains_pair(
-            &pairs,
-            "test/services/test2-router-service/loadBalancer/servers/0/url",
-            "http://10.0.0.1:8080",
+            "test/http/services/test1-router-service/loadBalancer/servers/0/url http://10.0.0.1:8080",
         );
     }
 
@@ -769,12 +858,13 @@ mod tests {
         let mut host = create_test_host();
         host.middlewares = vec!["test-middleware".to_string()];
 
-        let deployment = InternalDeploymentConfig {
+        let mut deployment = InternalDeploymentConfig {
             name: "test".to_string(),
             deployment: create_test_deployment(),
             host_config: host.clone(),
             ..Default::default()
         };
+        deployment.init();
 
         let mut pairs = Vec::new();
         let mut rules = RuleConfig::default();
@@ -784,13 +874,11 @@ mod tests {
         // Verify middleware configuration
         assert_contains_pair(
             &pairs,
-            "test/routers/test-router/middlewares/0",
-            "test-router-headers",
+            "test/http/routers/test-router/middlewares/0 test-router-headers",
         );
         assert_contains_pair(
             &pairs,
-            "test/routers/test-router/middlewares/1",
-            "test-middleware",
+            "test/http/routers/test-router/middlewares/1 test-middleware",
         );
     }
 
@@ -809,48 +897,73 @@ mod tests {
     fn test_deployment_rules_and_services() {
         let mut host = create_test_host();
         host.domain = "domain.com".to_string();
-        let base_key = "traefik/http";
+        let base_key = "test";
         let mut pairs = Vec::new();
         let mut rules = RuleConfig::default();
         rules.add_host_rule(&host.domain);
 
-        let deployment = InternalDeploymentConfig {
+        let mut deployment = InternalDeploymentConfig {
             name: "test".to_string(),
             deployment: create_test_deployment(),
             host_config: host.clone(),
             ..Default::default()
         };
+        deployment.init();
 
         add_deployment_rules(&host, &[deployment], &mut pairs, base_key, &mut rules).unwrap();
-
-        let router_name = "test-router";
-        let service_name = "test-router-service";
 
         // Verify router rule exists
         assert_contains_pair(
             &pairs,
-            &format!("{}/routers/{}/rule", base_key, router_name),
-            "Host(`domain.com`)",
+            "test/http/routers/test-router/rule Host(`domain.com`)",
         );
 
         // Verify service exists with correct URL
         assert_contains_pair(
             &pairs,
-            &format!(
-                "{}/services/{}/loadBalancer/servers/0/url",
-                base_key, service_name
-            ),
-            "http://10.0.0.1:8080",
+            "test/http/services/test-router-service/loadBalancer/servers/0/url http://10.0.0.1:8080",
         );
 
         // Verify router is linked to service
         assert_contains_pair(
             &pairs,
-            &format!(
-                "{}/services/{}/loadBalancer/passHostHeader",
-                base_key, service_name
-            ),
-            "true",
+            "test/http/services/test-router-service/loadBalancer/passHostHeader true",
         );
+    }
+
+    #[test]
+    fn test_internal_deployment_to_etcd_pairs() {
+        let host = create_test_host();
+        let base_key = "test";
+
+        let rule_config = RuleConfig::default();
+
+        let mut deployment = InternalDeploymentConfig {
+            name: "test".to_string(),
+            deployment: create_test_deployment(),
+            host_config: host,
+            rules: rule_config,
+            ..Default::default()
+        };
+        deployment.init();
+
+        let pairs = deployment.to_etcd_pairs(base_key).unwrap();
+        let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
+        println!("test_internal_deployment_to_etcd_pairs: {:#?}", pair_strs);
+
+        assert_contains_pair(
+            &pairs,
+            "test/http/routers/test-router/rule Host(`test.example.com`)",
+        );
+        assert_contains_pair(
+            &pairs,
+            "test/http/routers/test-router/entrypoints/0 websecure",
+        );
+        assert_contains_pair(&pairs, "test/http/routers/test-router/tls true");
+        assert_contains_pair(
+            &pairs,
+            "test/http/services/test-router-service/loadBalancer/passHostHeader true",
+        );
+        assert_contains_pair(&pairs, "test/http/routers/test-router/priority 1010");
     }
 }

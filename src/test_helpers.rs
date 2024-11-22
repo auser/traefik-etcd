@@ -13,8 +13,9 @@ use crate::{
     TraefikConfig,
 };
 
-pub fn assert_contains_pair(pairs: &[EtcdPair], key: &str, value: &str) {
-    assert!(pairs.iter().any(|p| p.key() == key && p.value() == value));
+pub fn assert_contains_pair(pairs: &[EtcdPair], expected_value: &str) {
+    let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
+    assert!(pair_strs.contains(&expected_value.to_string()));
 }
 
 pub fn read_test_config() -> TraefikConfig {
@@ -24,6 +25,7 @@ pub fn read_test_config() -> TraefikConfig {
 
 pub fn create_test_deployment() -> DeploymentConfig {
     DeploymentConfig {
+        name: "blue".to_string(),
         ip: "10.0.0.1".to_string(),
         port: 8080,
         weight: 100,
@@ -46,6 +48,7 @@ pub fn create_test_host() -> HostConfig {
     host.deployments.insert(
         "blue".to_string(),
         DeploymentConfig {
+            name: "blue".to_string(),
             ip: "10.0.0.1".to_string(),
             port: 80,
             weight: 100,
@@ -63,6 +66,7 @@ pub fn create_test_host() -> HostConfig {
             map.insert(
                 "blue".to_string(),
                 DeploymentConfig {
+                    name: "blue".to_string(),
                     ip: "10.0.0.1".to_string(),
                     port: 80,
                     weight: 100,
@@ -176,6 +180,7 @@ pub fn create_test_config(host_configs: Option<Vec<HostConfig>>) -> TraefikConfi
             deployments: HashMap::from([(
                 "blue".to_string(),
                 DeploymentConfig {
+                    name: "blue".to_string(),
                     ip: "10.0.0.1".to_string(),
                     port: 80,
                     weight: 100,

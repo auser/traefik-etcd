@@ -60,6 +60,8 @@ impl Display for DeploymentProtocol {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DeploymentConfig {
+    #[serde(default)]
+    pub name: String,
     /// The ip address of the deployment
     #[serde(default = "default_ip")]
     pub ip: String,
@@ -83,6 +85,7 @@ pub struct DeploymentConfig {
 impl Default for DeploymentConfig {
     fn default() -> Self {
         Self {
+            name: "".to_string(),
             ip: default_ip(),
             port: default_port(),
             weight: default_weight(),
@@ -113,6 +116,11 @@ impl DeploymentConfig {
     pub fn builder() -> DeploymentConfigBuilder {
         DeploymentConfigBuilder::default()
     }
+
+    pub fn set_name(&mut self, name: &str) -> &mut Self {
+        self.name = name.to_string();
+        self
+    }
 }
 
 impl From<DeploymentConfig> for Option<SelectionConfig> {
@@ -123,6 +131,7 @@ impl From<DeploymentConfig> for Option<SelectionConfig> {
 
 #[derive(Default)]
 pub struct DeploymentConfigBuilder {
+    name: Option<String>,
     ip: Option<String>,
     port: Option<u16>,
     weight: Option<usize>,
@@ -132,6 +141,11 @@ pub struct DeploymentConfigBuilder {
 }
 
 impl DeploymentConfigBuilder {
+    pub fn name(mut self, name: String) -> Self {
+        self.name = Some(name);
+        self
+    }
+
     pub fn ip(mut self, ip: String) -> Self {
         self.ip = Some(ip);
         self
@@ -170,6 +184,7 @@ impl DeploymentConfigBuilder {
             selection: self.selection,
             protocol: self.protocol.unwrap_or(default_protocol()),
             middlewares: self.middlewares,
+            name: self.name.unwrap_or("deployment".to_string()),
         }
     }
 }
