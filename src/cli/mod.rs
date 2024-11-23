@@ -16,6 +16,7 @@ mod apply;
 mod clean;
 mod get;
 mod show;
+mod validate;
 
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None, name = NAME)]
@@ -45,6 +46,8 @@ pub enum Commands {
     Apply(apply::ApplyCommand),
     /// Clean the current traefik configuration
     Clean(clean::CleanCommand),
+    /// Validate the current traefik configuration
+    Validate,
 }
 
 #[instrument]
@@ -81,6 +84,9 @@ pub async fn run() -> TraefikResult<()> {
         }
         Commands::Clean(clean_command) => {
             clean::run(&clean_command, &client, &mut traefik_config).await?;
+        }
+        Commands::Validate => {
+            validate::run(&client, &mut traefik_config).await?;
         }
     }
 
