@@ -437,23 +437,23 @@ pub fn add_deployment_rules(
 
         debug!("Adding deployment middlewares for {}", router_name);
         let additional_middlewares = host.middlewares.clone();
-        // let strip_prefix_name = add_strip_prefix_middleware(
-        //     pairs,
-        //     &format!("{}/routers/{}", base_key, router_name),
-        //     &router_name,
-        //     deployment.path_config.clone(),
-        // )?;
+        let strip_prefix_name = add_strip_prefix_middleware(
+            pairs,
+            &base_key,
+            &router_name,
+            deployment.path_config.clone(),
+        )?;
 
+        let service_name = format!("{}-service", router_name);
         add_middlewares(
             &deployment.traefik_config,
             pairs,
             &base_key,
             &router_name,
             &additional_middlewares,
-            // strip_prefix_name.as_deref(),
+            strip_prefix_name.as_deref(),
         )?;
 
-        let service_name = format!("{}-service", router_name);
         add_base_service_configuration(pairs, &base_key, &service_name, deployment)?;
 
         // Link router to the correct service based on rule
@@ -542,42 +542,32 @@ pub fn add_middlewares(
     base_key: &str,
     router_name: &str,
     additional_middlewares: &[String],
-    // strip_prefix_name: Option<&str>,
+    strip_prefix_name: Option<&str>,
 ) -> TraefikResult<()> {
     let mut middleware_idx = 0;
 
-    // Add headers middleware first
-    let headers_name = format!("{}", router_name);
-    pairs.push(EtcdPair::new(
-        format!(
-            "{}/routers/{}/middlewares/{}",
-            base_key, router_name, middleware_idx
-        ),
-        headers_name,
-    ));
-    middleware_idx += 1;
-
     // Add strip prefix if provided
-    // if let Some(strip_name) = strip_prefix_name {
-    //     let strip_prefix_name = format!("{}-strip", strip_name);
-    //     pairs.push(EtcdPair::new(
-    //         format!(
-    //             "{}/routers/{}/middlewares/{}",
-    //             base_key, router_name, strip_prefix_name
-    //         ),
-    //         "true".to_string(),
-    //     ));
-    //     middleware_idx += 1;
-    // }
+    if let Some(strip_name) = strip_prefix_name {
+        let strip_prefix_name = format!("{}-strip", strip_name);
+        pairs.push(EtcdPair::new(
+            format!(
+                "{}/middlewares/{}/stripPrefix/prefixes/{}",
+                base_key, strip_prefix_name, middleware_idx
+            ),
+            strip_prefix_name.to_string(),
+        ));
+        middleware_idx += 1;
+    }
 
     // Add additional middlewares
     for middleware in additional_middlewares {
         match traefik_config.middlewares.get(middleware) {
-            Some(_middleware_config) => {
-                // let middleware_custom_name = format!("{}-{}", router_name, middleware);
-                // let mw_base_key = format!("{}/middlewares/{}", base_key, middleware_custom_name);
-                // let mw_pairs = middleware_config.to_etcd_pairs(&mw_base_key)?;
-                // pairs.extend(mw_pairs);
+            Some(middleware_config) => {
+                let middleware_custom_name = format!("{}-{}", router_name, middleware);
+                let mw_base_key = format!("{}/middlewares/{}", base_key, middleware_custom_name);
+                let mw_pairs = middleware_config.to_etcd_pairs(&mw_base_key)?;
+                pairs.extend(mw_pairs);
+
                 pairs.push(EtcdPair::new(
                     format!(
                         "{}/routers/{}/middlewares/{}",

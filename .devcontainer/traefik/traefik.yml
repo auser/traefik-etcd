@@ -62,8 +62,8 @@ accessLog:
       RouterName: keep
 
 tracing:
-  # addInternals: true
-  # serviceName: traefik
+  addInternals: true
+  serviceName: traefik
 
 metrics:
   prometheus:

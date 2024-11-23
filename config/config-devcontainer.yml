@@ -44,7 +44,7 @@ hosts:
 
     # Root path (catch-all)
     deployments:
-      catch-all:
+      ari-dot-io:
         ip: google.com
         port: 443
         weight: 100
