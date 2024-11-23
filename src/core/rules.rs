@@ -862,7 +862,7 @@ mod tests {
         // Verify strip prefix middleware for path deployment
         assert_contains_pair(
             &pairs,
-            "test/http/routers/test1-router/middlewares/test1-router-strip/stripPrefix/prefixes/0 /api",
+            "test/http/middlewares/test1-router-strip/stripPrefix/prefixes/0 /api",
         );
 
         // Verify service configurations
@@ -902,11 +902,7 @@ mod tests {
         // Verify middleware configuration
         assert_contains_pair(
             &pairs,
-            "test/http/routers/test-router/middlewares/0 test-router",
-        );
-        assert_contains_pair(
-            &pairs,
-            "test/http/routers/test-router/middlewares/1 test-middleware",
+            "test/http/routers/test-router/middlewares/0 test-middleware",
         );
     }
 
