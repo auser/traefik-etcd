@@ -5,3 +5,4 @@ public/
 frontend/node_modules/
 .traefik.db.sqlx
 .env
+.envrc
