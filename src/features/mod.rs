@@ -10,6 +10,12 @@ pub mod etcd;
 pub use etcd_client::KeyValue as KV;
 use serde::de::DeserializeOwned;
 
+#[cfg(feature = "api")]
+pub mod api;
+
+#[cfg(feature = "api")]
+pub use api::*;
+
 use crate::error::{TraefikError, TraefikResult};
 
 impl From<KV> for KeyValue {

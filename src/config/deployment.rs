@@ -13,6 +13,8 @@ use crate::{
 use super::selections::SelectionConfig;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
 pub enum DeploymentProtocol {
     #[default]
     #[serde(rename = "http")]
@@ -47,6 +49,17 @@ impl From<&str> for DeploymentProtocol {
     }
 }
 
+impl From<i32> for DeploymentProtocol {
+    fn from(protocol: i32) -> Self {
+        match protocol {
+            1 => DeploymentProtocol::Http,
+            2 => DeploymentProtocol::Https,
+            3 => DeploymentProtocol::Tcp,
+            _ => DeploymentProtocol::Invalid,
+        }
+    }
+}
+
 impl Display for DeploymentProtocol {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -59,6 +72,8 @@ impl Display for DeploymentProtocol {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 pub struct DeploymentConfig {
     #[serde(default)]
     pub name: String,

@@ -12,6 +12,8 @@ use crate::{
 };
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 pub struct HeadersConfig {
     #[serde(default)]
     pub custom_request_headers: HashMap<String, String>,

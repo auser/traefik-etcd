@@ -12,6 +12,7 @@ RUN apt-get update \
         libssl-dev \
         librust-openssl-dev \
         python3 python3-pip \
+        pkg-config \
         unzip
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -y | sh
@@ -21,6 +22,7 @@ RUN curl https://github.com/watchexec/cargo-watch/releases/download/v8.5.2/cargo
     && mv cargo-watch-v8.5.2-aarch64-apple-darwin/cargo-watch /home
 
 RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo install cargo-release
+RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo install sqlx-cli
 
 # Install cargo-binstall, which makes it easier to install other
 # cargo extensions like cargo-leptos
@@ -34,6 +36,7 @@ RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo install cargo-release
 FROM rust:slim-bookworm
 
 ARG DOCKER_COMPOSE_VERSION=2.23.0
+ARG MOLD_VERSION=2.30.0
 ARG ARCH=aarch64
 
 # This Dockerfile adds a non-root 'vscode' user with sudo access. However, for Linux,
@@ -67,6 +70,7 @@ RUN apt-get -y update \
         nodejs \
         zsh \
         git \
+        pkg-config \
         python3 python3-pip \
     # Clean up
     && apt-get autoremove -y \
@@ -97,6 +101,15 @@ RUN groupadd --gid $USER_GID $USERNAME \
     && rustup target add x86_64-unknown-linux-musl \
     && rustup target add wasm32-unknown-unknown
 
+
+    # Mold - Fast Rust Linker
+RUN curl -OL https://github.com/rui314/mold/releases/download/v$MOLD_VERSION/mold-$MOLD_VERSION-$ARCH-linux.tar.gz \
+    && tar -xf mold-$MOLD_VERSION-$ARCH-linux.tar.gz \
+    && mv ./mold-$MOLD_VERSION-$ARCH-linux/bin/mold /usr/bin/ \
+    && mv ./mold-$MOLD_VERSION-$ARCH-linux/lib/mold/mold-wrapper.so /usr/bin/ \
+    && rm mold-$MOLD_VERSION-$ARCH-linux.tar.gz \
+    && rm -rf ./mold-$MOLD_VERSION-$ARCH-linux \
+    && chmod +x /usr/bin/mold
 
 RUN curl -L https://github.com/docker/compose/releases/download/v$DOCKER_COMPOSE_VERSION/docker-compose-linux-$ARCH -o /usr/local/bin/docker-compose \
     && chmod +x /usr/local/bin/docker-compose

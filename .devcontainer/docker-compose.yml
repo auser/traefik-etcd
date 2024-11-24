@@ -2,12 +2,12 @@
 services:      
   mysql:
     image: mysql:8.0
-    hostname: MYSQL
+    hostname: mysql
     environment:
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-testpassword}
-      MYSQL_USER: ${MYSQL_USER:-mysql}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-traefikctl}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-testpassword}
+      MYSQL_USER: mysql
+      MYSQL_PASSWORD: mysql
+      MYSQL_DATABASE: traefikctl
+      MYSQL_ROOT_PASSWORD: mysql
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$MYSQL_ROOT_PASSWORD"]
       interval: 10s
@@ -15,6 +15,8 @@ services:
       retries: 5
     expose:
       - "3306:3306"
+    ports:
+      - 3306:3306
 
   etcd:
     build:
@@ -60,6 +62,8 @@ services:
     depends_on:
       etcd:
         condition: service_healthy
+      mysql:
+        condition: service_healthy
 
   development:
     build: 
@@ -82,7 +86,10 @@ services:
 
     environment:
       RUST_LOG: debug
-      DATABASE_URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE}
+      DATABASE_URL: mysql://mysql:mysql@mysql:3306/traefikctl
+      MYSQL_USER: mysql
+      MYSQL_PASSWORD: mysql
+      MYSQL_DATABASE: traefikctl
 
     # Overrides default command so things don't shut down after the process ends.
     command: sleep infinity

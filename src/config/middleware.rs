@@ -12,6 +12,8 @@ use crate::{
 use super::headers::HeadersConfig;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 pub struct MiddlewareConfig {
     /// The name of the middleware
     #[serde(default)]

@@ -10,6 +10,9 @@ pub enum TraefikError {
     #[error("IO error: {0}")]
     IOError(Box<dyn std::error::Error>),
 
+    #[error("anyhow error: {0}")]
+    AnyhowError(#[from] anyhow::Error),
+
     #[error("Etcd error: {0}")]
     EtcdError(String),
 
@@ -51,6 +54,10 @@ pub enum TraefikError {
 
     #[error("Not found: {0}")]
     NotFound(String),
+
+    #[cfg(feature = "api")]
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] sqlx::Error),
 }
 
 impl From<Box<dyn std::error::Error>> for TraefikError {
@@ -76,3 +83,16 @@ impl From<std::io::Error> for TraefikError {
         TraefikError::IOError(e.into())
     }
 }
+
+// impl TryFrom<i64> for DeploymentProtocol {
+//     type Error = TraefikError;
+
+//     fn try_from(value: i64) -> Result<Self, Self::Error> {
+//         match value {
+//             1 => Ok(DeploymentProtocol::Http),
+//             2 => Ok(DeploymentProtocol::Https),
+//             3 => Ok(DeploymentProtocol::Tcp),
+//             _ => Ok(DeploymentProtocol::Invalid),
+//         }
+//     }
+// }

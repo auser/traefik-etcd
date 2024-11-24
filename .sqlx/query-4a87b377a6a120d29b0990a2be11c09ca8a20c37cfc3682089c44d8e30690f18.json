@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                INSERT INTO deployments (name, ip, port, weight, protocol_id, path_id)\n                VALUES (?, ?, ?, ?, ?, ?)\n                RETURNING id\n                ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "4a87b377a6a120d29b0990a2be11c09ca8a20c37cfc3682089c44d8e30690f18"
+}

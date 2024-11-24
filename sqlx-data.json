@@ -1,0 +1,10 @@
+{
+  "db": "MySQL",
+  "url": {
+    "username": "mysql",
+    "password": "mysql",
+    "host": "mysql",
+    "port": 3306,
+    "database": "traefikctl"
+  }
+}

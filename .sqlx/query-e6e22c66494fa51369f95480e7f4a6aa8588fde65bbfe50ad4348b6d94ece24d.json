@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                        INSERT INTO with_cookie_configs (selection_config_id, name, value)\n                        VALUES (?, ?, ?)\n                        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "e6e22c66494fa51369f95480e7f4a6aa8588fde65bbfe50ad4348b6d94ece24d"
+}

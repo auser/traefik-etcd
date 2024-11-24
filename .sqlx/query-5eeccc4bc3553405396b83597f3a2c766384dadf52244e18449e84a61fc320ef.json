@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n          INSERT INTO from_client_ip_configs (selection_config_id, range, ip)\n          VALUES (?, ?, ?)\n          ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "5eeccc4bc3553405396b83597f3a2c766384dadf52244e18449e84a61fc320ef"
+}

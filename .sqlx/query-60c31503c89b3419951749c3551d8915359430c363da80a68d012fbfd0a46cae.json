@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            INSERT INTO host_middlewares (host_id, middleware_id)\n            SELECT ?, id FROM middlewares WHERE name = ?\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "60c31503c89b3419951749c3551d8915359430c363da80a68d012fbfd0a46cae"
+}

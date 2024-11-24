@@ -1,0 +1,2 @@
+[env]
+DATABASE_URL = "mysql://root:mysql@mysql:3306/traefikctl"

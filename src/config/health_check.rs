@@ -6,6 +6,8 @@ use crate::{
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 pub struct HealthCheckConfig {
     pub path: String,
     pub interval: String,

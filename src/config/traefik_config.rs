@@ -21,6 +21,8 @@ use super::{
 };
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 pub struct TraefikConfig {
     #[serde(default = "default_rule_prefix")]
     pub rule_prefix: String,

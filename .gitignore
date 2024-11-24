@@ -3,3 +3,5 @@ config/tls/*.pem
 config/herringbank.yml
 public/
 frontend/node_modules/
+.traefik.db.sqlx
+.env

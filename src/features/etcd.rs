@@ -1,4 +1,4 @@
-use std::{path::PathBuf, time::Duration};
+use std::time::Duration;
 
 use async_trait::async_trait;
 use color_eyre::eyre::{eyre, Result};
@@ -19,6 +19,7 @@ use super::KeyValue;
 /// The configuration for the etcd client
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default)]
+#[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 pub struct EtcdConfig {
     pub endpoints: Vec<String>,
     pub timeout: u64,
@@ -29,11 +30,12 @@ pub struct EtcdConfig {
 
 /// The configuration for the TLS options
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 pub struct TlsOptions {
     pub domain: Option<String>,
-    pub cert: Option<PathBuf>,
-    pub key: Option<PathBuf>,
-    pub ca: Option<PathBuf>,
+    pub cert: Option<String>,
+    pub key: Option<String>,
+    pub ca: Option<String>,
 }
 
 impl Default for EtcdConfig {

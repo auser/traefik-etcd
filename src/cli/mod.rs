@@ -16,6 +16,8 @@ mod apply;
 mod clean;
 mod generate;
 mod get;
+#[cfg(feature = "api")]
+mod serve;
 mod show;
 mod validate;
 
@@ -51,6 +53,9 @@ pub enum Commands {
     Validate,
     /// Generate a starter traefik configuration
     Generate(generate::GenerateCommand),
+    #[cfg(feature = "api")]
+    /// Serve the API
+    Serve(serve::ServeCommand),
 }
 
 #[instrument]
@@ -93,6 +98,10 @@ pub async fn run() -> TraefikResult<()> {
         }
         Commands::Generate(generate_command) => {
             generate::run(&generate_command, &client, &mut traefik_config).await?;
+        }
+        #[cfg(feature = "api")]
+        Commands::Serve(serve_command) => {
+            serve::run(&serve_command, &client, &mut traefik_config).await?;
         }
     }
 
