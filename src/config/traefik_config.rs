@@ -14,7 +14,11 @@ use crate::{
     features::etcd::{self, Etcd},
 };
 
-use super::{host::HostConfig, middleware::MiddlewareConfig};
+use super::{
+    deployment::DeploymentConfig,
+    host::{HostConfig, PathConfig},
+    middleware::MiddlewareConfig,
+};
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct TraefikConfig {
@@ -169,51 +173,48 @@ impl TraefikConfig {
 
         Ok(())
     }
+}
 
-    // fn add_defaults(&self, pairs: &mut Vec<EtcdPair>, base_key: &str) -> TraefikResult<()> {
-    //     for host in self.hosts.iter() {
-    //         self.add_default_redirect_router(pairs, base_key, &host.domain)?;
-    //     }
-    //     Ok(())
-    // }
+impl TraefikConfig {
+    pub fn generate_config(domain: Option<String>) -> TraefikConfig {
+        let domain = domain.unwrap_or_else(|| "your-domain.com".to_string());
 
-    // fn add_default_redirect_router(
-    //     &self,
-    //     pairs: &mut Vec<EtcdPair>,
-    //     base_key: &str,
-    //     domain: &str,
-    // ) -> TraefikResult<()> {
-    //     let safe_name = format!("to-www-{}", get_safe_key(domain));
+        let host_config = HostConfig::builder()
+            .domain(domain)
+            .path(
+                "/api".to_string(),
+                PathConfig::builder()
+                    .path("/api".to_string())
+                    .deployment(
+                        "blue".to_string(),
+                        DeploymentConfig::builder()
+                            .ip("10.0.0.1".to_string())
+                            .port(80)
+                            .weight(100)
+                            .build(),
+                    )
+                    .build(),
+            )
+            .deployment(
+                "default".to_string(),
+                DeploymentConfig::builder()
+                    .ip("10.0.0.1".to_string())
+                    .port(80)
+                    .weight(100)
+                    .build(),
+            )
+            .build()
+            .unwrap();
 
-    //     // Add router to catch non-www version
-    //     pairs.push(EtcdPair::new(
-    //         format!("{}/routers/{}/rule", base_key, safe_name),
-    //         format!("Host(`{}`)", domain),
-    //     ));
+        let host_configs = vec![host_config];
 
-    //     pairs.push(EtcdPair::new(
-    //         format!("{}/routers/{}/entrypoints/0", base_key, safe_name),
-    //         "websecure".to_string(),
-    //     ));
-
-    //     pairs.push(EtcdPair::new(
-    //         format!("{}/routers/{}/middlewares/0", base_key, safe_name),
-    //         "add-www".to_string(),
-    //     ));
-
-    //     pairs.push(EtcdPair::new(
-    //         format!("{}/routers/{}/tls", base_key, safe_name),
-    //         "true".to_string(),
-    //     ));
-
-    //     // Set higher priority for the redirect router
-    //     pairs.push(EtcdPair::new(
-    //         format!("{}/routers/{}/priority", base_key, safe_name),
-    //         "200".to_string(),
-    //     ));
-
-    //     Ok(())
-    // }
+        TraefikConfig {
+            etcd: Default::default(),
+            middlewares: HashMap::new(),
+            hosts: host_configs,
+            rule_prefix: "test".to_string(),
+        }
+    }
 }
 
 impl TraefikConfig {
@@ -383,5 +384,13 @@ mod tests {
         let config: TraefikConfig = serde_yaml::from_str(config_str).unwrap();
         let validation_result = config.validate();
         assert!(validation_result.is_ok());
+    }
+
+    #[test]
+    fn test_config_can_be_serialized() {
+        let config = TraefikConfig::generate_config(None);
+        let serialized = serde_yaml::to_string(&config).unwrap();
+        assert!(!serialized.is_empty());
+        assert!(serialized.contains("domain: your-domain.com"));
     }
 }

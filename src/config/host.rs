@@ -268,7 +268,7 @@ impl HostConfigBuilder {
         let host_config = HostConfig {
             domain: self.domain,
             deployments: self.deployments,
-            paths: self.paths.into_values().collect(),
+            paths: self.paths.values().cloned().collect(),
             middlewares: self.middlewares,
             selection: None,
         };

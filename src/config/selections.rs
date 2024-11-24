@@ -7,9 +7,9 @@ use crate::{
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct SelectionConfig {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub with_cookie: Option<WithCookieConfig>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from_client_ip: Option<FromClientIpConfig>,
 }
 

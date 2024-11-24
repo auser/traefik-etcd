@@ -14,6 +14,7 @@ use crate::{
 
 mod apply;
 mod clean;
+mod generate;
 mod get;
 mod show;
 mod validate;
@@ -48,6 +49,8 @@ pub enum Commands {
     Clean(clean::CleanCommand),
     /// Validate the current traefik configuration
     Validate,
+    /// Generate a starter traefik configuration
+    Generate(generate::GenerateCommand),
 }
 
 #[instrument]
@@ -65,8 +68,8 @@ pub async fn run() -> TraefikResult<()> {
     info!("Reading config file: {:?}", &cli.config_file);
     let config_file = cli.config_file.unwrap_or_default();
 
-    let config = std::fs::read_to_string(&config_file)?;
-    let mut traefik_config: TraefikConfig = serde_yaml::from_str(&config)?;
+    let config = std::fs::read_to_string(&config_file).unwrap_or_default();
+    let mut traefik_config: TraefikConfig = serde_yaml::from_str(&config).unwrap_or_default();
     let etcd_client = Etcd::new(&traefik_config.etcd).await?;
 
     #[cfg(feature = "etcd")]
@@ -87,6 +90,9 @@ pub async fn run() -> TraefikResult<()> {
         }
         Commands::Validate => {
             validate::run(&client, &mut traefik_config).await?;
+        }
+        Commands::Generate(generate_command) => {
+            generate::run(&generate_command, &client, &mut traefik_config).await?;
         }
     }
 
