@@ -1,27 +1,15 @@
-[tasks.watch-frontend]
-cwd = "./frontend"
-command = "npm"
-args = ["run", "dev"]
-
-[tasks.watch-server]
+[tasks.watch-backend]
 command = "cargo"
-cwd = "."
-args = ["watch", "-w", "src", "-x", "run", "--", "serve"]
+args = ["run", "--", "serve"]
+watch = { watch = ["./src/", "./bin/"] }
+workspace = false
+
+[tasks.watch-frontend]
+command = "pnpm"
+cwd = "./frontend"
+args = ["run", "dev", "--host"]
+watch = { watch = ["./frontend/"] }
+workspace = false
 
 [tasks.dev]
-run_task = [{ name = ["watch-frontend", "watch-server"] }]
-
-[tasks.build]
-command = "cargo"
-cwd = "."
-args = ["build"]
-
-[tasks.typeshare-ts]
-command = "typeshare"
-cwd = "."
-args = [
-  "--lang",
-  "typescript",
-  "--output-file=frontend/src/types/traefik.ts",
-  "./src",
-]
+run_task = { name = ["watch-backend", "watch-frontend"], parallel = true }

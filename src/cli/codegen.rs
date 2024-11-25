@@ -54,7 +54,7 @@ pub async fn run(
 }
 
 async fn gen_schemas(_language: GeneratedLanguage, output: PathBuf) -> anyhow::Result<()> {
-    let name = "traefik";
+    let name = "index";
     let tmpdir = Builder::new().prefix("traefikctl").tempdir()?;
     let schemas = &[
         (
@@ -113,6 +113,9 @@ async fn gen_schemas(_language: GeneratedLanguage, output: PathBuf) -> anyhow::R
         println!("Generated {}", generated_schema_file.display());
     }
 
+    // ensure the output directory exists
+    std::fs::create_dir_all(output.clone())?;
+
     let mut cmd = tokio::process::Command::new("quicktype");
     cmd.arg(tmpdir)
         .arg("-l")
@@ -168,6 +171,7 @@ async fn gen_schema_file(
     Ok(schema_output_path)
 }
 
+#[allow(dead_code)]
 async fn gen_lang(
     language: &GeneratedLanguage,
     name: &str,
