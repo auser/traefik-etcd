@@ -66,7 +66,7 @@ pub mod operations {
         .await
     }
 
-    pub async fn get_configs() -> Result<Vec<ConfigVersion>, sqlx::Error> {
+    pub async fn get_configs(pool: &Pool<MySql>) -> Result<Vec<ConfigVersion>, sqlx::Error> {
         sqlx::query_as::<_, ConfigVersion>(
             r#"
             SELECT id, name, config, created_at, updated_at, version
@@ -74,11 +74,12 @@ pub mod operations {
             ORDER BY created_at DESC
             "#,
         )
-        .fetch_all(&*DB)
+        .fetch_all(pool)
         .await
     }
 
     pub async fn save_config(
+        pool: &Pool<MySql>,
         name: String,
         config: serde_json::Value,
     ) -> Result<ConfigVersion, sqlx::Error> {
@@ -90,7 +91,7 @@ pub mod operations {
         )
         .bind(name)
         .bind(config)
-        .execute(&*DB)
+        .execute(pool)
         .await?;
 
         let id = result.last_insert_id();
@@ -103,7 +104,7 @@ pub mod operations {
             "#,
         )
         .bind(id)
-        .fetch_one(&*DB)
+        .fetch_one(pool)
         .await
     }
 }

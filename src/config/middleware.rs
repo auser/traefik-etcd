@@ -1,3 +1,4 @@
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -11,7 +12,7 @@ use crate::{
 
 use super::headers::HeadersConfig;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 pub struct MiddlewareConfig {

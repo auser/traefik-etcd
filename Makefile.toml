@@ -1,12 +1,27 @@
-[tasks.watch-tailwind]
+[tasks.watch-frontend]
+cwd = "./frontend"
 command = "npm"
-cwd = "./frontend"
-args = ["run", "watch"]
+args = ["run", "dev"]
 
-[tasks.watch-leptos]
+[tasks.watch-server]
 command = "cargo"
-cwd = "./frontend"
-args = ["leptos", "watch"]
+cwd = "."
+args = ["watch", "-w", "src", "-x", "run", "--", "serve"]
 
 [tasks.dev]
-run_task = [{ name = ["watch-tailwind", "watch-leptos"] }]
+run_task = [{ name = ["watch-frontend", "watch-server"] }]
+
+[tasks.build]
+command = "cargo"
+cwd = "."
+args = ["build"]
+
+[tasks.typeshare-ts]
+command = "typeshare"
+cwd = "."
+args = [
+  "--lang",
+  "typescript",
+  "--output-file=frontend/src/types/traefik.ts",
+  "./src",
+]

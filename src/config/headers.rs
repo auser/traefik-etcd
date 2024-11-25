@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -11,7 +12,7 @@ use crate::{
     error::{TraefikError, TraefikResult},
 };
 
-#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 pub struct HeadersConfig {

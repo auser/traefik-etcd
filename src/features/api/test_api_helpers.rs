@@ -80,6 +80,7 @@ impl TestServer {
             host: "127.0.0.1".to_string(),
             port: 0,
             database_url: None,
+            hmac_key: "".to_string(),
         };
         let test_user_id = get_next_user_count();
         let test_user = format!("test_user_{}", test_user_id);
@@ -151,7 +152,6 @@ fn catch_panics() {
     let default_panic = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         default_panic(info);
-        // TODO: close down databases?
     }));
 }
 

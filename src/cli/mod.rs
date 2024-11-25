@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use tracing::{info, instrument};
+use tracing::{debug, instrument};
 
 use crate::{
     config::traefik_config::TraefikConfig,
@@ -14,10 +14,11 @@ use crate::{
 
 mod apply;
 mod clean;
+mod codegen;
 mod generate;
 mod get;
 #[cfg(feature = "api")]
-mod serve;
+pub(crate) mod serve;
 mod show;
 mod validate;
 
@@ -56,6 +57,8 @@ pub enum Commands {
     #[cfg(feature = "api")]
     /// Serve the API
     Serve(serve::ServeCommand),
+    /// Generate the typescript types
+    Codegen(codegen::CodegenCommand),
 }
 
 #[instrument]
@@ -70,7 +73,7 @@ pub async fn run() -> TraefikResult<()> {
     };
     init_tracing(NAME, &log_config)?;
 
-    info!("Reading config file: {:?}", &cli.config_file);
+    debug!("Reading config file: {:?}", &cli.config_file);
     let config_file = cli.config_file.unwrap_or_default();
 
     let config = std::fs::read_to_string(&config_file).unwrap_or_default();
@@ -102,6 +105,9 @@ pub async fn run() -> TraefikResult<()> {
         #[cfg(feature = "api")]
         Commands::Serve(serve_command) => {
             serve::run(&serve_command, &client, &mut traefik_config).await?;
+        }
+        Commands::Codegen(codegen_command) => {
+            codegen::run(&codegen_command, &client, &mut traefik_config).await?;
         }
     }
 

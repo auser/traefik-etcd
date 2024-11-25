@@ -1,9 +1,11 @@
-pub mod controllers;
 pub mod db;
+pub mod error;
 pub mod models;
+pub mod routes;
 pub mod server;
 pub mod utils;
 
+pub use error::*;
 pub use utils::*;
 
 pub use server::*;

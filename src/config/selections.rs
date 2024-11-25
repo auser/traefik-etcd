@@ -1,3 +1,4 @@
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -5,7 +6,7 @@ use crate::{
     error::{TraefikError, TraefikResult},
 };
 
-#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 pub struct SelectionConfig {
@@ -31,7 +32,7 @@ impl Validate for SelectionConfig {
 
 /// The configuration for the with cookie selection
 /// This is used to select a deployment based on a cookie.
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 pub struct WithCookieConfig {
@@ -68,7 +69,7 @@ impl Validate for WithCookieConfig {
 /// The configuration for the from client ip selection
 /// This is used to select a deployment based on the client's ip address
 /// or a range of ip addresses.
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
 pub struct FromClientIpConfig {

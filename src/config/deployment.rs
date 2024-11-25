@@ -1,7 +1,5 @@
 use std::fmt::Display;
 
-use serde::{Deserialize, Serialize};
-
 use crate::{
     core::{
         util::{validate_is_alphanumeric, validate_port},
@@ -9,12 +7,14 @@ use crate::{
     },
     error::{TraefikError, TraefikResult},
 };
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 use super::selections::SelectionConfig;
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::Type))]
 pub enum DeploymentProtocol {
     #[default]
     #[serde(rename = "http")]
@@ -71,7 +71,7 @@ impl Display for DeploymentProtocol {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 pub struct DeploymentConfig {

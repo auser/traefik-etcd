@@ -6,6 +6,7 @@ use etcd_client::{
     Certificate, Client, ConnectOptions, DeleteOptions, GetOptions, Identity, PutOptions,
     TlsOptions as ECTlsOptions,
 };
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 
@@ -17,7 +18,7 @@ use crate::{
 use super::KeyValue;
 
 /// The configuration for the etcd client
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(default)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 pub struct EtcdConfig {
@@ -29,7 +30,7 @@ pub struct EtcdConfig {
 }
 
 /// The configuration for the TLS options
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 pub struct TlsOptions {
     pub domain: Option<String>,

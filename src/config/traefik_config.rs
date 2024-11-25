@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error};
 
@@ -20,7 +21,7 @@ use super::{
     middleware::MiddlewareConfig,
 };
 
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 pub struct TraefikConfig {
@@ -208,9 +209,11 @@ impl TraefikConfig {
             .build()
             .unwrap();
 
+        // Demo
         let host_configs = vec![host_config];
 
         TraefikConfig {
+            #[cfg(feature = "etcd")]
             etcd: Default::default(),
             middlewares: HashMap::new(),
             hosts: host_configs,

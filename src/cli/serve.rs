@@ -10,9 +10,13 @@ use crate::{
 #[derive(Args, Debug)]
 pub struct ServeCommand {
     #[arg(short = 'H', long, default_value = "0.0.0.0")]
-    host: String,
+    pub host: String,
     #[arg(short, long, default_value = "9090")]
-    port: u16,
+    pub port: u16,
+    #[arg(long, env, default_value = "default_hmac_key")]
+    pub hmac_key: String,
+    #[arg(long, env, default_value = "default_database_url")]
+    pub database_url: String,
 }
 
 pub async fn run(
@@ -23,7 +27,8 @@ pub async fn run(
     let server_config = ServerConfig {
         host: command.host.clone(),
         port: command.port,
-        database_url: None,
+        database_url: Some(command.database_url.clone()),
+        hmac_key: command.hmac_key.clone(),
     };
 
     crate::features::api::run(server_config).await?;

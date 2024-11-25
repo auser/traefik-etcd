@@ -122,6 +122,13 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash 
 RUN curl https://raw.githubusercontent.com/microsoft/vscode-dev-containers/main/script-library/docker-debian.sh \
 | bash -s -- true /var/run/docker-host.sock /var/run/docker.sock vscode false latest
 
+# Cargo utils
+RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo install cargo-release
+RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo install sqlx-cli
+RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo install cargo watch
+RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo install cargo make
+RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo install typeshare-cli
+
 # Install cfssl
 RUN curl -fsSL https://github.com/cloudflare/cfssl/releases/download/v1.6.4/cfssl_1.6.4_linux_arm64 -o /usr/local/bin/cfssl \
     && curl -fsSL https://github.com/cloudflare/cfssl/releases/download/v1.6.4/cfssljson_1.6.4_linux_arm64 -o /usr/local/bin/cfssljson \

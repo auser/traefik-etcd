@@ -22,7 +22,7 @@ eula = false
 
 [dependencies]
 async-trait = "0.1.83"
-axum = { version = "0.7.9", optional = true }
+axum = { version = "0.7.9", features = ["tower-log"], optional = true }
 chrono = { version = "0.4.38", optional = true, features = ["serde"] }
 clap = { version = "4.5.21", features = ["derive", "env"], optional = true }
 color-eyre = { version = "0.6.3", optional = true }
@@ -37,7 +37,11 @@ serde_json = "1.0.133"
 serde_yaml = "0.9.34"
 thiserror = "2.0.3"
 time = { version = "0.3.36", optional = true }
-tokio = { version = "1.41.1", features = ["rt-multi-thread"] }
+tokio = { version = "1.41.1", features = [
+  "rt-multi-thread",
+  "macros",
+  "process",
+] }
 tracing = { version = "0.1.40", optional = true }
 tracing-appender = { version = "0.2.3", optional = true }
 tracing-subscriber = { version = "0.3.18", optional = true, features = [
@@ -66,7 +70,12 @@ sqlx = { version = "0.8", default-features = false, features = [
   "macros",
   "migrate",
 ], optional = true }
-tower-http = { version = "0.6", features = ["trace", "cors"], optional = true }
+tower-http = { version = "0.6", features = [
+  "trace",
+  "cors",
+  "add-extension",
+  "fs",
+], optional = true }
 anyhow = "1.0.93"
 dotenvy = "0.15.7"
 once_cell = { version = "1.20.2", optional = true }
@@ -77,20 +86,26 @@ deadpool = { version = "0.12.1", optional = true, features = [
   "serde",
   "managed",
 ] }
-mysql_async = { version = "0.34.2", optional = true }
-deadpool-diesel = { version = "0.6.1", optional = true, features = [
-  "mysql",
-  "serde",
-  "tracing",
-] }
-mysql = { version = "25.0.1", optional = true }
 futures-util = "0.3.31"
 reqwest = { version = "0.12.9", optional = true }
+tower = { version = "0.5", optional = true }
+tower-sessions = { version = "0.13.0", optional = true }
+hmac = { version = "0.12.1", optional = true }
+jwt = { version = "0.16.0", optional = true }
+sha2 = { version = "0.10.8", optional = true }
+uuid = { version = "1.11.0", optional = true, features = ["serde"] }
+argon2 = { version = "0.5.3", optional = true }
+typeshare = "1.0.4"
+schemars = { version = "0.8.21", optional = true }
+tempdir = { version = "0.3.7", optional = true }
+tempfile = { version = "3.14.0", optional = true }
 
 
 [features]
 default = ["cli", "tracing", "etcd", "api"]
+full = ["default", "tracing", "etcd", "api"]
 cli = ["dep:color-eyre", "dep:clap"]
+gen = []
 tracing = [
   "dep:chrono",
   "dep:time",
@@ -112,12 +127,22 @@ api = [
   "dep:url",
   "dep:env_logger",
   "dep:reqwest",
+  "dep:tower",
+  "dep:tower-sessions",
+  "dep:hmac",
+  "dep:jwt",
+  "dep:sha2",
+  "dep:uuid",
+  "dep:argon2",
+  "dep:schemars",
+  "dep:tempfile",
 ]
 
 
 [build-dependencies]
 protoc = "2.28.0"
 cargo-dist = "0.25.1"
+# traefikctl = { path = ".", features = ["full"] }
 
 [dev-dependencies]
 pretty_assertions = "1.4"
