@@ -57,7 +57,23 @@ pub enum TraefikError {
 
     #[cfg(feature = "api")]
     #[error("Database error: {0}")]
-    DatabaseError(#[from] sqlx::Error),
+    DatabaseError(String),
+
+    #[cfg(feature = "api")]
+    #[error("Database already exists")]
+    DatabaseAlreadyExists,
+
+    #[cfg(feature = "api")]
+    #[error("Database creation failed")]
+    DatabaseCreationFailed,
+
+    #[cfg(feature = "api")]
+    #[error("Database drop failed: {0}")]
+    DatabaseDropFailed(String),
+
+    #[cfg(feature = "api")]
+    #[error("Migration error: {0}")]
+    MigrationError(String),
 }
 
 impl From<Box<dyn std::error::Error>> for TraefikError {
@@ -84,15 +100,20 @@ impl From<std::io::Error> for TraefikError {
     }
 }
 
-// impl TryFrom<i64> for DeploymentProtocol {
-//     type Error = TraefikError;
+impl From<sqlx::migrate::MigrateError> for TraefikError {
+    fn from(e: sqlx::migrate::MigrateError) -> Self {
+        TraefikError::MigrationError(e.to_string())
+    }
+}
 
-//     fn try_from(value: i64) -> Result<Self, Self::Error> {
-//         match value {
-//             1 => Ok(DeploymentProtocol::Http),
-//             2 => Ok(DeploymentProtocol::Https),
-//             3 => Ok(DeploymentProtocol::Tcp),
-//             _ => Ok(DeploymentProtocol::Invalid),
-//         }
-//     }
-// }
+impl From<sqlx::Error> for TraefikError {
+    fn from(e: sqlx::Error) -> Self {
+        TraefikError::DatabaseError(e.to_string())
+    }
+}
+
+impl From<url::ParseError> for TraefikError {
+    fn from(e: url::ParseError) -> Self {
+        TraefikError::ParsingError(e.into())
+    }
+}

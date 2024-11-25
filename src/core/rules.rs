@@ -2,8 +2,9 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
-use tracing::debug;
+use tracing::{debug, error};
 
+use crate::config::deployment::DeploymentProtocol;
 use crate::error::TraefikError;
 use crate::{
     config::{
@@ -311,7 +312,20 @@ impl ToEtcdPairs for InternalDeploymentConfig {
 impl InternalDeploymentConfig {
     pub fn init(&mut self) -> &mut Self {
         let mut rules = self.rules.clone();
-        rules.add_host_rule(&self.host_config.domain);
+        match self.deployment.protocol {
+            DeploymentProtocol::Http => {
+                rules.add_host_rule(&self.host_config.domain);
+            }
+            DeploymentProtocol::Https => {
+                rules.add_host_rule(&self.host_config.domain);
+            }
+            DeploymentProtocol::Tcp => {
+                rules.add_tcp_rule(&self.host_config.domain);
+            }
+            DeploymentProtocol::Invalid => {
+                error!("Invalid deployment protocol for {}", self.name);
+            }
+        };
         // Add the path rule if it exists
         rules.add_default_rule_from_optional_path("PathPrefix", self.path_config.as_ref());
         // Add the selection rules

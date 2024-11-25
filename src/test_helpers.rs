@@ -10,6 +10,7 @@ use crate::{
         selections::{SelectionConfig, WithCookieConfig},
     },
     core::etcd_trait::EtcdPair,
+    tracing::{init_tracing, LogConfig},
     TraefikConfig,
 };
 
@@ -251,4 +252,16 @@ pub fn create_test_middleware() -> HashMap<String, MiddlewareConfig> {
             },
         ),
     ])
+}
+
+pub fn init_test_tracing() {
+    init_tracing(
+        "traefik-ctl",
+        &LogConfig {
+            max_level: "debug".to_string(),
+            filter: "debug".to_string(),
+            rolling_file_path: None,
+        },
+    )
+    .unwrap();
 }

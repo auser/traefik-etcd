@@ -86,9 +86,9 @@ services:
 
     environment:
       RUST_LOG: debug
-      DATABASE_URL: mysql://mysql:mysql@mysql:3306/traefikctl
+      DATABASE_URL: mysql://mysql:testpassword@mysql:3306/traefikctl
       MYSQL_USER: mysql
-      MYSQL_PASSWORD: mysql
+      MYSQL_PASSWORD: testpassword
       MYSQL_DATABASE: traefikctl
 
     # Overrides default command so things don't shut down after the process ends.

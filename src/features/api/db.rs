@@ -1,84 +1,109 @@
-use std::str::FromStr;
+use std::time::Duration;
 
-use anyhow::Context;
-use dotenvy::dotenv;
+use once_cell::sync::Lazy;
 use sqlx::{mysql::MySqlPoolOptions, MySql, Pool};
 
+use super::models::{ConfigVersion, DeploymentProtocol};
 use crate::error::TraefikResult;
 
-#[derive(Debug)]
-pub enum DatabaseType {
-    Mysql,
-}
+// #[cfg(test)]
+// pub(crate) mod macs;
+#[cfg(test)]
+pub(crate) mod test_database;
 
-impl FromStr for DatabaseType {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "mysql" => Ok(DatabaseType::Mysql),
-            _ => Err("Unsupported database type".to_string()),
-        }
-    }
-}
-
-pub async fn run_migrations(db_type: DatabaseType, pool: &Pool<MySql>) -> TraefikResult<()> {
-    match db_type {
-        DatabaseType::Mysql => migrate_mysql(pool).await,
-    }
-}
-
-pub async fn prepare_database(database_url: Option<String>) -> TraefikResult<Pool<MySql>> {
-    // prepare connection pool
-    let pool = create_pool(database_url).await?;
-
-    // prepare schema in db if it does not yet exist
-    run_migrations(DatabaseType::Mysql, &pool).await?;
-
-    Ok(pool)
-}
+pub static DB: Lazy<Pool<MySql>> = Lazy::new(|| {
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        create_pool(None)
+            .await
+            .expect("Failed to create database pool")
+    })
+});
 
 async fn create_pool(database_url: Option<String>) -> Result<Pool<MySql>, sqlx::Error> {
-    dotenv().ok();
-
     let database_url = database_url.unwrap_or_else(|| {
         std::env::var("DATABASE_URL")
-            .context("DATABASE_URL must be set")
-            .unwrap()
+            .unwrap_or_else(|_| "mysql://root:password@localhost/traefik_config".to_string())
     });
 
-    // Add multiple statements support to the connection URL
-    let database_url = if database_url.contains('?') {
-        format!("{}&multiple_statements=true", database_url)
-    } else {
-        format!("{}?multiple_statements=true", database_url)
-    };
-
     MySqlPoolOptions::new()
-        .max_connections(5)
+        .max_connections(10)
+        .min_connections(1)
+        .acquire_timeout(Duration::from_secs(3))
+        .idle_timeout(Duration::from_secs(600))
+        .max_lifetime(Duration::from_secs(1800))
         .connect(&database_url)
         .await
 }
 
-async fn migrate_mysql(pool: &Pool<MySql>) -> TraefikResult<()> {
-    // let sql = include_str!("../../../migrations/20241124033729_initial_schema.sql");
+pub async fn prepare_database(database_url: Option<String>) -> TraefikResult<Pool<MySql>> {
+    // Initialize the database pool
+    let pool = create_pool(database_url).await?;
 
-    // let mut tx = pool.begin().await?;
-    // sqlx::migrate!("./migrations").run(&mut *pool).await?;
-    // sqlx::query(sql).execute(&mut *tx).await?;
-    // tx.commit().await?;
-
-    Ok(())
+    //     // Run migrations
+    //     let test_migration = r#"
+    //     -- test_setup.sql
+    // DROP DATABASE IF EXISTS traefik_config_test;
+    // CREATE DATABASE traefik_config_test;
+    // USE traefik_config_test;"#;
+    //     sqlx::query(test_migration).execute(&pool).await?;
+    Ok(pool)
 }
 
-#[cfg(test)]
-mod tests {
+pub mod operations {
     use super::*;
 
-    #[tokio::test]
-    async fn test_mysql_migration() -> TraefikResult<()> {
-        let pool = create_pool(None).await?;
-        run_migrations(DatabaseType::Mysql, &pool).await?;
-        Ok(())
+    pub async fn get_deployment_protocols(
+        pool: &Pool<MySql>,
+    ) -> Result<Vec<DeploymentProtocol>, sqlx::Error> {
+        sqlx::query_as::<_, DeploymentProtocol>(
+            r#"
+            SELECT id, name, created_at
+            FROM deployment_protocols
+            ORDER BY id
+            "#,
+        )
+        .fetch_all(pool)
+        .await
+    }
+
+    pub async fn get_configs() -> Result<Vec<ConfigVersion>, sqlx::Error> {
+        sqlx::query_as::<_, ConfigVersion>(
+            r#"
+            SELECT id, name, config, created_at, updated_at, version
+            FROM config_versions
+            ORDER BY created_at DESC
+            "#,
+        )
+        .fetch_all(&*DB)
+        .await
+    }
+
+    pub async fn save_config(
+        name: String,
+        config: serde_json::Value,
+    ) -> Result<ConfigVersion, sqlx::Error> {
+        let result = sqlx::query(
+            r#"
+            INSERT INTO config_versions (name, config)
+            VALUES (?, ?)
+            "#,
+        )
+        .bind(name)
+        .bind(config)
+        .execute(&*DB)
+        .await?;
+
+        let id = result.last_insert_id();
+
+        sqlx::query_as::<_, ConfigVersion>(
+            r#"
+            SELECT id, name, config, created_at, updated_at, version
+            FROM config_versions
+            WHERE id = ?
+            "#,
+        )
+        .bind(id)
+        .fetch_one(&*DB)
+        .await
     }
 }

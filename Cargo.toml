@@ -23,7 +23,7 @@ eula = false
 [dependencies]
 async-trait = "0.1.83"
 axum = { version = "0.7.9", optional = true }
-chrono = { version = "0.4.38", optional = true }
+chrono = { version = "0.4.38", optional = true, features = ["serde"] }
 clap = { version = "4.5.21", features = ["derive", "env"], optional = true }
 color-eyre = { version = "0.6.3", optional = true }
 config = { version = "0.14.1" }
@@ -48,24 +48,44 @@ utoipa = { version = "5.2.0", optional = true, features = [
   "axum_extras",
   "yaml",
   "debug",
+  "time",
+  "chrono",
 ] }
 utoipa-swagger-ui = { version = "8.0.3", optional = true, features = [
   "axum",
   "debug",
 ] }
 sqlx = { version = "0.8", default-features = false, features = [
-  "runtime-tokio",
+  "runtime-tokio-native-tls",
   "json",
-  "sqlite",
   "mysql",
   "macros",
   "derive",
+  "chrono",
+  "time",
+  "macros",
   "migrate",
 ], optional = true }
-tower-http = { version = "0.6", features = ["trace"], optional = true }
-lazy_static = "1.5.0"
+tower-http = { version = "0.6", features = ["trace", "cors"], optional = true }
 anyhow = "1.0.93"
 dotenvy = "0.15.7"
+once_cell = { version = "1.20.2", optional = true }
+url = { version = "2.5.4", optional = true }
+wait-timeout = { version = "0.2.0", optional = true }
+env_logger = { version = "0.11.5", optional = true }
+deadpool = { version = "0.12.1", optional = true, features = [
+  "serde",
+  "managed",
+] }
+mysql_async = { version = "0.34.2", optional = true }
+deadpool-diesel = { version = "0.6.1", optional = true, features = [
+  "mysql",
+  "serde",
+  "tracing",
+] }
+mysql = { version = "25.0.1", optional = true }
+futures-util = "0.3.31"
+reqwest = { version = "0.12.9", optional = true }
 
 
 [features]
@@ -77,15 +97,23 @@ tracing = [
   "dep:tracing",
   "dep:tracing-appender",
   "dep:tracing-subscriber",
+  "dep:env_logger",
 ]
 etcd = ["dep:etcd-client"]
 api = [
+  "dep:chrono",
   "dep:axum",
   "dep:utoipa",
   "dep:utoipa-swagger-ui",
   "dep:sqlx",
   "dep:tower-http",
+  "dep:once_cell",
+  "dep:wait-timeout",
+  "dep:url",
+  "dep:env_logger",
+  "dep:reqwest",
 ]
+
 
 [build-dependencies]
 protoc = "2.28.0"
@@ -93,8 +121,10 @@ cargo-dist = "0.25.1"
 
 [dev-dependencies]
 pretty_assertions = "1.4"
-hyper = "1.5.1"
+tower = { version = "0.5", features = ["util"] }
+hyper = { version = "1.5.1", features = ["full"] }
 hyper-tls = "0.6.0"
+axum-test = { version = "16.4.0", features = ["reqwest"] }
 
 # The profile that 'dist' will build with
 [profile.dist]
@@ -105,6 +135,3 @@ lto = "thin"
 dev = """
 npm run watch & cargo leptos watch
 """
-
-[profile.dev.package.sqlx-macros]
-opt-level = 3
