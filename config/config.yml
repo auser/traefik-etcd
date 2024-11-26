@@ -8,23 +8,6 @@ etcd:
     ca: "./config/tls/ca.pem"
     domain: ari.io
 
-middlewares:
-  enable-headers:
-    headers:
-      custom_request_headers:
-        X-Forwarded-Proto: "https"
-        X-Forwarded-Port: "443"
-        Location: ""
-      custom_response_headers:
-        Location: ""
-      access_control_allow_methods:
-        - "GET"
-      access_control_allow_headers:
-        - "Content-Type"
-      access_control_expose_headers:
-        - Location
-      add_vary_header: true
-
 hosts:
   - domain: "example.com"
     www_redirect: true

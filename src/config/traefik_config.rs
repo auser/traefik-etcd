@@ -27,11 +27,16 @@ pub struct TraefikConfig {
     #[serde(default = "default_rule_prefix")]
     pub rule_prefix: String,
     #[cfg(feature = "etcd")]
+    #[serde(default = "default_etcd_config")]
     pub etcd: etcd::EtcdConfig,
     #[serde(default)]
     pub hosts: Vec<HostConfig>,
     #[serde(default)]
     pub middlewares: HashMap<String, MiddlewareConfig>,
+}
+
+fn default_etcd_config() -> etcd::EtcdConfig {
+    etcd::EtcdConfig::default()
 }
 
 fn default_rule_prefix() -> String {
