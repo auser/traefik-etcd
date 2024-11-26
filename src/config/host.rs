@@ -16,7 +16,6 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, JsonSchema)]
-#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 pub struct HostConfig {
     /// The domain of the host
@@ -280,7 +279,6 @@ impl HostConfigBuilder {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, JsonSchema)]
-#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 pub struct PathConfig {
     /// The path of the host

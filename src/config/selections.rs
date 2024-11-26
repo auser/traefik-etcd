@@ -7,7 +7,6 @@ use crate::{
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq, JsonSchema)]
-#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 pub struct SelectionConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -33,7 +32,6 @@ impl Validate for SelectionConfig {
 /// The configuration for the with cookie selection
 /// This is used to select a deployment based on a cookie.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
-#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 pub struct WithCookieConfig {
     /// The name of the cookie
@@ -70,7 +68,6 @@ impl Validate for WithCookieConfig {
 /// This is used to select a deployment based on the client's ip address
 /// or a range of ip addresses.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default, JsonSchema)]
-#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
 pub struct FromClientIpConfig {
     /// The range of the ip address

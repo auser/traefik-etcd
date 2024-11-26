@@ -13,7 +13,6 @@ use serde::{Deserialize, Serialize};
 use super::selections::SelectionConfig;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default, JsonSchema)]
-#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::Type))]
 pub enum DeploymentProtocol {
     #[default]
@@ -72,7 +71,6 @@ impl Display for DeploymentProtocol {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
-#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 pub struct DeploymentConfig {
     #[serde(default)]
@@ -206,7 +204,10 @@ impl DeploymentConfigBuilder {
 
 impl Validate for DeploymentConfig {
     fn validate(&self) -> TraefikResult<()> {
-        if self.protocol != DeploymentProtocol::Http && self.protocol != DeploymentProtocol::Https {
+        if self.protocol != DeploymentProtocol::Http
+            && self.protocol != DeploymentProtocol::Https
+            && self.protocol != DeploymentProtocol::Tcp
+        {
             return Err(TraefikError::DeploymentConfig(format!(
                 "protocol must be http, https, or tcp, got {}",
                 self.protocol
@@ -327,9 +328,9 @@ mod tests {
     }
 
     #[test]
-    fn test_deployment_config_is_invalid_if_protocol_is_not_http_or_https() {
+    fn test_deployment_config_is_invalid_if_protocol_is_not_http_or_https_or_tcp() {
         let deployment = DeploymentConfig {
-            protocol: DeploymentProtocol::Tcp,
+            protocol: DeploymentProtocol::Invalid,
             ..Default::default()
         };
         assert!(deployment.validate().is_err());
@@ -351,5 +352,56 @@ mod tests {
             ..Default::default()
         };
         assert!(deployment.validate().is_err());
+    }
+
+    #[test]
+    fn test_deployment_config_accepts_protocol_as_http_or_https() {
+        let deployment_config = r#"
+        ip: redirector
+        port: 3000
+        weight: 100
+        protocol: http
+        "#;
+        let deployment: DeploymentConfig = serde_yaml::from_str(deployment_config).unwrap();
+        assert!(deployment.validate().is_ok());
+    }
+
+    #[test]
+    fn test_deployment_config_accepts_protocol_as_https() {
+        let deployment_config = r#"
+        ip: redirector
+        port: 3000
+        weight: 100
+        protocol: https
+        "#;
+        let deployment: DeploymentConfig = serde_yaml::from_str(deployment_config).unwrap();
+        assert!(deployment.validate().is_ok());
+    }
+
+    #[test]
+    fn test_deployment_config_accepts_protocol_as_tcp() {
+        let deployment_config = r#"
+        ip: redirector
+        port: 3000
+        weight: 100
+        protocol: tcp
+        "#;
+        let deployment: DeploymentConfig = serde_yaml::from_str(deployment_config).unwrap();
+        let validation = deployment.validate();
+        assert!(validation.is_ok());
+    }
+
+    #[test]
+    fn test_deployment_config_does_not_accept_invalid_protocol() {
+        let deployment_config = r#"
+        ip: redirector
+        port: 3000
+        weight: 100
+        protocol: csat
+        "#;
+        let deployment: DeploymentConfig = serde_yaml::from_str(deployment_config).unwrap();
+        let validation = deployment.validate();
+        println!("{:?}", validation);
+        assert!(validation.is_err());
     }
 }

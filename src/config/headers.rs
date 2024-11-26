@@ -13,7 +13,6 @@ use crate::{
 };
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, JsonSchema)]
-#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 pub struct HeadersConfig {
     #[serde(default)]

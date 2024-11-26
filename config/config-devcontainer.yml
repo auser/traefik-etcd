@@ -47,4 +47,9 @@ hosts:
       ari-dot-io:
         ip: google.com
         port: 443
-        weight: 100
+        weight: 99
+      other:
+        ip: google.com
+        port: 1234
+        weight: 1
+        protocol: tcp
