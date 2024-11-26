@@ -5048,7 +5048,7 @@ dependencies = [
 
 [[package]]
 name = "traefikctl"
-version = "0.2.7-beta.3"
+version = "0.2.7-beta.4"
 dependencies = [
  "anyhow",
  "argon2",
