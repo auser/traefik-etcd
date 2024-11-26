@@ -155,8 +155,3 @@ axum-test = { version = "16.4.0", features = ["reqwest"] }
 [profile.dist]
 inherits = "release"
 lto = "thin"
-
-[package.metadata.scripts]
-dev = """
-npm run watch & cargo leptos watch
-"""
