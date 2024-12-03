@@ -2,15 +2,9 @@
 
 use crate::error::TSTypeResult;
 use crate::exporter::{Output, OutputKind, ToOutput, Type};
-use once_cell::sync::Lazy;
-use std::collections::{HashMap, HashSet};
+use crate::COLLECTED_TYPES;
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Mutex;
-
-// Track all types for single file generation, using HashSet to prevent duplicates
-static COLLECTED_TYPES: Lazy<Mutex<HashMap<PathBuf, HashSet<Output>>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
 
 pub struct TSExporter {
     output: Output,
@@ -100,31 +94,49 @@ impl TSExporter {
         }
     }
 
-    pub fn write_single_file(path: &PathBuf) -> TSTypeResult<()> {
+    pub fn generate_content(path: &PathBuf) -> TSTypeResult<Option<String>> {
+        let mut result_content = String::new();
         let collected = COLLECTED_TYPES.lock().unwrap();
         if let Some(types) = collected.get(path) {
-            let mut content = String::new();
-
             // Convert HashSet to Vec for sorting
             let mut sorted_types: Vec<_> = types.iter().cloned().collect();
             sorted_types.sort_by(|a, b| a.name.cmp(&b.name));
 
             for output in sorted_types {
-                let exporter = TSExporter::new(output, None, vec![]);
-                content.push_str(&exporter.generate_type_definition());
-                content.push_str("\n\n");
+                let exporter = TSExporter::new(output.clone(), None, output.generics.clone());
+                result_content.push_str(&exporter.generate_type_definition());
+                result_content.push_str("\n\n");
             }
-
-            fs::create_dir_all(path.parent().unwrap_or(&PathBuf::from("")))?;
-            fs::write(path.join("types.ts"), content.trim())?;
         }
+        Ok(Some(result_content))
+    }
+
+    pub fn write_single_file(path: &PathBuf) -> TSTypeResult<()> {
+        // let collected = COLLECTED_TYPES.lock().unwrap();
+        // if let Some(types) = collected.get(path) {
+        //     let mut content = String::new();
+
+        //     // Convert HashSet to Vec for sorting
+        //     let mut sorted_types: Vec<_> = types.iter().cloned().collect();
+        //     sorted_types.sort_by(|a, b| a.name.cmp(&b.name));
+
+        //     for output in sorted_types {
+        //         let exporter = TSExporter::new(output, None, vec![]);
+        //         content.push_str(&exporter.generate_type_definition());
+        //         content.push_str("\n\n");
+        //     }
+
+        let content = Self::generate_content(path)?.unwrap();
+        fs::create_dir_all(path.parent().unwrap_or(&PathBuf::from("")))?;
+        fs::write(path.join("types.ts"), content.trim())?;
+        // }
         Ok(())
     }
 }
 
 impl ToOutput for TSExporter {
-    fn to_output(&self) -> proc_macro2::TokenStream {
-        quote::quote! {}
+    fn to_output(&self) -> String {
+        self.generate_type_definition()
     }
 
     fn to_file(&self, path: Option<PathBuf>) -> TSTypeResult<()> {

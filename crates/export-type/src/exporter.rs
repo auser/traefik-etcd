@@ -1,45 +1,47 @@
-use proc_macro2::TokenStream;
 use std::path::PathBuf;
 
 use once_cell::sync::Lazy;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 
 use crate::error::TSTypeResult;
 use crate::{get_exporter_from_lang, RenameRule};
 
-pub static GENERATE_STRUCTS_AND_ENUMS: Lazy<Mutex<HashSet<(String, Output)>>> =
-    Lazy::new(|| Mutex::new(HashSet::new()));
+// Track all types for single file generation, using HashSet to prevent duplicates
+pub static COLLECTED_TYPES: Lazy<Mutex<HashMap<PathBuf, HashSet<Output>>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
 
-pub fn add_struct_or_enum(name: String, output: Output) -> TSTypeResult<()> {
-    GENERATE_STRUCTS_AND_ENUMS
+pub fn add_struct_or_enum(path: PathBuf, output: Output) -> TSTypeResult<()> {
+    COLLECTED_TYPES
         .lock()
         .unwrap()
-        .insert((name, output));
+        .entry(path)
+        .or_insert_with(HashSet::new)
+        .insert(output);
     Ok(())
 }
 
 pub fn create_exporter_files(export_path: PathBuf) -> TSTypeResult<()> {
     let mut index_content = String::new();
 
-    for (_name, output) in GENERATE_STRUCTS_AND_ENUMS.lock().unwrap().iter() {
-        let exporter = get_exporter_from_lang(
-            output.lang.as_str(),
-            output.clone(),
-            output.generics.clone(),
-        )?;
+    for (_path, outputs) in COLLECTED_TYPES.lock().unwrap().iter() {
+        for output in outputs {
+            let exporter = get_exporter_from_lang(
+                output.lang.as_str(),
+                output.clone(),
+                output.generics.clone(),
+            )?;
 
-        // Collect the output content rather than writing to file
-        if let Some(content) = exporter.to_output().to_string().strip_prefix("\"") {
-            if let Some(content) = content.strip_suffix("\"") {
-                index_content.push_str(content);
-                index_content.push_str("\n\n");
-            }
+            let output = exporter.to_output();
+
+            index_content.push_str(&output);
+            index_content.push_str("\n\n");
         }
     }
 
     // Write single index.ts file
     if !index_content.is_empty() {
+        std::fs::create_dir_all(&export_path)?;
         std::fs::write(export_path.join("index.ts"), index_content)?;
     }
 
@@ -48,7 +50,7 @@ pub fn create_exporter_files(export_path: PathBuf) -> TSTypeResult<()> {
 
 pub trait ToOutput {
     #[allow(unused)]
-    fn to_output(&self) -> TokenStream;
+    fn to_output(&self) -> String;
     #[allow(unused)]
     fn to_file(&self, path: Option<PathBuf>) -> TSTypeResult<()>;
 }

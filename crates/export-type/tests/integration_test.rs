@@ -14,7 +14,7 @@ struct TestUser {
 }
 
 #[derive(ExportType)]
-#[export_type(path = "target/test_exports")]
+#[export_type(path = "target/test_exports", lang = "typescript")]
 enum TestStatus {
     Active,
     Inactive,
@@ -24,13 +24,12 @@ enum TestStatus {
 #[test]
 fn test_generated_files_exist() {
     // These files should be generated during compilation
-    assert!(std::path::Path::new("target/test_exports/testuser.ts").exists());
-    assert!(std::path::Path::new("target/test_exports/teststatus.ts").exists());
+    assert!(std::path::Path::new("target/test_exports/index.ts").exists());
 }
 
 #[test]
 fn test_generated_content() {
-    let user_content = std::fs::read_to_string("target/test_exports/testuser.ts")
+    let user_content = std::fs::read_to_string("target/test_exports/index.ts")
         .expect("Should read user typescript file");
 
     assert!(user_content.contains("export interface TestUser"));
@@ -38,7 +37,7 @@ fn test_generated_content() {
     assert!(user_content.contains("emailAddress?: string"));
     assert!(user_content.contains("roles: string[]"));
 
-    let status_content = std::fs::read_to_string("target/test_exports/teststatus.ts")
+    let status_content = std::fs::read_to_string("target/test_exports/index.ts")
         .expect("Should read status typescript file");
 
     assert!(status_content.contains("export type TestStatus"));

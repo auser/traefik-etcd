@@ -61,7 +61,7 @@ fn handle_export_type(input: DeriveInput) -> TSTypeResult<proc_macro2::TokenStre
     let generics = get_generics_from_attrs(&input.attrs)?;
     output.generics = generics;
     output.lang = lang;
-    add_struct_or_enum(name.clone(), output)?;
+    add_struct_or_enum(PathBuf::from(name.clone()), output)?;
     Ok(quote::quote! {})
 }
 
