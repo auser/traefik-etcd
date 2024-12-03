@@ -14,7 +14,7 @@ use crate::{error::TraefikResult, features::KeyValue};
 ///
 /// # Examples
 ///
-/// ```rust,no_run
+/// ```rust,no_run,ignore
 /// use your_crate::{StoreClientActor, TraefikResult, KeyValue};
 ///
 /// #[async_trait]

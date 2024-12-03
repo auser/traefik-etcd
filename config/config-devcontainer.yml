@@ -6,7 +6,7 @@ etcd:
     cert: "./config/tls/etcd-peer.pem"
     key: "./config/tls/etcd-peer-key.pem"
     ca: "./config/tls/ca.pem"
-    domain: localhost
+    domain: etcd
 
 middlewares:
   enable-headers:
