@@ -10,6 +10,10 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tracing::debug;
 
+mod diff;
+
+pub use diff::*;
+
 use crate::{
     core::client::StoreClientActor,
     error::{TraefikError, TraefikResult},

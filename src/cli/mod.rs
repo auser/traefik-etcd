@@ -15,6 +15,8 @@ use crate::{
 mod apply;
 mod clean;
 mod codegen;
+#[cfg(feature = "etcd")]
+mod diff;
 mod generate;
 mod get;
 #[cfg(feature = "api")]
@@ -59,6 +61,8 @@ pub enum Commands {
     Serve(serve::ServeCommand),
     /// Generate the typescript types
     Codegen(codegen::CodegenCommand),
+    /// Diff the current traefik configuration
+    Diff(diff::DiffCommand),
 }
 
 #[instrument]
@@ -108,6 +112,10 @@ pub async fn run() -> TraefikResult<()> {
         }
         Commands::Codegen(codegen_command) => {
             codegen::run(&codegen_command, &client, &mut traefik_config).await?;
+        }
+        #[cfg(feature = "etcd")]
+        Commands::Diff(diff_command) => {
+            diff::run(&diff_command, &client, &mut traefik_config).await?;
         }
     }
 
