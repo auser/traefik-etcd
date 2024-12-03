@@ -125,8 +125,8 @@ RUN curl https://raw.githubusercontent.com/microsoft/vscode-dev-containers/main/
 # Cargo utils
 RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo install cargo-release
 RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo install sqlx-cli
-RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo install cargo watch
-RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo install cargo make
+RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo install cargo-watch
+RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo install cargo-make
 RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo install typeshare-cli
 
 # Install cfssl
@@ -134,7 +134,7 @@ RUN curl -fsSL https://github.com/cloudflare/cfssl/releases/download/v1.6.4/cfss
     && curl -fsSL https://github.com/cloudflare/cfssl/releases/download/v1.6.4/cfssljson_1.6.4_linux_arm64 -o /usr/local/bin/cfssljson \
     && chmod +x /usr/local/bin/cfssl /usr/local/bin/cfssljson
 
-RUN mkdir -p /workspace && chown -R $USERNAME:$USERNAME /workspace
+RUN mkdir -p /workspace && chown -R $USERNAME:$USERNAME /workspace && chown -R $USERNAME:$USERNAME /usr/local
 
 USER $USERNAME
 
