@@ -8,6 +8,7 @@ homepage = "https://github.com/auser/traefikctl"
 authors = ["Ari <me@ari.io>"]
 license = "MIT OR Apache-2.0"
 keywords = ["traefik", "etcd"]
+exclude = ["frontend/src/types/*"]
 
 [[bin]]
 name = "traefikctl"
