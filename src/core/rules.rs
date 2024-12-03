@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, error};
 
 use crate::config::deployment::DeploymentProtocol;
+use crate::core::util::get_safe_key;
 use crate::error::TraefikError;
 use crate::{
     config::{
@@ -444,7 +445,11 @@ pub fn add_deployment_rules(
     rules: &mut RuleConfig,
 ) -> TraefikResult<()> {
     for deployment in sorted_deployments.iter() {
-        let router_name = format!("{}-router", deployment.name);
+        let router_name = format!(
+            "{}-{}-router",
+            get_safe_key(&host.domain),
+            get_safe_key(&deployment.name)
+        );
         let rule = rules.clone();
         let deployment_protocol = &deployment.deployment.protocol;
         let base_key = format!("{}/{}", base_key, deployment_protocol);
@@ -870,20 +875,20 @@ mod tests {
         // Verify router configurations
         assert_contains_pair(
             &pairs,
-            "test/http/routers/test1-router/entryPoints/0 websecure",
+            "test/http/routers/test-example-com-test1-router/entryPoints/0 websecure",
         );
 
         // Verify strip prefix middleware for path deployment
         assert_contains_pair(
             &pairs,
-            "test/http/middlewares/test1-router-strip/stripPrefix/prefixes/0 /api",
+            "test/http/middlewares/test-example-com-test1-router-strip/stripPrefix/prefixes/0 /api",
         );
 
         // Verify service configurations
         // test/http/services/test1-router-service/loadBalancer/servers/0/url
         assert_contains_pair(
             &pairs,
-            "test/http/services/test1-router-service/loadBalancer/servers/0/url http://10.0.0.1:8080",
+            "test/http/services/test-example-com-test1-router-service/loadBalancer/servers/0/url http://10.0.0.1:8080",
         );
     }
 
@@ -914,9 +919,10 @@ mod tests {
         add_deployment_rules(&host, &[deployment], &mut pairs, "test", &mut rules).unwrap();
 
         // Verify middleware configuration
+        // test/http/routers/test-example-com-test-router/middlewares/0
         assert_contains_pair(
             &pairs,
-            "test/http/routers/test-router/middlewares/0 test-middleware",
+            "test/http/routers/test-example-com-test-router/middlewares/0 test-middleware",
         );
     }
 
@@ -953,19 +959,19 @@ mod tests {
         // Verify router rule exists
         assert_contains_pair(
             &pairs,
-            "test/http/routers/test-router/rule Host(`domain.com`)",
+            "test/http/routers/domain-com-test-router/rule Host(`domain.com`)",
         );
 
         // Verify service exists with correct URL
         assert_contains_pair(
             &pairs,
-            "test/http/services/test-router-service/loadBalancer/servers/0/url http://10.0.0.1:8080",
+            "test/http/services/domain-com-test-router-service/loadBalancer/servers/0/url http://10.0.0.1:8080",
         );
 
         // Verify router is linked to service
         assert_contains_pair(
             &pairs,
-            "test/http/services/test-router-service/loadBalancer/passHostHeader true",
+            "test/http/services/domain-com-test-router-service/loadBalancer/passHostHeader true",
         );
     }
 
@@ -989,21 +995,27 @@ mod tests {
 
         assert_contains_pair(
             &pairs,
-            "test/http/routers/test-router/rule Host(`test.example.com`)",
+            "test/http/routers/test-example-com-test-router/rule Host(`test.example.com`)",
         );
         assert_contains_pair(
             &pairs,
-            "test/http/routers/test-router/entryPoints/0 websecure",
+            "test/http/routers/test-example-com-test-router/entryPoints/0 websecure",
         );
-        assert_contains_pair(&pairs, "test/http/routers/test-router/tls true");
         assert_contains_pair(
             &pairs,
-            "test/http/services/test-router-service/loadBalancer/passHostHeader true",
+            "test/http/routers/test-example-com-test-router/tls true",
         );
-        assert_contains_pair(&pairs, "test/http/routers/test-router/priority 1010");
         assert_contains_pair(
             &pairs,
-            "test/http/routers/test-router/service test-router-service",
+            "test/http/services/test-example-com-test-router-service/loadBalancer/passHostHeader true",
+        );
+        assert_contains_pair(
+            &pairs,
+            "test/http/routers/test-example-com-test-router/priority 1010",
+        );
+        assert_contains_pair(
+            &pairs,
+            "test/http/routers/test-example-com-test-router/service test-example-com-test-router-service",
         );
     }
 }

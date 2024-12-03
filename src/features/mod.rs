@@ -1,9 +1,3 @@
-#[derive(Debug, Clone)]
-pub struct KeyValue {
-    pub key: Vec<u8>,
-    pub value: Vec<u8>,
-}
-
 #[cfg(feature = "etcd")]
 pub mod etcd;
 #[cfg(feature = "etcd")]
@@ -17,6 +11,12 @@ pub mod api;
 pub use api::*;
 
 use crate::error::{TraefikError, TraefikResult};
+
+#[derive(Debug, Clone)]
+pub struct KeyValue {
+    pub key: Vec<u8>,
+    pub value: Vec<u8>,
+}
 
 impl From<KV> for KeyValue {
     fn from(kv: KV) -> Self {

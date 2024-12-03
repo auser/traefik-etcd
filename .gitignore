@@ -6,3 +6,5 @@ frontend/node_modules/
 .traefik.db.sqlx
 .env
 .envrc
+.DS_Store
+crates/export-type/target/

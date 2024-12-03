@@ -1,13 +1,13 @@
-use std::time::Duration;
-
 use async_trait::async_trait;
 use color_eyre::eyre::{eyre, Result};
 use etcd_client::{
     Certificate, Client, ConnectOptions, DeleteOptions, GetOptions, Identity, PutOptions,
     TlsOptions as ECTlsOptions,
 };
+use export_type::ExportType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 use tracing::debug;
 
 use crate::{
@@ -21,6 +21,8 @@ use super::KeyValue;
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(default)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
+#[cfg_attr(feature = "codegen", derive(ExportType))]
+#[export_type(rename_all = "camelCase", path = "frontend/src/types")]
 pub struct EtcdConfig {
     pub endpoints: Vec<String>,
     pub timeout: u64,
@@ -32,6 +34,8 @@ pub struct EtcdConfig {
 /// The configuration for the TLS options
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
+#[cfg_attr(feature = "codegen", derive(ExportType))]
+#[export_type(rename_all = "camelCase", path = "frontend/src/types")]
 pub struct TlsOptions {
     pub domain: Option<String>,
     pub cert: Option<String>,
