@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use super::{deployment::DeploymentConfig, selections::SelectionConfig};
 use crate::{
     core::{
         client::StoreClient,
@@ -10,13 +11,14 @@ use crate::{
     error::{TraefikError, TraefikResult},
     features::etcd::Etcd,
 };
-
-use super::{deployment::DeploymentConfig, selections::SelectionConfig};
+use export_type::ExportType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, JsonSchema)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
+#[cfg_attr(feature = "codegen", derive(ExportType))]
+#[export_type(rename_all = "camelCase", path = "frontend/src/types")]
 pub struct HostConfig {
     /// The domain of the host
     pub domain: String,
@@ -280,6 +282,8 @@ impl HostConfigBuilder {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, JsonSchema)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
+#[cfg_attr(feature = "codegen", derive(ExportType))]
+#[export_type(rename_all = "camelCase", path = "frontend/src/types")]
 pub struct PathConfig {
     /// The path of the host
     pub path: String,

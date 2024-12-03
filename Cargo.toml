@@ -21,13 +21,15 @@ license = false
 eula = false
 
 [dependencies]
+export-type = { path = "crates/export-type", optional = true }
+
 async-trait = "0.1.83"
 axum = { version = "0.7.9", features = ["tower-log"], optional = true }
 chrono = { version = "0.4.38", optional = true, features = ["serde"] }
 clap = { version = "4.5.21", features = ["derive", "env"], optional = true }
 color-eyre = { version = "0.6.3", optional = true }
 config = { version = "0.14.1" }
-convert_case = "0.6.0"
+convert_case = { version = "0.6.0", optional = true }
 etcd-client = { version = "0.14.0", features = [
   "tls",
   "tls-roots",
@@ -102,8 +104,8 @@ tempfile = { version = "3.14.0", optional = true }
 
 
 [features]
-default = ["cli", "tracing", "etcd", "api"]
-full = ["default", "tracing", "etcd", "api"]
+default = ["cli", "tracing", "etcd", "api", "codegen"]
+full = ["default", "tracing", "etcd", "api", "codegen"]
 cli = ["dep:color-eyre", "dep:clap"]
 gen = []
 tracing = [
@@ -136,8 +138,10 @@ api = [
   "dep:argon2",
   "dep:schemars",
   "dep:tempfile",
+  "dep:convert_case",
 ]
 
+codegen = ["dep:export-type"]
 
 [build-dependencies]
 protoc = "2.28.0"

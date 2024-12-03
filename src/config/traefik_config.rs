@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use export_type::ExportType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error};
@@ -23,6 +24,8 @@ use super::{
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone, JsonSchema)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
+#[cfg_attr(feature = "codegen", derive(ExportType))]
+#[export_type(rename_all = "camelCase", path = "frontend/src/types")]
 pub struct TraefikConfig {
     #[serde(default = "default_rule_prefix")]
     pub rule_prefix: String,

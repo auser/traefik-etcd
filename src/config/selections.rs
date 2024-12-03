@@ -1,3 +1,4 @@
+use export_type::ExportType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -8,6 +9,8 @@ use crate::{
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq, JsonSchema)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
+#[cfg_attr(feature = "codegen", derive(ExportType))]
+#[export_type(rename_all = "camelCase", path = "frontend/src/types")]
 pub struct SelectionConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub with_cookie: Option<WithCookieConfig>,
@@ -33,6 +36,8 @@ impl Validate for SelectionConfig {
 /// This is used to select a deployment based on a cookie.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
+#[cfg_attr(feature = "codegen", derive(ExportType))]
+#[export_type(rename_all = "camelCase", path = "frontend/src/types")]
 pub struct WithCookieConfig {
     /// The name of the cookie
     pub name: String,
@@ -69,6 +74,8 @@ impl Validate for WithCookieConfig {
 /// or a range of ip addresses.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default, JsonSchema)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "codegen", derive(ExportType))]
+#[export_type(rename_all = "camelCase", path = "frontend/src/types")]
 pub struct FromClientIpConfig {
     /// The range of the ip address
     pub range: Option<String>,

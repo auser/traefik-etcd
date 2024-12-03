@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use export_type::ExportType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -14,6 +15,8 @@ use crate::{
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, JsonSchema)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
+#[cfg_attr(feature = "codegen", derive(ExportType))]
+#[export_type(rename_all = "camelCase", path = "frontend/src/types")]
 pub struct HeadersConfig {
     #[serde(default)]
     pub custom_request_headers: HashMap<String, String>,

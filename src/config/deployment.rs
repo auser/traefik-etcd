@@ -7,6 +7,7 @@ use crate::{
     },
     error::{TraefikError, TraefikResult},
 };
+use export_type::ExportType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -14,6 +15,8 @@ use super::selections::SelectionConfig;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default, JsonSchema)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::Type))]
+#[cfg_attr(feature = "codegen", derive(ExportType))]
+#[export_type(rename_all = "camelCase", path = "frontend/src/types")]
 pub enum DeploymentProtocol {
     #[default]
     #[serde(rename = "http")]
@@ -71,7 +74,10 @@ impl Display for DeploymentProtocol {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
-#[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
+#[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "api", derive(sqlx::FromRow))]
+#[cfg_attr(feature = "codegen", derive(ExportType))]
+#[export_type(rename_all = "camelCase", path = "frontend/src/types")]
 pub struct DeploymentConfig {
     #[serde(default)]
     pub name: String,
@@ -401,7 +407,6 @@ mod tests {
         "#;
         let deployment: DeploymentConfig = serde_yaml::from_str(deployment_config).unwrap();
         let validation = deployment.validate();
-        println!("{:?}", validation);
         assert!(validation.is_err());
     }
 }

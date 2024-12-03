@@ -13,6 +13,9 @@ pub enum TraefikError {
     #[error("anyhow error: {0}")]
     AnyhowError(#[from] anyhow::Error),
 
+    #[error("Codegen error: {0}")]
+    CodegenError(String),
+
     #[error("Etcd error: {0}")]
     EtcdError(String),
 

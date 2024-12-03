@@ -1,6 +1,3 @@
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
-
 use crate::{
     core::{
         etcd_trait::{EtcdPair, ToEtcdPairs},
@@ -9,11 +6,16 @@ use crate::{
     },
     error::{TraefikError, TraefikResult},
 };
+use export_type::ExportType;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 use super::headers::HeadersConfig;
 
 #[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
+#[cfg_attr(feature = "codegen", derive(ExportType))]
+#[export_type(rename_all = "camelCase", path = "frontend/src/types")]
 pub struct MiddlewareConfig {
     /// The name of the middleware
     #[serde(default)]

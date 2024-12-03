@@ -1409,6 +1409,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "export-type"
+version = "0.1.0"
+dependencies = [
+ "convert_case",
+ "once_cell",
+ "pathdiff",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.89",
+ "thiserror 2.0.3",
+]
+
+[[package]]
 name = "eyre"
 version = "0.6.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2947,9 +2960,9 @@ checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "pathdiff"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d61c5ce1153ab5b689d0c074c4e7fc613e942dfb7dd9eea5ab202d2ad91fe361"
+checksum = "df94ce210e5bc13cb6651479fa48d14f601d9858cfe0467f43ae157023b938d3"
 dependencies = [
  "camino",
 ]
@@ -3144,9 +3157,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.91"
+version = "1.0.92"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "307e3004becf10f5a6e0d59d20f3cd28231b0e0827a96cd3e0ce6d14bc1e4bb3"
+checksum = "37d3544b3f2748c54e147655edb5025752e2303145b5aefb3c3ea2c78b973bb0"
 dependencies = [
  "unicode-ident",
 ]
@@ -5065,6 +5078,7 @@ dependencies = [
  "dotenvy",
  "env_logger 0.11.5",
  "etcd-client",
+ "export-type",
  "futures-util",
  "hmac",
  "hyper",
