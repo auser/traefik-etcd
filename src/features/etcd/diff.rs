@@ -14,6 +14,54 @@ pub struct EtcdDiff {
 }
 
 impl EtcdDiff {
+    pub fn create(current: &[EtcdPair], comparison: &[EtcdPair]) -> Self {
+        let current_map: HashMap<_, _> = current.iter().map(|p| (p.key(), p.value())).collect();
+
+        let comparison_map: HashMap<_, _> =
+            comparison.iter().map(|p| (p.key(), p.value())).collect();
+
+        let current_keys: HashSet<_> = current_map.keys().collect();
+        let comparison_keys: HashSet<_> = comparison_map.keys().collect();
+
+        let mut diff = EtcdDiff::default();
+
+        // Find additions (in current but not in comparison)
+        for key in current_keys.difference(&comparison_keys) {
+            if let Some(value) = current_map.get(&**key) {
+                diff.added
+                    .push(EtcdPair::new((*key).to_string(), (*value).to_string()));
+            }
+        }
+
+        // Find removals (in comparison but not in current)
+        for key in comparison_keys.difference(&current_keys) {
+            if let Some(value) = comparison_map.get(&**key) {
+                diff.removed
+                    .push(EtcdPair::new((*key).to_string(), (*value).to_string()));
+            }
+        }
+
+        // Find modifications and unchanged
+        for key in current_keys.intersection(&comparison_keys) {
+            let current_value = current_map.get(&**key).unwrap();
+            let comparison_value = comparison_map.get(&**key).unwrap();
+
+            if current_value != comparison_value {
+                diff.modified.push((
+                    EtcdPair::new((*key).to_string(), (*comparison_value).to_string()),
+                    EtcdPair::new((*key).to_string(), (*current_value).to_string()),
+                ));
+            } else {
+                diff.unchanged.push(EtcdPair::new(
+                    (*key).to_string(),
+                    (*current_value).to_string(),
+                ));
+            }
+        }
+
+        diff
+    }
+
     pub fn display(&self, detailed: bool) {
         if detailed {
             println!("\nDetailed Configuration Changes:");

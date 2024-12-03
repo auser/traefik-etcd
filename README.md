@@ -8,7 +8,11 @@ Head to [https://auser.github.io/traefikctl/](https://auser.github.io/traefikctl
 
 ## Configuration
 
-The configuration is done in the `config/config.yml` file.
+The configuration is done in the `config/config.yml` file. You can also pass in a partial etcd config via the cli to override the default config.
+
+```
+traefikctl get -f ./config/config-devcontainer.yml --etcd-config='{"endpoints": ["https://0.0.0.0:2379"], "tls": {"cert": "./config/tls/etcd-peer.pem", "key": "./config/tls/etcd-peer-key.pem", "ca": "./config/tls/ca.pem", "domain": "etcd"}}'
+```
 
 ### Hosts
 

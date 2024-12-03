@@ -58,6 +58,12 @@ impl Default for EtcdConfig {
     }
 }
 
+impl From<String> for EtcdConfig {
+    fn from(value: String) -> Self {
+        serde_json::from_str(&value).unwrap()
+    }
+}
+
 #[derive(Clone)]
 pub struct Etcd {
     pub client: Client,
@@ -221,9 +227,9 @@ impl Etcd {
         if let Some(tls) = &config.tls {
             if let Some(cert) = &tls.cert {
                 // --cacert=/etc/etcd/ca.pem --cert=/etc/etcd/server.pem --key=/etc/etcd/server-key.pem"
-                let cert = std::fs::read_to_string(cert)?;
-                let key = std::fs::read_to_string(tls.key.as_ref().unwrap())?;
-                let ca = std::fs::read_to_string(tls.ca.as_ref().unwrap())?;
+                let cert = std::fs::read_to_string(cert.trim())?;
+                let key = std::fs::read_to_string(tls.key.as_ref().unwrap().trim())?;
+                let ca = std::fs::read_to_string(tls.ca.as_ref().unwrap().trim())?;
                 let domain = tls.domain.clone().unwrap_or_default();
 
                 let ca = Certificate::from_pem(ca);
@@ -242,6 +248,35 @@ impl Etcd {
             .await
             .map_err(|e| eyre!("etcd connect failed: {e}"))?;
         Ok(Self { client })
+    }
+}
+
+impl EtcdConfig {
+    pub fn merge(self, other: PartialEtcdConfig) -> Self {
+        Self {
+            endpoints: other.endpoints.unwrap_or(self.endpoints),
+            timeout: other.timeout.unwrap_or(self.timeout),
+            keep_alive: other.keep_alive.unwrap_or(self.keep_alive),
+            tls: other.tls.or(self.tls),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, Default)]
+#[serde(default)]
+#[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
+#[cfg_attr(feature = "codegen", derive(ExportType))]
+#[export_type(rename_all = "camelCase", path = "frontend/src/types")]
+pub struct PartialEtcdConfig {
+    pub endpoints: Option<Vec<String>>,
+    pub timeout: Option<u64>,
+    pub keep_alive: Option<u64>,
+    pub tls: Option<TlsOptions>,
+}
+
+impl From<String> for PartialEtcdConfig {
+    fn from(value: String) -> Self {
+        serde_json::from_str(&value).unwrap()
     }
 }
 

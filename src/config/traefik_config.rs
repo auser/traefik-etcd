@@ -17,7 +17,7 @@ use crate::{
 };
 
 use super::{
-    deployment::DeploymentConfig,
+    deployment::{DeploymentConfig, DeploymentProtocol},
     host::{HostConfig, PathConfig},
     middleware::MiddlewareConfig,
 };
@@ -182,6 +182,97 @@ impl TraefikConfig {
         }
 
         Ok(())
+    }
+}
+
+impl TraefikConfig {
+    pub fn parse_etcd_to_traefik_config(pairs: Vec<EtcdPair>) -> TraefikResult<TraefikConfig> {
+        let mut config_map: HashMap<String, HostConfig> = HashMap::new();
+
+        for pair in pairs {
+            let key = pair.key();
+            let value = pair.value();
+
+            if !key.starts_with("traefik/http/services/host-") {
+                continue;
+            }
+
+            let service_parts = key.split('/').collect::<Vec<_>>();
+            debug!("Service parts: {:?}", service_parts);
+
+            // Extract the service name portion after 'host-'
+            let service_name = match service_parts.get(3) {
+                Some(name) => {
+                    debug!("Found service name: {}", name);
+                    name.strip_prefix("host-").unwrap_or(name)
+                }
+                None => {
+                    debug!("No service name found in key: {}", key);
+                    continue;
+                }
+            };
+
+            debug!("service_name: {}", service_name);
+
+            // Parse the domain and deployment parts
+            let mut parts = service_name.split('-').collect::<Vec<_>>();
+            if parts.is_empty() {
+                continue;
+            }
+
+            // Last part should be the deployment index, remove it
+            parts.pop();
+            // Second to last part should be the deployment color
+            let deployment_name = if let Some(color) = parts.pop() {
+                color.to_string()
+            } else {
+                continue;
+            };
+
+            // Reconstruct domain from remaining parts
+            let domain = parts.join(".");
+
+            // Get or create host config
+            let host_config = config_map
+                .entry(domain.clone())
+                .or_insert_with(|| HostConfig {
+                    domain: domain.clone(),
+                    deployments: HashMap::new(),
+                    paths: Vec::new(),
+                    middlewares: Vec::new(),
+                    selection: None,
+                });
+
+            // Parse deployment if this is a URL entry
+            if key.ends_with("/url") {
+                let url_parts: Vec<&str> = value.split("://").collect();
+                if url_parts.len() == 2 {
+                    let host_port: Vec<&str> = url_parts[1].split(':').collect();
+                    let ip = host_port[0].to_string();
+                    let port = host_port
+                        .get(1)
+                        .and_then(|p| p.trim_end_matches("/").parse().ok())
+                        .unwrap_or(80);
+
+                    let deployment = DeploymentConfig::builder()
+                        .name(deployment_name.clone())
+                        .ip(ip)
+                        .port(port)
+                        .protocol(DeploymentProtocol::Http)
+                        .weight(100)
+                        .build();
+
+                    host_config
+                        .deployments
+                        .insert(deployment_name.clone(), deployment);
+                }
+            }
+        }
+
+        Ok(TraefikConfig {
+            hosts: config_map.into_values().collect(),
+            ..Default::default()
+        })
     }
 }
 
@@ -404,5 +495,51 @@ mod tests {
         let serialized = serde_yaml::to_string(&config).unwrap();
         assert!(!serialized.is_empty());
         assert!(serialized.contains("domain: your-domain.com"));
+    }
+
+    #[test]
+    fn test_parse_basic_config() {
+        let pairs = vec![
+            EtcdPair::new(
+                "traefik/http/services/host-example-com-blue-0/loadBalancer/servers/0/url",
+                "http://redirector:3000",
+            ),
+            EtcdPair::new(
+                "traefik/http/services/host-example-com-blue-0/loadBalancer/passHostHeader",
+                "true",
+            ),
+        ];
+
+        let config = TraefikConfig::parse_etcd_to_traefik_config(pairs).unwrap();
+        assert_eq!(config.hosts.len(), 1);
+        let host = &config.hosts[0];
+        assert_eq!(host.domain, "example.com");
+        assert_eq!(host.deployments.len(), 1);
+        assert!(host.deployments.contains_key("blue"));
+
+        let deployment = &host.deployments["blue"];
+        assert_eq!(deployment.ip, "redirector");
+        assert_eq!(deployment.port, 3000);
+    }
+
+    #[test]
+    fn test_parse_multiple_deployments() {
+        let pairs = vec![
+            EtcdPair::new(
+                "traefik/http/services/host-example-com-blue-0/loadBalancer/servers/0/url",
+                "http://redirector:3000",
+            ),
+            EtcdPair::new(
+                "traefik/http/services/host-example-com-green-0/loadBalancer/servers/0/url",
+                "http://app:8080",
+            ),
+        ];
+
+        let config = TraefikConfig::parse_etcd_to_traefik_config(pairs).unwrap();
+        assert_eq!(config.hosts.len(), 1);
+        let host = &config.hosts[0];
+        assert_eq!(host.deployments.len(), 2);
+        assert!(host.deployments.contains_key("blue"));
+        assert!(host.deployments.contains_key("green"));
     }
 }

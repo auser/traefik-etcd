@@ -7,7 +7,7 @@ use crate::{
     config::traefik_config::TraefikConfig,
     core::client::StoreClient,
     error::TraefikResult,
-    features::etcd::Etcd,
+    features::etcd::{Etcd, EtcdConfig, PartialEtcdConfig},
     tracing::{init_tracing, LogConfig},
     NAME,
 };
@@ -19,6 +19,8 @@ mod codegen;
 mod diff;
 mod generate;
 mod get;
+#[cfg(feature = "etcd")]
+mod load;
 #[cfg(feature = "api")]
 pub(crate) mod serve;
 mod show;
@@ -40,6 +42,9 @@ pub struct Cli {
         default_value = "/etc/traefikctl/traefikctl.yaml"
     )]
     pub config_file: Option<PathBuf>,
+
+    #[cfg_attr(feature = "etcd", arg(long, short = 'e'))]
+    pub etcd_config: Option<String>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -63,6 +68,8 @@ pub enum Commands {
     Codegen(codegen::CodegenCommand),
     /// Diff the current traefik configuration
     Diff(diff::DiffCommand),
+    /// Load the traefik configuration from a key-value file
+    Load(load::LoadCommand),
 }
 
 #[instrument]
@@ -82,7 +89,16 @@ pub async fn run() -> TraefikResult<()> {
 
     let config = std::fs::read_to_string(&config_file).unwrap_or_default();
     let mut traefik_config: TraefikConfig = serde_yaml::from_str(&config).unwrap_or_default();
-    let etcd_client = Etcd::new(&traefik_config.etcd).await?;
+    #[cfg(feature = "etcd")]
+    let etcd_client = match cli.etcd_config {
+        Some(config) => {
+            let default_config = EtcdConfig::default();
+            let partial_config = PartialEtcdConfig::from(config);
+            let config = default_config.merge(partial_config);
+            Etcd::new(&config).await?
+        }
+        None => Etcd::new(&traefik_config.etcd).await?,
+    };
 
     #[cfg(feature = "etcd")]
     let client = StoreClient::new(etcd_client);
@@ -116,6 +132,9 @@ pub async fn run() -> TraefikResult<()> {
         #[cfg(feature = "etcd")]
         Commands::Diff(diff_command) => {
             diff::run(&diff_command, &client, &mut traefik_config).await?;
+        }
+        Commands::Load(load_command) => {
+            load::run(&load_command, &client, &mut traefik_config).await?;
         }
     }
 
