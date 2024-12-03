@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 description = "Export Rust types to other languages"
 license = "MIT"
+repository = "https://github.com/auser/traefikctl"
+homepage = "https://github.com/auser/traefikctl"
+authors = ["Ari <me@ari.io>"]
 
 [lib]
 proc-macro = true
