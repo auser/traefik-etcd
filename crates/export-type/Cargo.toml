@@ -1,6 +1,6 @@
 [package]
 name = "export-type"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Export Rust types to other languages"
 license = "MIT"

@@ -41,7 +41,7 @@ dependencies = [
 
 [[package]]
 name = "export-type"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "convert_case",
  "once_cell",
