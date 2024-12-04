@@ -8,7 +8,6 @@ homepage = "https://github.com/auser/traefikctl"
 authors = ["Ari <me@ari.io>"]
 license = "MIT OR Apache-2.0"
 keywords = ["traefik", "etcd"]
-build = "build.rs"
 exclude = ["generated"]
 
 [[bin]]
@@ -162,3 +161,9 @@ axum-test = { version = "16.4.0", features = ["reqwest"] }
 [profile.dist]
 inherits = "release"
 lto = "thin"
+
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+opt-level = 3
