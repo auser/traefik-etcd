@@ -9,7 +9,7 @@ use crate::{core::client::StoreClient, error::TraefikResult, features::etcd::Etc
 
 #[derive(Args, Debug)]
 pub struct CodegenCommand {
-    #[arg(short, long, default_value = "src/generated/types")]
+    #[arg(short, long, default_value = "generated/types")]
     output_dir: Option<String>,
 
     #[arg(short = 'L', long, default_value = "typescript")]
