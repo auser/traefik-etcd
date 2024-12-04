@@ -97,7 +97,6 @@ jwt = { version = "0.16.0", optional = true }
 sha2 = { version = "0.10.8", optional = true }
 uuid = { version = "1.11.0", optional = true, features = ["serde"] }
 argon2 = { version = "0.5.3", optional = true }
-typeshare = "1.0.4"
 schemars = { version = "0.8.21", optional = true }
 tempdir = { version = "0.3.7", optional = true }
 tempfile = { version = "3.14.0", optional = true }

@@ -16,7 +16,7 @@ use super::selections::SelectionConfig;
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default, JsonSchema)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::Type))]
 #[cfg_attr(feature = "codegen", derive(ExportType))]
-#[export_type(rename_all = "camelCase", path = "frontend/src/types")]
+#[export_type(rename_all = "camelCase", path = "generated/types")]
 pub enum DeploymentProtocol {
     #[default]
     #[serde(rename = "http")]
@@ -77,7 +77,7 @@ impl Display for DeploymentProtocol {
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "api", derive(sqlx::FromRow))]
 #[cfg_attr(feature = "codegen", derive(ExportType))]
-#[export_type(rename_all = "camelCase", path = "frontend/src/types")]
+#[export_type(rename_all = "camelCase", path = "generated/types")]
 pub struct DeploymentConfig {
     #[serde(default)]
     pub name: String,

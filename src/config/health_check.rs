@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 #[cfg_attr(feature = "codegen", derive(ExportType))]
-#[export_type(rename_all = "camelCase", path = "frontend/src/types")]
+#[export_type(rename_all = "camelCase", path = "generated/types")]
 pub struct HealthCheckConfig {
     pub path: String,
     pub interval: String,
