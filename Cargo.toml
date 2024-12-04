@@ -1,6 +1,6 @@
 [package]
 name = "traefikctl"
-version = "0.2.24"
+version = "0.2.25"
 edition = "2021"
 repository = "https://github.com/auser/traefikctl"
 description = "A CLI for managing traefik with etcd (and more)"
