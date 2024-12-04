@@ -9,7 +9,7 @@ authors = ["Ari <me@ari.io>"]
 license = "MIT OR Apache-2.0"
 keywords = ["traefik", "etcd"]
 build = "build.rs"
-include = ["frontend/src/types"]
+include = ["frontend", "build.rs", "src", "bin"]
 
 [[bin]]
 name = "traefikctl"
