@@ -1,18 +1,29 @@
-export interface WithCookieConfig {
+export interface DeploymentConfig {
     name: string;
-    value?: string | undefined;
+    ip: string;
+    port: number;
+    weight: number;
+    selection?: SelectionConfig | undefined;
+    protocol: DeploymentProtocol;
+    middlewares?: string[] | undefined;
 }
 
-export interface SelectionConfig {
-    withCookie?: WithCookieConfig | undefined;
-    fromClientIp?: FromClientIpConfig | undefined;
+export type DeploymentProtocol =
+    | "Http"
+    | "Https"
+    | "Tcp"
+    | "Invalid";
+
+export interface EtcdConfig {
+    endpoints: string[];
+    timeout: number;
+    keepAlive: number;
+    tls?: TlsOptions | undefined;
 }
 
-export interface TlsOptions {
-    domain?: string | undefined;
-    cert?: string | undefined;
-    key?: string | undefined;
-    ca?: string | undefined;
+export interface FromClientIpConfig {
+    range?: string | undefined;
+    ip?: string | undefined;
 }
 
 export interface HeadersConfig {
@@ -31,35 +42,6 @@ export interface HealthCheckConfig {
     timeout: string;
 }
 
-export interface PathConfig {
-    path: string;
-    deployments: Record<string, DeploymentConfig>;
-    middlewares: string[];
-    stripPrefix: boolean;
-    passThrough: boolean;
-}
-
-export interface FromClientIpConfig {
-    range?: string | undefined;
-    ip?: string | undefined;
-}
-
-export type DeploymentProtocol =
-    | "Http"
-    | "Https"
-    | "Tcp"
-    | "Invalid";
-
-export interface DeploymentConfig {
-    name: string;
-    ip: string;
-    port: number;
-    weight: number;
-    selection?: SelectionConfig | undefined;
-    protocol: DeploymentProtocol;
-    middlewares?: string[] | undefined;
-}
-
 export interface HostConfig {
     domain: string;
     paths: PathConfig[];
@@ -68,18 +50,10 @@ export interface HostConfig {
     selection?: SelectionConfig | undefined;
 }
 
-export interface TraefikConfig {
-    rulePrefix: string;
-    etcd: EtcdConfig;
-    hosts: HostConfig[];
-    middlewares: Record<string, MiddlewareConfig>;
-}
-
-export interface EtcdConfig {
-    endpoints: string[];
-    timeout: number;
-    keepAlive: number;
-    tls?: TlsOptions | undefined;
+export interface MiddlewareConfig {
+    name: string;
+    headers?: HeadersConfig | undefined;
+    protocol: string;
 }
 
 export interface PartialEtcdConfig {
@@ -89,9 +63,35 @@ export interface PartialEtcdConfig {
     tls?: TlsOptions | undefined;
 }
 
-export interface MiddlewareConfig {
+export interface PathConfig {
+    path: string;
+    deployments: Record<string, DeploymentConfig>;
+    middlewares: string[];
+    stripPrefix: boolean;
+    passThrough: boolean;
+}
+
+export interface SelectionConfig {
+    withCookie?: WithCookieConfig | undefined;
+    fromClientIp?: FromClientIpConfig | undefined;
+}
+
+export interface TlsOptions {
+    domain?: string | undefined;
+    cert?: string | undefined;
+    key?: string | undefined;
+    ca?: string | undefined;
+}
+
+export interface TraefikConfig {
+    rulePrefix: string;
+    etcd: EtcdConfig;
+    hosts: HostConfig[];
+    middlewares: Record<string, MiddlewareConfig>;
+}
+
+export interface WithCookieConfig {
     name: string;
-    headers?: HeadersConfig | undefined;
-    protocol: string;
+    value?: string | undefined;
 }
 
