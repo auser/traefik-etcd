@@ -139,6 +139,7 @@ impl TraefikConfig {
         show_rules: bool,
         should_clean: bool,
     ) -> TraefikResult<()> {
+        debug!("applying to etcd: {:#?}", self);
         self.validate()?;
         let pairs = self.to_etcd_pairs(&self.rule_prefix)?;
         let rules = RouterRule::from_pairs(&pairs);

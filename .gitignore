@@ -1,6 +1,7 @@
 /target
 config/tls/*.pem
 config/herringbank.yml
+config/output.txt
 public/
 frontend/node_modules/
 .traefik.db.sqlx
