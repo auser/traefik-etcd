@@ -9,7 +9,7 @@ use crate::{core::client::StoreClient, error::TraefikResult, features::etcd::Etc
 
 #[derive(Args, Debug)]
 pub struct CodegenCommand {
-    #[arg(short, long, default_value = "generated/types")]
+    #[arg(short, long, default_value = "src/generated/types")]
     output_dir: Option<String>,
 
     #[arg(short = 'L', long, default_value = "typescript")]
@@ -32,12 +32,15 @@ async fn handle_codegen(output: Option<PathBuf>) -> anyhow::Result<()> {
     let types_path =
         output.unwrap_or_else(|| PathBuf::from(env::var("TYPES_OUT_DIR").unwrap_or_default()));
 
-    let target_dir = Path::new("frontend/src/types");
+    let target_dir = match env::var("OUT_DIR") {
+        Ok(out_dir) => PathBuf::from(out_dir).join("frontend/src/types"),
+        Err(_) => Path::new("frontend/src/types").to_path_buf(),
+    };
 
     // Only copy if the types were generated
     if types_path.exists() {
         // Create target directory if it doesn't exist
-        std::fs::create_dir_all(target_dir).expect("Failed to create target directory");
+        std::fs::create_dir_all(target_dir.clone()).expect("Failed to create target directory");
 
         // Copy the generated index.ts file
         if let Ok(entries) = std::fs::read_dir(&types_path) {

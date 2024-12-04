@@ -25,7 +25,7 @@ use super::{
 #[derive(Debug, Serialize, Deserialize, Default, Clone, JsonSchema)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 #[cfg_attr(feature = "codegen", derive(ExportType))]
-#[export_type(rename_all = "camelCase", path = "generated/types")]
+#[export_type(rename_all = "camelCase", path = "src/generated/types")]
 pub struct TraefikConfig {
     #[serde(default = "default_rule_prefix")]
     pub rule_prefix: String,

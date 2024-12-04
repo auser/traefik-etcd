@@ -15,7 +15,7 @@ use super::headers::HeadersConfig;
 #[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 #[cfg_attr(feature = "codegen", derive(ExportType))]
-#[export_type(rename_all = "camelCase", path = "generated/types")]
+#[export_type(rename_all = "camelCase", path = "src/generated/types")]
 pub struct MiddlewareConfig {
     /// The name of the middleware
     #[serde(default)]
