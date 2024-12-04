@@ -1420,9 +1420,9 @@ dependencies = [
 
 [[package]]
 name = "export-type"
-version = "0.1.7"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2ae0e2f52839660aebb8a3d9d53ab15f2b34a447cf1c53772f6b7ce6715ef55"
+checksum = "01cee6780dd07a81f25ea682c7553ed31a364eb45104e2fbce7f8edf049ee887"
 dependencies = [
  "convert_case",
  "once_cell",
