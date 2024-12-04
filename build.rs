@@ -13,7 +13,9 @@ fn main() {
         let types_path = Path::new(&types_dir).join("types");
 
         // Get the target directory for types (customize this path as needed)
-        let target_dir = Path::new("frontend/src/types");
+        let out_dir = env::var("OUT_DIR").unwrap();
+        let target_dir = Path::new(&out_dir).join("frontend/src/types");
+        // let target_dir = Path::new("frontend/src/types");
 
         // Only copy if the types were generated
         if types_path.exists() {
