@@ -9,6 +9,7 @@ authors = ["Ari <me@ari.io>"]
 license = "MIT OR Apache-2.0"
 keywords = ["traefik", "etcd"]
 build = "build.rs"
+exclude = ["generated"]
 
 [[bin]]
 name = "traefikctl"
