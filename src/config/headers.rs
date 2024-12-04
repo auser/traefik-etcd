@@ -16,7 +16,7 @@ use crate::{
 #[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, JsonSchema)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 #[cfg_attr(feature = "codegen", derive(ExportType))]
-#[export_type(rename_all = "camelCase", path = "src/generated/types")]
+#[export_type(rename_all = "camelCase", path = "generated/types")]
 pub struct HeadersConfig {
     #[serde(default)]
     pub custom_request_headers: HashMap<String, String>,

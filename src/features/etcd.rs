@@ -26,7 +26,7 @@ use super::KeyValue;
 #[serde(default)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 #[cfg_attr(feature = "codegen", derive(ExportType))]
-#[export_type(rename_all = "camelCase", path = "src/generated/types")]
+#[export_type(rename_all = "camelCase", path = "generated/types")]
 pub struct EtcdConfig {
     pub endpoints: Vec<String>,
     pub timeout: u64,
@@ -39,7 +39,7 @@ pub struct EtcdConfig {
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 #[cfg_attr(feature = "codegen", derive(ExportType))]
-#[export_type(rename_all = "camelCase", path = "src/generated/types")]
+#[export_type(rename_all = "camelCase", path = "generated/types")]
 pub struct TlsOptions {
     pub domain: Option<String>,
     pub cert: Option<String>,
@@ -266,7 +266,7 @@ impl EtcdConfig {
 #[serde(default)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 #[cfg_attr(feature = "codegen", derive(ExportType))]
-#[export_type(rename_all = "camelCase", path = "src/generated/types")]
+#[export_type(rename_all = "camelCase", path = "generated/types")]
 pub struct PartialEtcdConfig {
     pub endpoints: Option<Vec<String>>,
     pub timeout: Option<u64>,
