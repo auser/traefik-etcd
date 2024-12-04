@@ -25,7 +25,7 @@ eula = false
 
 async-trait = "0.1.83"
 axum = { version = "0.7.9", features = ["tower-log"], optional = true }
-chrono = { version = "0.4.38", optional = true, features = ["serde"] }
+chrono = { version = "0.4.38", optional = true, features = ["serde", "now"] }
 clap = { version = "4.5.21", features = ["derive", "env"], optional = true }
 color-eyre = { version = "0.6.3", optional = true }
 config = { version = "0.14.1" }
@@ -97,12 +97,17 @@ jwt = { version = "0.16.0", optional = true }
 sha2 = { version = "0.10.8", optional = true }
 uuid = { version = "1.11.0", optional = true, features = ["serde"] }
 argon2 = { version = "0.5.3", optional = true }
-schemars = { version = "0.8.21", optional = true }
+schemars = { version = "0.8.21", optional = true, features = ["chrono"] }
 tempdir = { version = "0.3.7", optional = true }
 tempfile = { version = "3.14.0", optional = true }
 colored = { version = "2.1.0", optional = true }
 export-type = { version = "0.1.3", optional = true }
-
+axum-embed = { version = "0.1.0", optional = true }
+rust-embed = { version = "8.5.0", optional = true, features = [
+  "axum",
+  "tokio",
+] }
+walkdir = { version = "2.5.0", optional = true }
 
 [features]
 default = ["cli", "tracing", "etcd", "api", "codegen"]
@@ -141,6 +146,10 @@ api = [
   "dep:tempfile",
   "dep:convert_case",
   "dep:colored",
+  "dep:axum-embed",
+  "dep:rust-embed",
+  "dep:chrono",
+  "dep:walkdir",
 ]
 
 codegen = ["export-type"]
@@ -156,6 +165,8 @@ tower = { version = "0.5", features = ["util"] }
 hyper = { version = "1.5.1", features = ["full"] }
 hyper-tls = "0.6.0"
 axum-test = { version = "16.4.0", features = ["reqwest"] }
+http-body-util = { version = "0.1.2" }
+mime = "0.3.17"
 
 # The profile that 'dist' will build with
 [profile.dist]

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { DeploymentConfig, DeploymentProtocol } from '../types';
+  import type { DeploymentConfig, DeploymentProtocol } from '../../types';
 
   export let name: string;
   export let config: DeploymentConfig;

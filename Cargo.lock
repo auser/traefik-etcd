@@ -394,6 +394,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "axum-embed"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "077959a7f8cf438676af90b483304528eb7e16eadadb7f44e9ada4f9dceb9e62"
+dependencies = [
+ "axum-core",
+ "chrono",
+ "http 1.1.0",
+ "mime_guess",
+ "rust-embed",
+ "tower-service",
+]
+
+[[package]]
 name = "axum-test"
 version = "16.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1420,9 +1434,9 @@ dependencies = [
 
 [[package]]
 name = "export-type"
-version = "0.1.10"
+version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe71b54f784ce7cc1f0a033f29472e237811b5f14cf674f6a18de9db8bcc9c1e"
+checksum = "40f608acfd57deb399dead6de68547c059be0634b479e6cc6da2f45ee528fc74"
 dependencies = [
  "convert_case",
  "once_cell",
@@ -3567,8 +3581,10 @@ version = "8.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fa66af4a4fdd5e7ebc276f115e895611a34739a9c1c01028383d612d550953c0"
 dependencies = [
+ "axum",
  "rust-embed-impl",
  "rust-embed-utils",
+ "tokio",
  "walkdir",
 ]
 
@@ -3747,6 +3763,7 @@ version = "0.8.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09c024468a378b7e36765cd36702b7a90cc3cba11654f6685c8f233408e89e92"
 dependencies = [
+ "chrono",
  "dyn-clone",
  "schemars_derive",
  "serde",
@@ -5079,6 +5096,7 @@ dependencies = [
  "argon2",
  "async-trait",
  "axum",
+ "axum-embed",
  "axum-test",
  "cargo-dist",
  "chrono",
@@ -5094,13 +5112,16 @@ dependencies = [
  "export-type",
  "futures-util",
  "hmac",
+ "http-body-util",
  "hyper",
  "hyper-tls",
  "jwt",
+ "mime",
  "once_cell",
  "pretty_assertions",
  "protoc",
  "reqwest",
+ "rust-embed",
  "schemars",
  "serde",
  "serde_json",
@@ -5123,6 +5144,7 @@ dependencies = [
  "utoipa-swagger-ui",
  "uuid",
  "wait-timeout",
+ "walkdir",
 ]
 
 [[package]]

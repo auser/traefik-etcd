@@ -17,6 +17,8 @@ use crate::{
 
 use super::db;
 
+static CONFIG_BASE_PATH: &str = "/etc/traefik/configs";
+
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ServerConfig {
     #[schema(default = "localhost")]
@@ -30,6 +32,9 @@ pub struct ServerConfig {
     #[schema(default = "default_hmac_key")]
     #[serde(default = "default_hmac_key")]
     pub hmac_key: String,
+    #[schema(default = "./configs")]
+    #[serde(default = "default_base_config_path")]
+    pub base_config_path: String,
 }
 
 fn default_hmac_key() -> String {
@@ -44,6 +49,14 @@ fn default_host() -> String {
     "localhost".to_string()
 }
 
+fn default_base_config_path() -> String {
+    if std::env::var("CONFIG_BASE_PATH").is_ok() {
+        std::env::var("CONFIG_BASE_PATH").unwrap()
+    } else {
+        CONFIG_BASE_PATH.to_string()
+    }
+}
+
 #[cfg(feature = "cli")]
 impl From<crate::cli::serve::ServeCommand> for ServerConfig {
     fn from(command: crate::cli::serve::ServeCommand) -> Self {
@@ -52,6 +65,7 @@ impl From<crate::cli::serve::ServeCommand> for ServerConfig {
             port: command.port,
             database_url: Some(command.database_url),
             hmac_key: command.hmac_key,
+            base_config_path: command.base_config_path,
         }
     }
 }
@@ -81,6 +95,7 @@ pub(crate) async fn create_listener(config: &ServerConfig) -> TraefikResult<TcpL
 }
 
 pub async fn run(config: ServerConfig) -> TraefikResult<()> {
+    debug!("Running server on {:#?}", config);
     let pool = create_database(&config).await?;
     let app = create_app(&config, pool).await?;
     let listener = create_listener(&config).await?;

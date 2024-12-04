@@ -1,14 +1,18 @@
-use super::handle_error;
-use axum::handler::HandlerWithoutStateExt;
 use axum::Router;
-use tower_http::{services::ServeDir, trace::TraceLayer};
+// use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
-const FRONT_PUBLIC_PATH: &str = "frontend/dist";
+use axum_embed::ServeEmbed;
+use rust_embed::RustEmbed;
+
+#[derive(RustEmbed, Clone)]
+#[folder = "frontend/build"]
+struct Assets;
 
 pub fn router() -> Router {
-    Router::new()
-        .fallback_service(
-            ServeDir::new(FRONT_PUBLIC_PATH).not_found_service(handle_error.into_service()),
-        )
-        .layer(TraceLayer::new_for_http())
+    let serve_assets = ServeEmbed::<Assets>::new();
+    Router::new().nest_service("/frontend", serve_assets)
 }
+
+// .fallback_service(
+//     ServeDir::new(FRONT_PUBLIC_PATH).not_found_service(handle_error.into_service()),
+// )

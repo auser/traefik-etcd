@@ -1,11 +1,9 @@
 use std::sync::Arc;
 
-use axum::http::StatusCode;
 use axum::Router;
 use sqlx::{MySql, Pool};
 use tower::ServiceBuilder;
-use tower_http::cors::CorsLayer;
-use tower_http::{add_extension::AddExtensionLayer, trace::TraceLayer};
+use tower_http::{add_extension::AddExtensionLayer, cors::CorsLayer, trace::TraceLayer};
 
 use super::ServerConfig;
 
@@ -21,7 +19,15 @@ pub mod extractor;
 pub mod frontend;
 pub mod session;
 
+// use axum_embed::ServeEmbed;
+// use rust_embed::RustEmbed;
+
+// #[derive(RustEmbed, Clone)]
+// #[folder = "frontend/build"]
+// struct Assets;
+
 pub async fn get_routes(config: ServerConfig, db: Pool<MySql>) -> Router {
+    let cors = CorsLayer::permissive();
     api_router()
         .layer(
             ServiceBuilder::new().layer(AddExtensionLayer::new(ApiContext {
@@ -29,22 +35,22 @@ pub async fn get_routes(config: ServerConfig, db: Pool<MySql>) -> Router {
                 db,
             })),
         )
-        .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
+        .layer(cors)
 }
 
 fn api_router() -> Router {
     Router::new()
-        .merge(frontend::router())
         .merge(api::routes())
         .merge(auth::routes())
         .merge(session::routes())
+        .merge(frontend::router())
 }
 
-#[allow(clippy::unused_async)]
-pub(crate) async fn handle_error() -> (StatusCode, &'static str) {
-    (
-        StatusCode::INTERNAL_SERVER_ERROR,
-        "Something went wrong accessing static files...",
-    )
-}
+// #[allow(clippy::unused_async)]
+// pub(crate) async fn handle_error() -> (StatusCode, &'static str) {
+//     (
+//         StatusCode::INTERNAL_SERVER_ERROR,
+//         "Something went wrong accessing static files...",
+//     )
+// }

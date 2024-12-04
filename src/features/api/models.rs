@@ -80,3 +80,15 @@ pub struct SaveConfigRequest {
     pub name: String,
     pub config: serde_json::Value,
 }
+
+impl From<SaveConfigRequest> for String {
+    fn from(value: SaveConfigRequest) -> Self {
+        serde_json::to_string(&value).unwrap()
+    }
+}
+
+impl From<&SaveConfigRequest> for String {
+    fn from(value: &SaveConfigRequest) -> Self {
+        serde_json::to_string(value).unwrap()
+    }
+}

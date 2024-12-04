@@ -4,17 +4,30 @@ use std::{
     sync::Mutex,
 };
 
-use axum::Router;
+use axum::{
+    body::Body,
+    extract::Request,
+    http::{self},
+    response::Response,
+    Router,
+};
 
 use once_cell::sync::Lazy;
+use tracing::error;
+// use reqwest::RequestBuilder;
 use tokio::net::TcpListener;
+use tower::ServiceExt;
 use tracing::debug;
 
-use crate::error::{TraefikError, TraefikResult};
 #[cfg(test)]
 use crate::features::api::db::test_database::{TestDatabase, TestPoolOptions};
+use crate::{
+    config::traefik_config::TraefikConfigVersion,
+    error::{TraefikError, TraefikResult},
+    features::{configs::get_default_config, TraefikApiError},
+};
 
-use super::ServerConfig;
+use super::{ServerConfig, TraefikApiResult};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 static USER_ATOMIC_COUNTER: Lazy<Mutex<AtomicUsize>> =
@@ -76,11 +89,13 @@ pub struct TestServer {
 
 impl TestServer {
     pub async fn new() -> TraefikResult<Self> {
+        let root_dir = env!("CARGO_MANIFEST_DIR");
         let server_config = ServerConfig {
             host: "127.0.0.1".to_string(),
             port: 0,
             database_url: None,
             hmac_key: "".to_string(),
+            base_config_path: format!("{}/config", root_dir),
         };
         let test_user_id = get_next_user_count();
         let test_user = format!("test_user_{}", test_user_id);
@@ -107,9 +122,38 @@ impl TestServer {
         })
     }
 
-    pub async fn get(&self, path: &str) -> reqwest::Response {
+    pub async fn get(&self, path: &str) -> TraefikApiResult<Response> {
         let url = format!("{}{}", self.addr, path);
-        self.client.get(url).send().await.unwrap()
+        let req = Request::builder()
+            .method(http::Method::GET)
+            .uri(url.clone())
+            .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+            .body(Body::empty())
+            .unwrap();
+        match self.app.clone().oneshot(req).await {
+            Ok(response) => Ok(response),
+            Err(e) => {
+                error!("Error getting from {}: {:?}", url.clone(), e);
+                Err(TraefikApiError::InternalServerError)
+            }
+        }
+    }
+
+    pub async fn post(&self, path: &str, body: String) -> TraefikApiResult<Response> {
+        let url = format!("{}{}", self.addr, path);
+        let req = Request::builder()
+            .method(http::Method::POST)
+            .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+            .uri(url.clone())
+            .body(Body::from(body))
+            .unwrap();
+        match self.app.clone().oneshot(req).await {
+            Ok(response) => Ok(response),
+            Err(e) => {
+                error!("Error posting to {}: {:?}", url.clone(), e);
+                Err(TraefikApiError::InternalServerError)
+            }
+        }
     }
 }
 
@@ -158,4 +202,31 @@ fn catch_panics() {
 fn get_next_user_count() -> usize {
     let counter = USER_ATOMIC_COUNTER.lock().unwrap();
     counter.fetch_add(1, Ordering::SeqCst)
+}
+
+pub(crate) async fn create_db_test_config(
+    db: &TestDatabase,
+    test_config: Option<TraefikConfigVersion>,
+) -> TraefikResult<()> {
+    debug!("Creating test config");
+    let mut conn = db.mysql_pool.acquire().await?;
+
+    let default_config = get_default_config().await.unwrap();
+    let test_config = test_config.unwrap_or(default_config);
+
+    let create_config_sql = "INSERT INTO config_versions (id, name, config, created_at, updated_at, version) VALUES (?, ?, ?, ?, ?, ?)";
+    debug!("Creating test config: {:?}", create_config_sql);
+    let result = sqlx::query(create_config_sql)
+        .bind(test_config.id)
+        .bind(&test_config.name)
+        .bind(&test_config.config)
+        .bind(test_config.created_at)
+        .bind(test_config.updated_at)
+        .bind(test_config.version)
+        .execute(&mut *conn)
+        .await
+        .map_err(|e| TraefikError::DatabaseError(e.to_string()))?;
+    debug!("Test config created: {:?}", result);
+
+    Ok(())
 }

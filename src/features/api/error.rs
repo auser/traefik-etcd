@@ -10,6 +10,9 @@ pub type TraefikApiResult<T = (), E = TraefikApiError> = Result<T, E>;
 #[derive(Debug, thiserror::Error)]
 pub enum TraefikApiError {
     /// Return `401 Unauthorized`
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    /// Return `401 Unauthorized`
     #[error("Unauthorized")]
     Unauthorized,
     /// Return `422 Unprocessable Entity`
@@ -29,6 +32,18 @@ pub enum TraefikApiError {
     /// Automatically return `500 Internal Server Error` on a `sqlx::Error`.
     #[error("an error occurred with the database")]
     Sqlx(#[from] sqlx::Error),
+
+    /// Return `500 Internal Server Error`
+    #[error("an error occurred")]
+    InternalServerError,
+
+    /// Serialize error
+    #[error("error serializing yaml data")]
+    Serialize(#[from] serde_yaml::Error),
+
+    /// Serialize error
+    #[error("error serializing json data")]
+    SerializeJson(#[from] serde_json::Error),
 }
 
 impl TraefikApiError {
@@ -53,6 +68,10 @@ impl TraefikApiError {
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::UnprocessableEntity { .. } => StatusCode::UNPROCESSABLE_ENTITY,
             Self::Sqlx(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::Io(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::Serialize(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::SerializeJson(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }

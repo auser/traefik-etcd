@@ -17,6 +17,8 @@ pub struct ServeCommand {
     pub hmac_key: String,
     #[arg(long, env, default_value = "default_database_url")]
     pub database_url: String,
+    #[arg(long, env, default_value = "./configs")]
+    pub base_config_path: String,
 }
 
 pub async fn run(
@@ -29,6 +31,7 @@ pub async fn run(
         port: command.port,
         database_url: Some(command.database_url.clone()),
         hmac_key: command.hmac_key.clone(),
+        base_config_path: command.base_config_path.clone(),
     };
 
     crate::features::api::run(server_config).await?;

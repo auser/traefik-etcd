@@ -11,5 +11,11 @@ args = ["run", "dev", "--host"]
 watch = { watch = ["./frontend/"] }
 workspace = false
 
+[tasks.build-frontend]
+command = "pnpm"
+cwd = "./frontend"
+args = ["run", "build"]
+workspace = false
+
 [tasks.dev]
 run_task = { name = ["watch-backend", "watch-frontend"], parallel = true }

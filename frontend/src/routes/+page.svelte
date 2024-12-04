@@ -1,118 +1,82 @@
+<!-- src/routes/config-editor/+page.svelte -->
 <script lang="ts">
-    'use client';
     import { onMount } from 'svelte';
-    import TraefikConfig from '$lib/components/TraefikConfig.svelte';
-    import type { TraefikConfig as TraefikConfigType } from '$lib/types';
-    import { useTraefikStore } from '../stores/traefikConfigStore'
-
-
-
-    let configs: Array<{
-        id: number;
-        name: string;
-        config: TraefikConfigType;
-        created_at: string;
-    }> = [];
-
-    let currentConfig: TraefikConfigType = {
-        rulePrefix: '',
-        hosts: [],
-        middlewares: {}
-    };
-
-    let configName = '';
-
-    onMount(async () => {
-        const response = await fetch('http://localhost:3000/api/configs');
-        configs = await response.json();
+    import { configStore } from '$lib/stores/configStore';
+    import { Alert } from '$lib/components/ui/alert';
+    import { Save, FileDown, AlertCircle } from 'lucide-svelte';
+  
+    onMount(() => {
+      configStore.fetchConfigs();
     });
-
-    async function saveConfig() {
-        if (!configName) return;
-        
-        const response = await fetch('http://localhost:3000/api/configs', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                name: configName,
-                config: currentConfig,
-            }),
-        });
-        
-        const newConfig = await response.json();
-        configs = [newConfig, ...configs];
-        configName = '';
-    }
-
-    function loadConfig(config: TraefikConfigType) {
-        currentConfig = { ...config };
-    }
-
-    function exportConfig(config: TraefikConfigType) {
-        const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'traefik-config.json';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }
-</script>
-
-<div class="container mx-auto p-4">
-    <h1 class="text-3xl font-bold mb-6">Traefik Configuration Manager</h1>
-
-    <div class="mb-8">
-        <div class="flex gap-4 mb-4">
-            <input
-                type="text"
-                bind:value={configName}
-                placeholder="Configuration Name"
-                class="border p-2 rounded"
-            />
-            <button
-                on:click={saveConfig}
-                class="bg-blue-500 text-white px-4 py-2 rounded"
-                disabled={!configName}
-            >
-                Save Configuration
-            </button>
+  </script>
+  
+  <div class="p-4 max-w-4xl mx-auto">
+    <div class="mb-4">
+      <h2 class="text-2xl font-bold mb-4">Configuration Editor</h2>
+      
+      <!-- Config Selection -->
+      <div class="mb-4">
+        <select 
+          class="w-full p-2 border rounded"
+          on:change={(e) => configStore.loadConfig(e.currentTarget.value)}
+          value={$configStore.selectedConfig?.id || ''}
+        >
+          <option value="">Select a configuration</option>
+          {#each $configStore.configs as config}
+            <option value={config.id}>
+              {config.name}
+            </option>
+          {/each}
+        </select>
+      </div>
+  
+      <!-- Editor -->
+      {#if $configStore.selectedConfig}
+        <div class="mb-4">
+          <textarea
+            class="w-full h-96 p-4 font-mono text-sm border rounded"
+            value={$configStore.editedContent}
+            on:input={(e) => configStore.updateEditedContent(e.currentTarget.value)}
+            spellcheck="false"
+          />
         </div>
-
-        <TraefikConfig bind:config={currentConfig} />
+      {/if}
+  
+      <!-- Actions -->
+      <div class="flex gap-2">
+        <button
+          class="px-4 py-2 bg-blue-500 text-white rounded flex items-center gap-2 hover:bg-blue-600 disabled:opacity-50"
+          on:click={() => configStore.saveConfig()}
+          disabled={!$configStore.selectedConfig}
+        >
+          <Save class="w-4 h-4" />
+          Save
+        </button>
+        <button
+          class="px-4 py-2 bg-gray-500 text-white rounded flex items-center gap-2 hover:bg-gray-600 disabled:opacity-50"
+          on:click={() => configStore.reset()}
+          disabled={!$configStore.selectedConfig}
+        >
+          <FileDown class="w-4 h-4" />
+          Reset
+        </button>
+      </div>
+  
+      <!-- Error Display -->
+      {#if $configStore.error}
+        <Alert variant="destructive" class="mt-4">
+          <AlertCircle class="h-4 w-4" />
+          <svelte:fragment slot="title">Error</svelte:fragment>
+          <svelte:fragment slot="description">{$configStore.error}</svelte:fragment>
+        </Alert>
+      {/if}
+  
+      <!-- Save Status -->
+      {#if $configStore.saveStatus}
+        <Alert class="mt-4 bg-green-50">
+          <svelte:fragment slot="title">Success</svelte:fragment>
+          <svelte:fragment slot="description">{$configStore.saveStatus}</svelte:fragment>
+        </Alert>
+      {/if}
     </div>
-
-    <div>
-        <h2 class="text-xl font-semibold mb-4">Saved Configurations</h2>
-        <div class="grid gap-4">
-            {#each configs as config}
-                <div class="border p-4 rounded">
-                    <div class="flex justify-between items-center mb-2">
-                        <h3 class="font-semibold">{config.name}</h3>
-                        <div class="flex gap-2">
-                            <button
-                                on:click={() => loadConfig(config.config)}
-                                class="bg-blue-500 text-white px-3 py-1 rounded"
-                            >
-                                Load
-                            </button>
-                            <button
-                                on:click={() => exportConfig(config.config)}
-                                class="bg-green-500 text-white px-3 py-1 rounded"
-                            >
-                                Export
-                            </button>
-                        </div>
-                    </div>
-                    <div class="text-sm text-gray-600">
-                        Created: {new Date(config.created_at).toLocaleString()}
-                    </div>
-                </div>
-            {/each}
-        </div>
-    </div>
-</div>
+  </div>

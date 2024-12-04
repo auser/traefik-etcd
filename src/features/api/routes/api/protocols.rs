@@ -20,7 +20,7 @@ pub fn routes() -> Router {
 // maybe_auth_user: MaybeAuthUser,
 pub(crate) async fn get_protocols(ctx: Extension<ApiContext>) -> Json<Vec<DeploymentProtocol>> {
     Json(
-        db::operations::get_deployment_protocols(&ctx.db)
+        db::operations::protocols::get_deployment_protocols(&ctx.db)
             .await
             .unwrap_or_default(),
     )
@@ -45,6 +45,8 @@ mod tests {
         debug!("Testing get protocols");
         let response = server.get("/api/protocols").await;
         debug!("Response: {:?}", response);
+        assert!(response.is_ok());
+        let response = response.unwrap();
         assert_eq!(response.status(), StatusCode::OK);
     }
 }

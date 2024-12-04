@@ -10,9 +10,12 @@ use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
 use super::api;
-use crate::features::{
-    models::{ConfigVersion, DeploymentProtocol, SaveConfigRequest},
-    ServerConfig,
+use crate::{
+    config::traefik_config::TraefikConfigVersion,
+    features::{
+        models::{ConfigVersion, DeploymentProtocol, SaveConfigRequest},
+        ServerConfig,
+    },
 };
 
 /// imitating an API response
@@ -30,14 +33,16 @@ pub async fn handler() -> impl IntoResponse {
     paths(
         api::protocols::get_protocols,
         api::configs::get_configs,
-        api::configs::save_config
+        api::configs::save_config,
+        api::configs::get_default_config
     ),
     components(
         schemas(
             ConfigVersion,
             DeploymentProtocol,
             ServerConfig,
-            SaveConfigRequest
+            SaveConfigRequest,
+            TraefikConfigVersion
         )
     ),
     tags(

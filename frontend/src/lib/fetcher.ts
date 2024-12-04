@@ -1,0 +1,1 @@
+export const baseUrl = import.meta.env.PROD ? '/api' : 'http://localhost:9090/api';

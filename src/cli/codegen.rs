@@ -4,6 +4,7 @@ use std::{
 };
 
 use clap::Args;
+use tracing::debug;
 
 use crate::{core::client::StoreClient, error::TraefikResult, features::etcd::Etcd, TraefikConfig};
 
@@ -33,8 +34,8 @@ async fn handle_codegen(output: Option<PathBuf>) -> anyhow::Result<()> {
         output.unwrap_or_else(|| PathBuf::from(env::var("TYPES_OUT_DIR").unwrap_or_default()));
 
     let target_dir = match env::var("OUT_DIR") {
-        Ok(out_dir) => PathBuf::from(out_dir).join("frontend/src/types"),
-        Err(_) => Path::new("frontend/src/types").to_path_buf(),
+        Ok(out_dir) => PathBuf::from(out_dir).join("frontend/src/lib/types"),
+        Err(_) => Path::new("frontend/src/lib/types").to_path_buf(),
     };
 
     // Only copy if the types were generated
@@ -50,6 +51,7 @@ async fn handle_codegen(output: Option<PathBuf>) -> anyhow::Result<()> {
                     let file_name = path.file_name().unwrap();
                     let target_path = target_dir.join(file_name);
 
+                    debug!("copying: {:?} to {:?}", path, target_path);
                     std::fs::copy(&path, &target_path)
                         .unwrap_or_else(|e| panic!("Failed to copy {:?}: {}", file_name, e));
                 }

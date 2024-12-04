@@ -90,6 +90,15 @@ export interface TraefikConfig {
     middlewares: Record<string, MiddlewareConfig>;
 }
 
+export interface TraefikConfigVersion {
+    id: number;
+    name: string;
+    config: Record<any, any>;
+    createdAt: Date;
+    updatedAt: Date;
+    version: number;
+}
+
 export interface WithCookieConfig {
     name: string;
     value?: string | undefined;
