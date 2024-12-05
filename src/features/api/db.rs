@@ -3,7 +3,6 @@ use std::time::Duration;
 use once_cell::sync::Lazy;
 use sqlx::{mysql::MySqlPoolOptions, MySql, Pool};
 
-use super::models::DeploymentProtocol;
 use crate::error::TraefikResult;
 
 // #[cfg(test)]
@@ -52,6 +51,9 @@ pub async fn prepare_database(database_url: Option<String>) -> TraefikResult<Poo
 pub mod operations {
     use super::*;
     pub mod protocols {
+
+        use crate::features::api::DeploymentProtocol;
+
         use super::*;
 
         pub async fn get_deployment_protocols(

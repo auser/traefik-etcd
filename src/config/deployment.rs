@@ -29,6 +29,12 @@ pub enum DeploymentProtocol {
     Invalid,
 }
 
+impl From<String> for DeploymentProtocol {
+    fn from(value: String) -> Self {
+        DeploymentProtocol::from(value.as_str())
+    }
+}
+
 impl From<DeploymentProtocol> for String {
     fn from(protocol: DeploymentProtocol) -> Self {
         match protocol {

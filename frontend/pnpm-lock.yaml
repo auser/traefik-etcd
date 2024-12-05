@@ -17,6 +17,9 @@ importers:
       lucide-svelte:
         specifier: ^0.465.0
         version: 0.465.0(svelte@5.2.8)
+      yaml:
+        specifier: ^2.6.1
+        version: 2.6.1
     devDependencies:
       '@sveltejs/adapter-auto':
         specifier: ^3.0.0

@@ -4,6 +4,7 @@ use axum::response::{IntoResponse, Response};
 use axum::Json;
 use std::borrow::Cow;
 use std::collections::HashMap;
+use tracing::error;
 
 pub type TraefikApiResult<T = (), E = TraefikApiError> = Result<T, E>;
 
@@ -26,11 +27,11 @@ pub enum TraefikApiError {
     Forbidden,
 
     /// Return `404 Not Found`
-    #[error("resource path not found")]
-    NotFound,
+    #[error("resource not found")]
+    NotFound(String),
 
     /// Automatically return `500 Internal Server Error` on a `sqlx::Error`.
-    #[error("an error occurred with the database")]
+    #[error("an error occurred with the database: {0}")]
     Sqlx(#[from] sqlx::Error),
 
     /// Return `500 Internal Server Error`
@@ -44,6 +45,10 @@ pub enum TraefikApiError {
     /// Serialize error
     #[error("error serializing json data")]
     SerializeJson(#[from] serde_json::Error),
+
+    /// Return `409 Conflict`
+    #[error("resource already exists")]
+    Conflict,
 }
 
 impl TraefikApiError {
@@ -65,13 +70,14 @@ impl TraefikApiError {
         match self {
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
             Self::Forbidden => StatusCode::FORBIDDEN,
-            Self::NotFound => StatusCode::NOT_FOUND,
+            Self::NotFound(_) => StatusCode::NOT_FOUND,
             Self::UnprocessableEntity { .. } => StatusCode::UNPROCESSABLE_ENTITY,
             Self::Sqlx(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::Io(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::Serialize(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::SerializeJson(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::Conflict => StatusCode::CONFLICT,
         }
     }
 }
@@ -144,5 +150,19 @@ where
             }
             e => e,
         })
+    }
+}
+
+impl From<walkdir::Error> for TraefikApiError {
+    fn from(e: walkdir::Error) -> Self {
+        error!("Error walking directory: {:?}", e);
+        Self::InternalServerError
+    }
+}
+
+impl From<std::time::SystemTimeError> for TraefikApiError {
+    fn from(e: std::time::SystemTimeError) -> Self {
+        error!("Error getting system time: {:?}", e);
+        Self::InternalServerError
     }
 }

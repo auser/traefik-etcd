@@ -8,11 +8,12 @@ export interface DeploymentConfig {
     middlewares?: string[] | undefined;
 }
 
-export type DeploymentProtocol =
-    | "Http"
-    | "Https"
-    | "Tcp"
-    | "Invalid";
+export enum DeploymentProtocol {
+    HTTP = "Http",
+    HTTPS = "Https",
+    TCP = "Tcp",
+    INVALID = "Invalid",
+}
 
 export interface EtcdConfig {
     endpoints: string[];
@@ -76,6 +77,12 @@ export interface SelectionConfig {
     fromClientIp?: FromClientIpConfig | undefined;
 }
 
+export interface TemplateInfo {
+    name: string;
+    path: string;
+    description?: string | undefined;
+}
+
 export interface TlsOptions {
     domain?: string | undefined;
     cert?: string | undefined;
@@ -84,6 +91,8 @@ export interface TlsOptions {
 }
 
 export interface TraefikConfig {
+    name?: string | undefined;
+    description?: string | undefined;
     rulePrefix: string;
     etcd: EtcdConfig;
     hosts: HostConfig[];

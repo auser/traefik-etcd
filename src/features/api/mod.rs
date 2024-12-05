@@ -7,8 +7,8 @@ pub mod server;
 pub mod types;
 pub mod utils;
 
-pub use controllers::*;
 pub use error::*;
+pub use models::*;
 pub use server::*;
 pub use types::*;
 pub use utils::*;

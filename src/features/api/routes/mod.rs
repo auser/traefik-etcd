@@ -5,12 +5,13 @@ use sqlx::{MySql, Pool};
 use tower::ServiceBuilder;
 use tower_http::{add_extension::AddExtensionLayer, cors::CorsLayer, trace::TraceLayer};
 
-use super::ServerConfig;
+use super::{file_loader::FileConfig, ServerConfig};
 
 #[derive(Clone)]
 pub(crate) struct ApiContext {
     config: Arc<ServerConfig>,
     db: Pool<MySql>,
+    file_config: FileConfig,
 }
 
 pub mod api;
@@ -33,6 +34,7 @@ pub async fn get_routes(config: ServerConfig, db: Pool<MySql>) -> Router {
             ServiceBuilder::new().layer(AddExtensionLayer::new(ApiContext {
                 config: Arc::new(config),
                 db,
+                file_config: FileConfig::default(),
             })),
         )
         .layer(TraceLayer::new_for_http())

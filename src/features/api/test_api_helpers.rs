@@ -24,7 +24,7 @@ use crate::features::api::db::test_database::{TestDatabase, TestPoolOptions};
 use crate::{
     config::traefik_config::TraefikConfigVersion,
     error::{TraefikError, TraefikResult},
-    features::{configs::get_default_config, TraefikApiError},
+    features::{controllers::configs::get_default_config, TraefikApiError},
 };
 
 use super::{ServerConfig, TraefikApiResult};
@@ -95,7 +95,7 @@ impl TestServer {
             port: 0,
             database_url: None,
             hmac_key: "".to_string(),
-            base_config_path: format!("{}/config", root_dir),
+            base_templates_path: format!("{}/config", root_dir),
         };
         let test_user_id = get_next_user_count();
         let test_user = format!("test_user_{}", test_user_id);
@@ -208,25 +208,39 @@ pub(crate) async fn create_db_test_config(
     db: &TestDatabase,
     test_config: Option<TraefikConfigVersion>,
 ) -> TraefikResult<()> {
-    debug!("Creating test config");
-    let mut conn = db.mysql_pool.acquire().await?;
+    use sqlx::Connection;
 
+    debug!("Creating test config");
     let default_config = get_default_config().await.unwrap();
     let test_config = test_config.unwrap_or(default_config);
+    let name = test_config.name;
+    let config = test_config.config;
+    let version = test_config.version;
 
-    let create_config_sql = "INSERT INTO config_versions (id, name, config, created_at, updated_at, version) VALUES (?, ?, ?, ?, ?, ?)";
-    debug!("Creating test config: {:?}", create_config_sql);
-    let result = sqlx::query(create_config_sql)
-        .bind(test_config.id)
-        .bind(&test_config.name)
-        .bind(&test_config.config)
-        .bind(test_config.created_at)
-        .bind(test_config.updated_at)
-        .bind(test_config.version)
-        .execute(&mut *conn)
-        .await
-        .map_err(|e| TraefikError::DatabaseError(e.to_string()))?;
-    debug!("Test config created: {:?}", result);
+    let mut conn = db.mysql_pool.acquire().await?;
+    let mut tx = conn.begin().await?;
+
+    sqlx::query(
+        r#"
+        INSERT INTO config_versions (name, config, version)
+        VALUES (?, ?, ?)
+        "#,
+    )
+    .bind(name)
+    .bind(config)
+    .bind(version)
+    .execute(&mut *tx)
+    .await?;
+
+    sqlx::query(
+        r#"
+        SELECT * FROM config_versions WHERE id = LAST_INSERT_ID()
+        "#,
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
 
     Ok(())
 }

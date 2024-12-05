@@ -203,6 +203,8 @@ pub fn create_test_config(host_configs: Option<Vec<HostConfig>>) -> TraefikConfi
         middlewares: create_test_middleware(),
         hosts: host_configs,
         rule_prefix: "test".to_string(),
+        name: Some("test".to_string()),
+        description: Some("test".to_string()),
     }
 }
 

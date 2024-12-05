@@ -1,0 +1,35 @@
+# Basic configuration with a catch-all route
+etcd:
+  endpoints: ["https://0.0.0.0:2379"]
+  timeout: 2000
+  keep_alive: 300
+  tls:
+    cert: "./config/tls/etcd-peer.pem"
+    key: "./config/tls/etcd-peer-key.pem"
+    ca: "./config/tls/ca.pem"
+    domain: ari.io
+
+hosts:
+  - domain: "example.com"
+    www_redirect: true
+    paths:
+      - path: "/test"
+        deployments:
+          blue:
+            ip: 10.0.0.1
+            port: 8080
+            weight: 50
+          green:
+            ip: 10.0.0.2
+            port: 8080
+            weight: 50
+        middlewares:
+          - enable-headers
+          - forward-server
+
+    # Root path (catch-all)
+    deployments:
+      catch-all:
+        ip: 10.0.0.1
+        port: 8080
+        weight: 100

@@ -29,16 +29,14 @@ use super::{
 #[export_type(rename_all = "camelCase", path = "generated/types")]
 pub struct TraefikConfigVersion {
     #[serde(default)]
-    pub id: u64,
+    pub id: i64,
     #[serde(default)]
     pub name: String,
     #[serde(default)]
     pub config: serde_json::Value,
     #[serde(default)]
-    #[sqlx(type_name = "TIMESTAMP")]
     pub created_at: DateTime<Utc>,
     #[serde(default)]
-    #[sqlx(type_name = "TIMESTAMP")]
     pub updated_at: DateTime<Utc>,
     #[serde(default)]
     pub version: i32,
@@ -49,6 +47,10 @@ pub struct TraefikConfigVersion {
 #[cfg_attr(feature = "codegen", derive(ExportType))]
 #[export_type(rename_all = "camelCase", path = "generated/types")]
 pub struct TraefikConfig {
+    #[serde(default = "default_name")]
+    pub name: Option<String>,
+    #[serde(default = "default_description")]
+    pub description: Option<String>,
     #[serde(default = "default_rule_prefix")]
     pub rule_prefix: String,
     #[cfg(feature = "etcd")]
@@ -66,6 +68,14 @@ fn default_etcd_config() -> etcd::EtcdConfig {
 
 fn default_rule_prefix() -> String {
     "traefik".to_string()
+}
+
+fn default_name() -> Option<String> {
+    None
+}
+
+fn default_description() -> Option<String> {
+    None
 }
 
 impl From<TraefikConfig> for serde_json::Value {
@@ -340,6 +350,8 @@ impl TraefikConfig {
         let host_configs = vec![host_config];
 
         TraefikConfig {
+            name: Some("test".to_string()),
+            description: Some("test".to_string()),
             #[cfg(feature = "etcd")]
             etcd: Default::default(),
             middlewares: HashMap::new(),

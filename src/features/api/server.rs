@@ -17,7 +17,7 @@ use crate::{
 
 use super::db;
 
-static CONFIG_BASE_PATH: &str = "/etc/traefik/configs";
+static TEMPLATES_BASE_PATH: &str = "/etc/traefik/config";
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ServerConfig {
@@ -32,9 +32,9 @@ pub struct ServerConfig {
     #[schema(default = "default_hmac_key")]
     #[serde(default = "default_hmac_key")]
     pub hmac_key: String,
-    #[schema(default = "./configs")]
-    #[serde(default = "default_base_config_path")]
-    pub base_config_path: String,
+    #[schema(default = "./frontend/templates")]
+    #[serde(default = "default_base_templates_path")]
+    pub base_templates_path: String,
 }
 
 fn default_hmac_key() -> String {
@@ -49,11 +49,11 @@ fn default_host() -> String {
     "localhost".to_string()
 }
 
-fn default_base_config_path() -> String {
-    if std::env::var("CONFIG_BASE_PATH").is_ok() {
-        std::env::var("CONFIG_BASE_PATH").unwrap()
+fn default_base_templates_path() -> String {
+    if std::env::var("TEMPLATES_BASE_PATH").is_ok() {
+        std::env::var("TEMPLATES_BASE_PATH").unwrap()
     } else {
-        CONFIG_BASE_PATH.to_string()
+        TEMPLATES_BASE_PATH.to_string()
     }
 }
 
@@ -65,7 +65,7 @@ impl From<crate::cli::serve::ServeCommand> for ServerConfig {
             port: command.port,
             database_url: Some(command.database_url),
             hmac_key: command.hmac_key,
-            base_config_path: command.base_config_path,
+            base_templates_path: command.base_config_path,
         }
     }
 }
