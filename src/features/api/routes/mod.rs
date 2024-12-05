@@ -1,9 +1,13 @@
 use std::sync::Arc;
 
-use axum::Router;
+use axum::{http::Method, Router};
 use sqlx::{MySql, Pool};
 use tower::ServiceBuilder;
-use tower_http::{add_extension::AddExtensionLayer, cors::CorsLayer, trace::TraceLayer};
+use tower_http::{
+    add_extension::AddExtensionLayer,
+    cors::{Any, CorsLayer},
+    trace::TraceLayer,
+};
 
 use super::{file_loader::FileConfig, ServerConfig};
 
@@ -28,7 +32,18 @@ pub mod session;
 // struct Assets;
 
 pub async fn get_routes(config: ServerConfig, db: Pool<MySql>) -> Router {
-    let cors = CorsLayer::permissive();
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
+        .allow_headers(Any)
+        .expose_headers(Any);
+    
     api_router()
         .layer(
             ServiceBuilder::new().layer(AddExtensionLayer::new(ApiContext {

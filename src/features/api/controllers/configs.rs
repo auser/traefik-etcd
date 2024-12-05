@@ -7,7 +7,7 @@ use tracing::error;
 use walkdir::WalkDir;
 
 use crate::{
-    config::traefik_config::TraefikConfigVersion,
+    config::traefik_config::{ConfigVersionHistory, TraefikConfigVersion},
     features::{
         db,
         file_loader::{save_file_config, FileConfig},
@@ -333,6 +333,80 @@ pub async fn get_database_config(
     .fetch_optional(pool)
     .await?
     .ok_or_else(|| TraefikApiError::NotFound(format!("Configuration {} not found", id)))
+}
+
+pub async fn get_config_history(
+    pool: &Pool<MySql>,
+    config_id: i64,
+) -> TraefikApiResult<Vec<ConfigVersionHistory>> {
+    let history = sqlx::query_as::<_, ConfigVersionHistory>(
+        r#"
+        SELECT id, config_id, name, config, created_at, version
+        FROM config_version_history 
+        WHERE config_id = ?
+        ORDER BY version DESC
+        "#,
+    )
+    .bind(config_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(history)
+}
+
+pub async fn create_config_backup(
+    pool: &Pool<MySql>,
+    config_id: i64,
+    request: SaveConfigRequest,
+) -> TraefikApiResult<ConfigVersionHistory> {
+    let mut tx = pool.begin().await?;
+
+    // Get the current max version for this config
+    let current_version: i32 = sqlx::query_scalar(
+        r#"
+        SELECT COALESCE(MAX(version), 0)
+        FROM config_version_history
+        WHERE config_id = ?
+        "#,
+    )
+    .bind(config_id)
+    .fetch_one(&mut *tx)
+    .await?;
+
+    // Create new version
+    let new_version = current_version + 1;
+
+    // Insert the backup
+    sqlx::query(
+        r#"
+        INSERT INTO config_version_history 
+        (config_id, name, config, version)
+        VALUES (?, ?, ?, ?)
+        "#,
+    )
+    .bind(config_id)
+    .bind(&request.name)
+    .bind(&request.config)
+    .bind(new_version)
+    .execute(&mut *tx)
+    .await?;
+
+    // Get the inserted record
+    let backup = sqlx::query_as::<_, ConfigVersionHistory>(
+        r#"
+        SELECT id, config_id, name, config, created_at, version
+        FROM config_version_history 
+        WHERE config_id = ? AND version = ?
+        "#,
+    )
+    .bind(config_id)
+    .bind(new_version)
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(backup)
 }
 
 #[cfg(test)]

@@ -5,6 +5,7 @@
   import HostEditor from './HostEditor.svelte';
 
   export let config: TraefikConfig;
+  export let configName: string = '';
   export let onChange: (config: TraefikConfig) => void;
   export let onNameChange: (newName: string) => void;
 
@@ -40,16 +41,17 @@
 </script>
 
   <!-- Configuration Name -->
-  <div class="space-y-2">
-    <label class="text-sm font-medium">Configuration Name</label>
-    <input
-      type="text"
-      class="w-full p-2 border rounded"
-      value={name}
-      on:input={(e) => onNameChange(e.currentTarget.value)}
-      placeholder="My Configuration"
-    />
-  </div>
+ <!-- Configuration Name -->
+ <div class="space-y-2">
+  <label class="text-sm font-medium" for="configName">Configuration Name</label>
+  <input
+    type="text"
+    class="w-full p-2 border rounded"
+    value={configName}
+    on:change={(e) => onNameChange(e.currentTarget.value)}
+    placeholder="My Configuration"
+  />
+</div>
   
 <div class="space-y-6">
   <!-- Hosts Section -->
@@ -65,7 +67,7 @@
       </button>
     </div>
 
-    {#if config.hosts.length === 0}
+    {#if config.hosts && config.hosts.length === 0}
       <div class="text-center py-8 text-gray-500 border-2 border-dashed rounded">
         No hosts configured. Click "Add Host" to begin.
       </div>

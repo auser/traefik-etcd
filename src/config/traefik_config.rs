@@ -42,6 +42,33 @@ pub struct TraefikConfigVersion {
     pub version: i32,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, sqlx::FromRow)]
+#[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "codegen", derive(ExportType))]
+#[export_type(rename_all = "camelCase", path = "generated/types")]
+pub struct ConfigVersionHistory {
+    pub id: i64,
+    pub config_id: i64,
+    pub name: String,
+    pub config: serde_json::Value,
+    #[serde(with = "chrono::serde::ts_seconds")]
+    pub created_at: DateTime<Utc>,
+    pub version: i32,
+}
+
+impl ConfigVersionHistory {
+    pub fn new(config_id: i64, name: String, config: serde_json::Value, version: i32) -> Self {
+        Self {
+            id: 0, // Will be set by database
+            config_id,
+            name,
+            config,
+            created_at: Utc::now(),
+            version,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Default, Clone, JsonSchema)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 #[cfg_attr(feature = "codegen", derive(ExportType))]

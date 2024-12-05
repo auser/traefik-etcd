@@ -3,7 +3,7 @@ use axum::routing::{delete, get, post, put};
 use axum::{Extension, Json, Router};
 use tracing::error;
 
-use crate::config::traefik_config::TraefikConfigVersion;
+use crate::config::traefik_config::{ConfigVersionHistory, TraefikConfigVersion};
 use crate::features::controllers::configs::get_database_config;
 use crate::features::models::SaveConfigRequest;
 use crate::features::routes::ApiContext;
@@ -16,10 +16,12 @@ pub fn routes() -> Router {
         .route("/configs", post(save_config))
         .route("/configs/default", get(get_default_config))
         .route("/configs/files", get(get_file_configs))
-        .route("/configs/:id", put(update_config))
-        .route("/configs/:id", get(get_config_by_id))
         .route("/configs/version", post(save_config_version))
-        .route("/configs/:id", delete(delete_config))
+        .route("/configs/backup/:id", post(create_config_backup))
+        .route("/configs/id/:id", get(get_config_by_id))
+        .route("/configs/update/:id", put(update_config))
+        .route("/configs/history/:id", get(get_config_history))
+        .route("/configs/delete/:id", delete(delete_config))
 }
 
 /// Get all configurations
@@ -145,7 +147,7 @@ pub(crate) async fn update_config(
 /// Get configuration by ID
 #[utoipa::path(
     get,
-    path = "/api/configs/{id}",
+    path = "/api/configs/id/{id}",
     params(
         ("id" = i64, Path, description = "Configuration ID. Positive for database configs, negative for files, -1 for default, 0 for new")
     ),
@@ -201,10 +203,48 @@ pub(crate) async fn get_config_by_id(
     Ok(Json(config))
 }
 
+/// Get version history for a config
+#[utoipa::path(
+    get,
+    path = "/api/configs/history/{id}",
+    responses(
+        (status = 200, description = "Version history retrieved successfully", body = Vec<ConfigVersionHistory>),
+        (status = 404, description = "Configuration not found")
+    ),
+    tags = ["config"]
+)]
+pub(crate) async fn get_config_history(
+    ctx: Extension<ApiContext>,
+    Path(id): Path<i64>,
+) -> TraefikApiResult<Json<Vec<ConfigVersionHistory>>> {
+    let history = controllers::configs::get_config_history(&ctx.db, id).await?;
+    Ok(Json(history))
+}
+
+/// Create backup of current config state
+#[utoipa::path(
+    post,
+    path = "/api/configs/backup/{id}",
+    request_body = SaveConfigRequest,
+    responses(
+        (status = 201, description = "Backup created successfully", body = ConfigVersionHistory),
+        (status = 404, description = "Configuration not found")
+    ),
+    tags = ["config"]
+)]
+pub(crate) async fn create_config_backup(
+    ctx: Extension<ApiContext>,
+    Path(id): Path<i64>,
+    Json(request): Json<SaveConfigRequest>,
+) -> TraefikApiResult<Json<ConfigVersionHistory>> {
+    let backup = controllers::configs::create_config_backup(&ctx.db, id, request).await?;
+    Ok(Json(backup))
+}
+
 /// Delete a configuration
 #[utoipa::path(
     delete,
-    path = "/api/configs/{id}",
+    path = "/api/configs/delete/{id}",
     params(
         ("id" = i64, Path, description = "Configuration ID to delete")
     ),

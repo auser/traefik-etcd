@@ -1,3 +1,12 @@
+export interface ConfigVersionHistory {
+    id: number;
+    configId: number;
+    name: string;
+    config: Record<any, any>;
+    createdAt: Date;
+    version: number;
+}
+
 export interface DeploymentConfig {
     name: string;
     ip: string;
@@ -78,9 +87,13 @@ export interface SelectionConfig {
 }
 
 export interface TemplateInfo {
+    id: number;
     name: string;
     path: string;
     description?: string | undefined;
+    fileTemplate: boolean;
+    updated_at: Date;
+    created_at: Date;
 }
 
 export interface TlsOptions {

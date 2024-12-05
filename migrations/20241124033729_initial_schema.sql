@@ -29,3 +29,15 @@ CREATE TABLE IF NOT EXISTS config_versions (
     INDEX idx_name (name),
     INDEX idx_created_at (created_at)
 );
+
+-- Add version_history table
+CREATE TABLE IF NOT EXISTS config_version_history (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    config_id BIGINT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    config JSON NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    version INT NOT NULL,
+    PRIMARY KEY (id),
+    FOREIGN KEY (config_id) REFERENCES config_versions(id) ON DELETE CASCADE
+);

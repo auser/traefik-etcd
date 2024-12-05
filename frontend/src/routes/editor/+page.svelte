@@ -1,6 +1,7 @@
 <script lang="ts">
     'use client';
     import { onMount } from 'svelte';
+    import { fetching } from '$lib/utils/fetching';
     // import TraefikConfig from '@/components/TraefikConfig.svelte';
     import type { TraefikConfig as TraefikConfigType } from '$lib/types';
     // import { useTraefikStore } from '@/stores/traefikConfigStore'
@@ -24,7 +25,7 @@
     let configName = '';
 
     onMount(async () => {
-        const response = await fetch('http://localhost:3000/api/configs');
+        const response = await fetching('/configs');
         console.log(response);
         configs = await response.json();
     });
@@ -32,7 +33,7 @@
     async function saveConfig() {
         if (!configName) return;
         
-        const response = await fetch('http://localhost:3000/api/configs', {
+        const response = await fetching('/configs', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

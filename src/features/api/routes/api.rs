@@ -2,18 +2,17 @@ use axum::{response::IntoResponse, Json, Router};
 use serde_json::json;
 
 pub mod configs;
-pub mod protocols;
 pub mod templates;
 
 pub use configs::*;
-pub use protocols::*;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
 use super::api;
 use crate::{
-    config::traefik_config::TraefikConfigVersion,
-    features::{models::SaveConfigRequest, ServerConfig},
+    config::traefik_config::{ConfigVersionHistory, TraefikConfigVersion},
+    features::{models::SaveConfigRequest, ServerConfig, TemplateInfo},
+    TraefikConfig,
 };
 
 /// imitating an API response
@@ -37,19 +36,26 @@ pub async fn handler() -> impl IntoResponse {
         api::configs::update_config,
         api::configs::save_config_version,
         api::configs::delete_config,
+        api::configs::get_config_history,
+        api::configs::create_config_backup,
+        // Templates
         api::templates::list_templates,
-        api::templates::get_template,
+        api::templates::get_template_route,
+        api::templates::delete_template,
+        api::templates::search_templates,
     ),
     components(
         schemas(
             ServerConfig,
             SaveConfigRequest,
             TraefikConfigVersion,
+            ConfigVersionHistory,
+            TemplateInfo,
+            TraefikConfig,
         )
     ),
     tags(
         (name = "config", description = "Configuration management endpoints"),
-        (name = "protocols", description = "Protocol management endpoints"),
         (name = "templates", description = "Template management endpoints")
     )
 )]
@@ -63,7 +69,6 @@ pub fn routes() -> Router {
 
 fn api_router() -> Router {
     Router::new()
-        .merge(protocols::routes())
         .merge(configs::routes())
         .merge(templates::routes())
 }

@@ -3,13 +3,13 @@
   import { Trash2 } from 'lucide-svelte';
   import type { ConfigListItem } from '$lib/stores/configStore';
   import { configStore } from '$lib/stores/configStore';
-  import { fetching } from '$lib/fetcher';
+  import { fetching } from '$lib/utils/fetching';
   export let configs: ConfigListItem[] = [];
   let confirmDelete: number | null = null;
 
   async function deleteConfig(id: number) {
     try {
-      const response = await fetching(`/configs/${id}`, {
+      const response = await fetching(`/configs/delete/${id}`, {
         method: "DELETE"
       });
       

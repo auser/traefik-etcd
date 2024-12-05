@@ -1,6 +1,6 @@
 [tasks.watch-backend]
 command = "cargo"
-args = ["run", "--", "serve"]
+args = ["run", "--", "serve", "-l", "debug"]
 watch = { watch = ["./src/", "./bin/"] }
 workspace = false
 
