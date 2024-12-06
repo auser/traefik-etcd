@@ -628,6 +628,8 @@ pub fn add_middlewares(
             ),
             "true".to_string(),
         ));
+        middleware_idx += 1;
+        middleware_names.push(format!("{}-headers", router_name));
     }
 
     // Add additional middlewares
