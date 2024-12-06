@@ -9,6 +9,7 @@ use crate::{
 use export_type::ExportType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use tracing::debug;
 
 use super::headers::HeadersConfig;
 
@@ -59,12 +60,18 @@ impl ToEtcdPairs for MiddlewareConfig {
     /// `{base_key}/{protocol}/middlewares`
     fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
         // First set the middleware name to true
+        debug!("to_etcd_pairs: {}", base_key);
+        debug!("Adding middleware: {}", self.get_path(base_key));
         // The middleware config path is `{base_key}/{protocol}/middlewares/{name}`
-        let headers_base_key = self.get_path(base_key);
+        let headers_base_key = base_key;
         let mut pairs = vec![];
         // Next add the headers if they are present
         if let Some(headers) = &self.headers {
-            let headers_pairs = headers.to_etcd_pairs(&headers_base_key)?;
+            debug!(
+                "Adding headers to middleware: {} for {}",
+                headers_base_key, base_key
+            );
+            let headers_pairs = headers.to_etcd_pairs(headers_base_key)?;
             pairs.extend(headers_pairs);
         }
         Ok(pairs)
@@ -148,11 +155,48 @@ mod tests {
     }
 
     #[test]
+    fn test_to_etcd_pairs_global() {
+        let middleware = create_test_middleware();
+        let mut result_pairs = vec![];
+        for (_name, middleware) in middleware {
+            let pairs = middleware
+                .to_etcd_pairs("test/middlewares/enable-headers")
+                .unwrap();
+            result_pairs.extend(pairs);
+        }
+        let pair_strs: Vec<String> = result_pairs.iter().map(|p| p.to_string()).collect();
+
+        // assert!(pair_strs.contains(&"test/http/middlewares/enable-headers true".to_string()));
+        // assert!(pair_strs.contains(&"test/http/middlewares/handle-redirects true".to_string()));
+        assert!(pair_strs.contains(
+            &"test/middlewares/enable-headers/headers/customRequestHeaders/X-Forwarded-Proto https"
+                .to_string()
+        ));
+        assert!(pair_strs.contains(
+            &"test/middlewares/enable-headers/headers/customRequestHeaders/X-Forwarded-Port 443"
+                .to_string()
+        ));
+
+        assert!(pair_strs.contains(
+            &"test/middlewares/enable-headers/headers/customResponseHeaders/Location ".to_string()
+        ));
+        assert!(pair_strs.contains(
+            &"test/middlewares/enable-headers/headers/accessControlAllowMethods GET, POST, OPTIONS"
+                .to_string()
+        ));
+        assert!(pair_strs.contains(
+            &"test/middlewares/enable-headers/headers/accessControlAllowHeaders Content-Type, Authorization"
+                .to_string()
+        ));
+    }
+
+    #[test]
     fn test_to_etcd_pairs() {
         let middleware = create_test_middleware();
         let mut result_pairs = vec![];
         for (_name, middleware) in middleware {
-            let pairs = middleware.to_etcd_pairs("test").unwrap();
+            let base_key = middleware.get_path("test");
+            let pairs = middleware.to_etcd_pairs(&base_key).unwrap();
             result_pairs.extend(pairs);
         }
         let pair_strs: Vec<String> = result_pairs.iter().map(|p| p.to_string()).collect();

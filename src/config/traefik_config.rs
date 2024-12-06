@@ -57,10 +57,13 @@ impl ToEtcdPairs for TraefikConfig {
         // self.add_defaults(&mut pairs, base_key)?;
         // Start with middleware rules
         for (name, middleware) in self.middlewares.clone().iter_mut() {
-            debug!("Applying middleware: {}", name);
             middleware.set_name(name);
-            let new_rules = middleware.to_etcd_pairs(base_key)?;
-            pairs.extend(new_rules);
+            let middleware_base_key = middleware.get_path(base_key);
+            let new_rules = middleware.to_etcd_pairs(&middleware_base_key)?;
+            debug!("New rules middleware rules: {:?}", new_rules);
+            for new_rule in new_rules.iter().cloned() {
+                pairs.push(new_rule);
+            }
         }
 
         let sorted_hosts = get_sorted_deployments(self)?;

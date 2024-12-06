@@ -467,6 +467,11 @@ pub fn add_deployment_rules(
         }
 
         let service_name = format!("{}-service", router_name);
+
+        debug!(
+            "Additional middlewares pre-adding: {:?}",
+            additional_middlewares
+        );
         let middleware_names = add_middlewares(
             &deployment.traefik_config,
             pairs,
@@ -505,11 +510,6 @@ pub fn attach_middlewares(
             format!("{}/routers/{}/middlewares/{}", base_key, router_name, idx),
             middleware_name.clone(),
         ));
-        println!(
-            "Added middleware: {} => {}",
-            format!("{}/routers/{}/middlewares/{}", base_key, router_name, idx),
-            middleware_name
-        );
     }
     Ok(())
 }
@@ -643,6 +643,10 @@ pub fn add_middlewares(
             Some(middleware_config) => {
                 let middleware_custom_name = format!("{}-{}", router_name, middleware);
                 let mw_base_key = format!("{}/middlewares/{}", base_key, middleware_custom_name);
+                debug!(
+                    "Adding additional middleware: {} => base_key: {}",
+                    middleware_custom_name, mw_base_key
+                );
                 let mw_pairs = middleware_config.to_etcd_pairs(&mw_base_key)?;
                 pairs.extend(mw_pairs);
 
@@ -678,13 +682,13 @@ pub fn add_strip_prefix_middleware(
     path_config: Option<PathConfig>,
 ) -> TraefikResult<Option<String>> {
     let strip_prefix_name = if let Some(path_config) = path_config {
-        pairs.push(EtcdPair::new(
-            format!(
-                "{}/middlewares/{}-strip/stripPrefix/prefixes/0",
-                base_key, path_safe_name
-            ),
-            path_config.path.clone(),
-        ));
+        let key = format!(
+            "{}/middlewares/{}-strip/stripPrefix/prefixes/0",
+            base_key, path_safe_name
+        );
+        let value = path_config.path.clone();
+        debug!("Adding strip prefix middleware: {} => {}", key, value);
+        pairs.push(EtcdPair::new(key, value));
         Some(format!("{}-strip", path_safe_name))
     } else {
         None
