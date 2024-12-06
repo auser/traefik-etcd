@@ -1,3 +1,12 @@
+export interface ConfigVersionHistory {
+    id: number;
+    configId: number;
+    name: string;
+    config: Record<any, any>;
+    createdAt: Date;
+    version: number;
+}
+
 export interface DeploymentConfig {
     name: string;
     ip: string;
@@ -8,11 +17,12 @@ export interface DeploymentConfig {
     middlewares?: string[] | undefined;
 }
 
-export type DeploymentProtocol =
-    | "Http"
-    | "Https"
-    | "Tcp"
-    | "Invalid";
+export enum DeploymentProtocol {
+    HTTP = "Http",
+    HTTPS = "Https",
+    TCP = "Tcp",
+    INVALID = "Invalid",
+}
 
 export interface EtcdConfig {
     endpoints: string[];
@@ -76,6 +86,156 @@ export interface SelectionConfig {
     fromClientIp?: FromClientIpConfig | undefined;
 }
 
+export interface TemplateInfo {
+    name: string;
+    path: string;
+    description?: string | undefined;
+    fileTemplate: boolean;
+}
+
+export interface TemplateInfo {
+    name: string;
+    path: string;
+    description?: string | undefined;
+    fileTemplate: boolean;
+    updatedAt: string;
+    createdAt: string;
+}
+
+export interface TemplateInfo {
+    name: string;
+    path: string;
+    description?: string | undefined;
+    file_template?: boolean | undefined;
+}
+
+export interface TemplateInfo {
+    name: string;
+    path: string;
+    description?: string | undefined;
+    fileTemplate: boolean;
+    updated_at: string;
+    version: number;
+}
+
+export interface TemplateInfo {
+    name: string;
+    path: string;
+    description?: string | undefined;
+    fileTemplate: boolean;
+    updated_at: Date;
+    createdAt: Date;
+}
+
+export interface TemplateInfo {
+    name: string;
+    path: string;
+    description?: string | undefined;
+    fileTemplate?: boo | undefined;
+}
+
+export interface TemplateInfo {
+    name: string;
+    path: string;
+    description?: string | undefined;
+    fileTemplate?: string | undefined;
+}
+
+export interface TemplateInfo {
+    name: string;
+    path: string;
+    description?: string | undefined;
+    fileemplate?: boolean | undefined;
+}
+
+export interface TemplateInfo {
+    name: string;
+    path: string;
+    description?: string | undefined;
+    fileTemplate: boolean;
+    updated_at: string;
+    created_at: string;
+}
+
+export interface TemplateInfo {
+    name: string;
+    path: string;
+    description?: string | undefined;
+    fileTemplate: boolean;
+    updatedAt: Date;
+    createdAt: Date;
+}
+
+export interface TemplateInfo {
+    name: string;
+    path: string;
+    description?: string | undefined;
+}
+
+export interface TemplateInfo {
+    name: string;
+    path: string;
+    description?: string | undefined;
+    fileTemplate?: bo | undefined;
+}
+
+export interface TemplateInfo {
+    name: string;
+    path: string;
+    description?: string | undefined;
+    fileTemplate?: b | undefined;
+}
+
+export interface TemplateInfo {
+    name: string;
+    path: string;
+    description?: string | undefined;
+    fileTemplate: boolean;
+    updatedAt: string;
+    created_at: string;
+}
+
+export interface TemplateInfo {
+    name: string;
+    path: string;
+    description?: string | undefined;
+    fileTemplate: boolean;
+    updated_at: Date;
+    created_at: Date;
+}
+
+export interface TemplateInfo {
+    id: number;
+    name: string;
+    path: string;
+    description?: string | undefined;
+    fileTemplate: boolean;
+    updated_at: Date;
+    created_at: Date;
+}
+
+export interface TemplateInfo {
+    name: string;
+    path: string;
+    description?: string | undefined;
+    fileTemplate: boolean;
+    updated_at: string;
+}
+
+export interface TemplateInfo {
+    name: string;
+    path: string;
+    description?: string | undefined;
+    fileTemplate?: boolean | undefined;
+}
+
+export interface TemplateInfo {
+    name: string;
+    path: string;
+    description?: string | undefined;
+    file_template: boolean;
+}
+
 export interface TlsOptions {
     domain?: string | undefined;
     cert?: string | undefined;
@@ -84,10 +244,60 @@ export interface TlsOptions {
 }
 
 export interface TraefikConfig {
+    name?: string | undefined;
     rulePrefix: string;
     etcd: EtcdConfig;
     hosts: HostConfig[];
     middlewares: Record<string, MiddlewareConfig>;
+}
+
+export interface TraefikConfig {
+    name: OString;
+    rulePrefix: string;
+    etcd: EtcdConfig;
+    hosts: HostConfig[];
+    middlewares: Record<string, MiddlewareConfig>;
+}
+
+export interface TraefikConfig {
+    name?: string | undefined;
+    description?: string | undefined;
+    rulePrefix: string;
+    etcd: EtcdConfig;
+    hosts: HostConfig[];
+    middlewares: Record<string, MiddlewareConfig>;
+}
+
+export interface TraefikConfig {
+    name: string;
+    rulePrefix: string;
+    etcd: EtcdConfig;
+    hosts: HostConfig[];
+    middlewares: Record<string, MiddlewareConfig>;
+}
+
+export interface TraefikConfig {
+    rulePrefix: string;
+    etcd: EtcdConfig;
+    hosts: HostConfig[];
+    middlewares: Record<string, MiddlewareConfig>;
+}
+
+export interface TraefikConfig {
+    name: OpString;
+    rulePrefix: string;
+    etcd: EtcdConfig;
+    hosts: HostConfig[];
+    middlewares: Record<string, MiddlewareConfig>;
+}
+
+export interface TraefikConfigVersion {
+    id: number;
+    name: string;
+    config: Record<any, any>;
+    createdAt: Date;
+    updatedAt: Date;
+    version: number;
 }
 
 export interface WithCookieConfig {

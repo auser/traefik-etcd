@@ -1,0 +1,53 @@
+{
+  "lockfile_version": "1",
+  "packages": {
+    "cfssl@latest": {
+      "last_modified": "2024-11-28T07:51:56Z",
+      "resolved": "github:NixOS/nixpkgs/226216574ada4c3ecefcbbec41f39ce4655f78ef#cfssl",
+      "source": "devbox-search",
+      "version": "1.6.5",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/qpabl7asi9fpv6q59d8dclknjamwypsa-cfssl-1.6.5",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/qpabl7asi9fpv6q59d8dclknjamwypsa-cfssl-1.6.5"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/3r57zpd0dhlbjx0mmj6x3izpiyf398px-cfssl-1.6.5",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/3r57zpd0dhlbjx0mmj6x3izpiyf398px-cfssl-1.6.5"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/9hlpp10i4k5w9cq4pcyx3xi0xvs9fwiz-cfssl-1.6.5",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/9hlpp10i4k5w9cq4pcyx3xi0xvs9fwiz-cfssl-1.6.5"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/6p5yld0zjgspgam4wdav43hnvy8lks8p-cfssl-1.6.5",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/6p5yld0zjgspgam4wdav43hnvy8lks8p-cfssl-1.6.5"
+        }
+      }
+    }
+  }
+}
