@@ -589,6 +589,30 @@ pub fn add_middlewares(
             ),
             host_config.domain.clone(),
         ));
+        pairs.push(EtcdPair::new(
+            format!(
+                // traefik/http/middlewares/host-helpdesk-herringbank-com-headers/headers/customRequestHeaders/X-Forwarded-Proto
+                "{}/middlewares/{}-headers/headers/customRequestHeaders/X-Forwarded-Proto",
+                base_key, router_name
+            ),
+            "https".to_string(),
+        ));
+        pairs.push(EtcdPair::new(
+            format!(
+                // traefik/http/middlewares/host-helpdesk-herringbank-com-headers/headers/customRequestHeaders/X-Original-Host
+                "{}/middlewares/{}-headers/headers/customRequestHeaders/X-Original-Host",
+                base_key, router_name
+            ),
+            host_config.domain.clone(),
+        ));
+        pairs.push(EtcdPair::new(
+            format!(
+                // traefik/http/middlewares/host-helpdesk-herringbank-com-headers/headers/customRequestHeaders/X-Real-IP
+                "{}/middlewares/{}-headers/headers/customRequestHeaders/X-Real-IP",
+                base_key, router_name
+            ),
+            "true".to_string(),
+        ));
     }
 
     // Add additional middlewares
@@ -927,6 +951,18 @@ mod tests {
         assert_contains_pair(
             &pairs,
             "test/http/middlewares/test-example-com-test1-router-headers/headers/customRequestHeaders/X-Forwarded-Host test.example.com",
+        );
+        assert_contains_pair(
+            &pairs,
+            "test/http/middlewares/test-example-com-test1-router-headers/headers/customRequestHeaders/X-Real-IP true",
+        );
+        assert_contains_pair(
+            &pairs,
+            "test/http/middlewares/test-example-com-test1-router-headers/headers/customRequestHeaders/X-Forwarded-Proto https",
+        );
+        assert_contains_pair(
+            &pairs,
+            "test/http/middlewares/test-example-com-test1-router-headers/headers/customRequestHeaders/X-Original-Host test.example.com",
         );
     }
 
