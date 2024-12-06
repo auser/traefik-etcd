@@ -39,7 +39,7 @@ CERT_BASE_DIR=${CERT_BASE_DIR:-"./config/tls"}
 PROFILE=${PROFILE:-"server"}
 NAME=${NAME:-"traefik"}
 COMMON_NAME=${COMMON_NAME:-"traefik"}
-HOSTS=${HOSTS:-"localhost,127.0.0.1,traefik,ari.io,*.ari.io"}
+HOSTS=${HOSTS:-"localhost,traefik"}
 OUTPUT_DIR=${OUTPUT_DIR:-"./config/tls"}
 BASE_DIR=${BASE_DIR:-"./config/tls"}
 DOMAIN=${DOMAIN:-"ari.io"}
@@ -96,7 +96,7 @@ function generate_etcd() {
     ./scripts/gen-certs.sh \
         -p peer \
         -c etcd-cluster \
-        -h "localhost,127.0.0.1,0.0.0.0,etcd,traefik,$DOMAIN,*.$DOMAIN" \
+        -h "localhost,127.0.0.1,0.0.0.0,etcd,traefik,$DOMAIN,*.$DOMAIN,$HOSTS" \
         -n etcd-peer \
         -o $CERT_BASE_DIR \
         gen
@@ -105,7 +105,7 @@ function generate_etcd() {
     ./scripts/gen-certs.sh \
         -p server \
         -c etcd-cluster \
-        -h "localhost,127.0.0.1,0.0.0.0,etcd,traefik,$DOMAIN,*.$DOMAIN" \
+        -h "localhost,127.0.0.1,0.0.0.0,etcd,traefik,$DOMAIN,*.$DOMAIN,$HOSTS" \
         -n etcd \
         -o $CERT_BASE_DIR \
         gen
@@ -116,7 +116,7 @@ function generate_traefik() {
     ./scripts/gen-certs.sh \
         -p server \
         -c traefik \
-        -h "localhost,127.0.0.1,traefik,$DOMAIN,*.$DOMAIN" \
+        -h "localhost,127.0.0.1,traefik,$DOMAIN,*.$DOMAIN,$HOSTS" \
         -n traefik-server \
         -o $CERT_BASE_DIR \
         gen
@@ -127,7 +127,7 @@ function generate_asterisk() {
     ./scripts/gen-certs.sh \
         -p server \
         -c asterisk \
-        -h "localhost,127.0.0.1,traefik,asterisk,$DOMAIN,*.$DOMAIN" \
+        -h "localhost,127.0.0.1,traefik,asterisk,$DOMAIN,*.$DOMAIN,$HOSTS" \
         -n asterisk \
         -o $CERT_BASE_DIR \
         gen
@@ -138,7 +138,7 @@ function generate_herringbank() {
     ./scripts/gen-certs.sh \
         -p server \
         -c wildcard_herringbank \
-        -h "localhost,127.0.0.1,traefik,herringbank,$DOMAIN,*.$DOMAIN" \
+        -h "localhost,127.0.0.1,traefik,herringbank,$DOMAIN,*.$DOMAIN,$HOSTS" \
         -n wildcard_herringbank \
         -o $CERT_BASE_DIR \
         gen
@@ -149,7 +149,7 @@ function generate_etcd_traefik_communication() {
     ./scripts/gen-certs.sh \
         -p client \
         -c traefik-etcd-client \
-        -h "etcd,traefik,$DOMAIN,*.$DOMAIN" \
+        -h "etcd,traefik,$DOMAIN,*.$DOMAIN,$HOSTS" \
         -n traefik-etcd-client \
         -o $CERT_BASE_DIR \
         gen
@@ -160,7 +160,7 @@ function generate_prometheus() {
     ./scripts/gen-certs.sh \
         -p server \
         -c prometheus \
-        -h "prometheus,$DOMAIN,*.$DOMAIN" \
+        -h "prometheus,$DOMAIN,*.$DOMAIN,$HOSTS" \
         -n prometheus \
         -o $CERT_BASE_DIR \
         gen
@@ -171,7 +171,7 @@ function generate_grafana() {
     ./scripts/gen-certs.sh \
         -p server \
         -c grafana \
-        -h "grafana,$DOMAIN,*.$DOMAIN" \
+        -h "grafana,$DOMAIN,*.$DOMAIN,$HOSTS" \
         -n grafana \
         -o $CERT_BASE_DIR \
         gen
@@ -198,7 +198,7 @@ parse_opts() {
     case ${opt} in
     p) PROFILE=$OPTARG ;;
     c) COMMON_NAME=$OPTARG ;;
-    h) HOSTS=$OPTARG ;;
+    h) HOSTS="$HOSTS,$OPTARG" ;;
     n) NAME=$OPTARG ;;
     o) OUTPUT_DIR=$OPTARG ;;
     d) DOMAIN=$OPTARG ;;
@@ -241,6 +241,7 @@ main() {
   if [ $# -eq 0 ]; then
     help
   fi
+  echo "HOSTS: $HOSTS"
   case "$1" in
   all) generate_all ;;
   ca) generate_ca ;;
