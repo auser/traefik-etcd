@@ -10,3 +10,8 @@ frontend/.svelte-kit/
 .envrc
 .DS_Store
 crates/export-type/target/
+config/.DS_Store
+output.txt
+config/certs/
+scripts/reset.sh
+config/tls
