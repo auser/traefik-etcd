@@ -3,7 +3,8 @@
   "packages": [
     "cfssl@latest",
     "cargo@latest",
-    "libiconv@latest"
+    "libiconv@latest",
+    "watch@latest"
   ],
   "shell": {
     "init_hook": [
