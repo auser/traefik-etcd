@@ -20,6 +20,7 @@ use super::{
     deployment::{DeploymentConfig, DeploymentProtocol},
     host::{HostConfig, PathConfig},
     middleware::MiddlewareConfig,
+    services::ServiceConfig,
 };
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone, JsonSchema)]
@@ -36,6 +37,8 @@ pub struct TraefikConfig {
     pub hosts: Vec<HostConfig>,
     #[serde(default)]
     pub middlewares: HashMap<String, MiddlewareConfig>,
+    #[serde(default)]
+    pub services: Option<HashMap<String, ServiceConfig>>,
 }
 
 fn default_etcd_config() -> etcd::EtcdConfig {
@@ -53,6 +56,18 @@ impl ToEtcdPairs for TraefikConfig {
         // Add global pairs
         pairs.push(EtcdPair::new(base_key, "true"));
         pairs.push(EtcdPair::new(format!("{}/http", base_key), "true"));
+
+        // Add services
+        if let Some(services) = &self.services {
+            for (service_name, service) in services.iter() {
+                let mut service = service.clone();
+                service.set_name(service_name);
+                debug!("Adding global service: {}", service_name);
+                let service_base_key = format!("{}/http", base_key);
+                let service_pairs = service.to_etcd_pairs(&service_base_key)?;
+                pairs.extend(service_pairs);
+            }
+        }
 
         // self.add_defaults(&mut pairs, base_key)?;
         // Start with middleware rules
@@ -73,6 +88,7 @@ impl ToEtcdPairs for TraefikConfig {
             add_deployment_rules(
                 &host,
                 &[deployment_config.clone()],
+                self.services.as_ref(),
                 &mut pairs,
                 base_key,
                 &mut rules,
@@ -85,6 +101,15 @@ impl ToEtcdPairs for TraefikConfig {
 
 impl Validate for TraefikConfig {
     fn validate(&self) -> TraefikResult<()> {
+        // Validate services
+        if let Some(services) = &self.services {
+            let mut services = services.clone();
+            for (name, service) in services.iter_mut() {
+                service.set_name(name);
+                service.validate()?;
+            }
+        }
+
         // Validate middlewares
         let mut middlewares = self.middlewares.clone();
         for (name, middleware) in middlewares.iter_mut() {
@@ -265,8 +290,7 @@ impl TraefikConfig {
 
                     let deployment = DeploymentConfig::builder()
                         .name(deployment_name.clone())
-                        .ip(ip)
-                        .port(port)
+                        .ip_and_port(ip, port)
                         .protocol(DeploymentProtocol::Http)
                         .weight(100)
                         .build();
@@ -298,8 +322,7 @@ impl TraefikConfig {
                     .deployment(
                         "blue".to_string(),
                         DeploymentConfig::builder()
-                            .ip("10.0.0.1".to_string())
-                            .port(80)
+                            .ip_and_port("10.0.0.1".to_string(), 80)
                             .weight(100)
                             .build(),
                     )
@@ -308,8 +331,7 @@ impl TraefikConfig {
             .deployment(
                 "default".to_string(),
                 DeploymentConfig::builder()
-                    .ip("10.0.0.1".to_string())
-                    .port(80)
+                    .ip_and_port("10.0.0.1".to_string(), 80)
                     .weight(100)
                     .build(),
             )
@@ -325,6 +347,7 @@ impl TraefikConfig {
             middlewares: HashMap::new(),
             hosts: host_configs,
             rule_prefix: "test".to_string(),
+            services: None,
         }
     }
 }
@@ -365,7 +388,10 @@ impl TraefikConfigBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::config::{deployment::DeploymentProtocol, host::HostConfigBuilder};
+    use crate::config::{
+        deployment::{DeploymentProtocol, DeploymentTarget},
+        host::HostConfigBuilder,
+    };
 
     use super::*;
 
@@ -456,10 +482,12 @@ mod tests {
               deployments:
                 green:
                     protocol: http
+                    ip: 10.0.0.1
                     port: 80
                     weight: 50
                 blue:
                     protocol: http
+                    ip: 10.0.0.1
                     port: 80
                     weight: 50
         "#;
@@ -469,9 +497,13 @@ mod tests {
         assert_eq!(config.hosts.len(), 1);
         assert_eq!(config.hosts[0].domain, "ari.io");
         assert_eq!(config.hosts[0].deployments.len(), 2);
-        assert_eq!(config.hosts[0].deployments["green"].port, 80);
-        assert_eq!(config.hosts[0].deployments["blue"].port, 80);
-        assert_eq!(config.hosts[0].deployments["green"].weight, 50);
+        let green = config.hosts[0].deployments["green"].clone();
+        let (ip, port) = match &green.target {
+            DeploymentTarget::IpAndPort { ip, port } => (ip, port),
+            _ => unreachable!(),
+        };
+        assert_eq!(*port, 80);
+        assert_eq!(ip, "10.0.0.1");
         assert_eq!(config.hosts[0].deployments["blue"].weight, 50);
         assert_eq!(
             config.hosts[0].deployments["green"].protocol,
@@ -485,9 +517,13 @@ mod tests {
         assert!(paths.is_some());
         let path = paths.unwrap();
         assert_eq!(path.deployments.len(), 1);
-        assert_eq!(path.deployments["green_with_cookie"].port, 80);
-        assert_eq!(path.deployments["green_with_cookie"].weight, 100);
-        assert_eq!(path.deployments["green_with_cookie"].ip, "10.0.0.1");
+        let green_with_cookie = path.deployments["green_with_cookie"].clone();
+        let (ip, port) = match &green_with_cookie.target {
+            DeploymentTarget::IpAndPort { ip, port } => (ip, port),
+            _ => unreachable!(),
+        };
+        assert_eq!(*port, 80);
+        assert_eq!(ip, "10.0.0.1");
     }
 
     #[test]
@@ -527,8 +563,12 @@ mod tests {
         assert!(host.deployments.contains_key("blue"));
 
         let deployment = &host.deployments["blue"];
-        assert_eq!(deployment.ip, "redirector");
-        assert_eq!(deployment.port, 3000);
+        let (ip, port) = match &deployment.target {
+            DeploymentTarget::IpAndPort { ip, port } => (ip, port),
+            _ => unreachable!(),
+        };
+        assert_eq!(ip, "redirector");
+        assert_eq!(*port, 3000);
     }
 
     #[test]

@@ -34,6 +34,9 @@ pub enum TraefikError {
     #[error("Deployment config error: {0}")]
     DeploymentConfig(String),
 
+    #[error("Service config error: {0}")]
+    ServiceConfig(String),
+
     #[error("Selection config error: {0}")]
     SelectionConfig(String),
 

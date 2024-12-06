@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::{
     core::{
-        util::{validate_is_alphanumeric, validate_port},
+        util::{validate_hostname, validate_ip, validate_is_alphanumeric, validate_port},
         Validate,
     },
     error::{TraefikError, TraefikResult},
@@ -73,6 +73,76 @@ impl Display for DeploymentProtocol {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
+#[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "api", derive(sqlx::FromRow))]
+#[cfg_attr(feature = "codegen", derive(ExportType))]
+#[export_type(rename_all = "camelCase", path = "generated/types")]
+pub struct IPAndPort {
+    #[serde(default = "default_ip")]
+    pub ip: String,
+    #[serde(default = "default_port")]
+    pub port: u16,
+}
+
+impl Default for IPAndPort {
+    fn default() -> Self {
+        IPAndPort {
+            ip: default_ip(),
+            port: default_port(),
+        }
+    }
+}
+
+impl Validate for IPAndPort {
+    fn validate(&self) -> TraefikResult<()> {
+        validate_port(self.port)?;
+        validate_ip(&self.ip)?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, JsonSchema)]
+#[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
+#[serde(untagged)]
+#[cfg_attr(feature = "codegen", derive(ExportType))]
+#[export_type(rename_all = "camelCase", path = "generated/types")]
+pub enum DeploymentTarget {
+    IpAndPort { ip: String, port: u16 },
+    Service { service_name: String },
+}
+
+impl Default for DeploymentTarget {
+    fn default() -> Self {
+        DeploymentTarget::IpAndPort {
+            ip: default_ip(),
+            port: default_port(),
+        }
+    }
+}
+
+impl Display for DeploymentTarget {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DeploymentTarget::IpAndPort { ip, port } => write!(f, "{}:{}", ip, port),
+            DeploymentTarget::Service { service_name } => write!(f, "{}", service_name),
+        }
+    }
+}
+
+impl Validate for DeploymentTarget {
+    fn validate(&self) -> TraefikResult<()> {
+        match self {
+            DeploymentTarget::IpAndPort { ip, port } => {
+                validate_port(*port)?;
+                validate_ip(ip)?;
+            }
+            DeploymentTarget::Service { service_name } => validate_is_alphanumeric(service_name)?,
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "api", derive(sqlx::FromRow))]
@@ -82,11 +152,8 @@ pub struct DeploymentConfig {
     #[serde(default)]
     pub name: String,
     /// The ip address of the deployment
-    #[serde(default = "default_ip")]
-    pub ip: String,
-    /// The port of the deployment
-    #[serde(default = "default_port")]
-    pub port: u16,
+    #[serde(flatten)]
+    pub target: DeploymentTarget,
     /// The weight of the deployment
     #[serde(default = "default_weight")]
     pub weight: usize,
@@ -105,8 +172,7 @@ impl Default for DeploymentConfig {
     fn default() -> Self {
         Self {
             name: "".to_string(),
-            ip: default_ip(),
-            port: default_port(),
+            target: DeploymentTarget::default(),
             weight: default_weight(),
             selection: None,
             protocol: default_protocol(),
@@ -151,8 +217,7 @@ impl From<DeploymentConfig> for Option<SelectionConfig> {
 #[derive(Default)]
 pub struct DeploymentConfigBuilder {
     name: Option<String>,
-    ip: Option<String>,
-    port: Option<u16>,
+    target: Option<DeploymentTarget>,
     weight: Option<usize>,
     selection: Option<SelectionConfig>,
     protocol: Option<DeploymentProtocol>,
@@ -165,13 +230,13 @@ impl DeploymentConfigBuilder {
         self
     }
 
-    pub fn ip(mut self, ip: String) -> Self {
-        self.ip = Some(ip);
+    pub fn ip_and_port(mut self, ip: String, port: u16) -> Self {
+        self.target = Some(DeploymentTarget::IpAndPort { ip, port });
         self
     }
 
-    pub fn port(mut self, port: u16) -> Self {
-        self.port = Some(port);
+    pub fn service_name(mut self, service_name: String) -> Self {
+        self.target = Some(DeploymentTarget::Service { service_name });
         self
     }
 
@@ -196,9 +261,9 @@ impl DeploymentConfigBuilder {
     }
 
     pub fn build(self) -> DeploymentConfig {
+        let target = self.target.unwrap_or(DeploymentTarget::default());
         DeploymentConfig {
-            ip: self.ip.unwrap_or(default_ip()),
-            port: self.port.unwrap_or(default_port()),
+            target,
             weight: self.weight.unwrap_or(default_weight()),
             selection: self.selection,
             protocol: self.protocol.unwrap_or(default_protocol()),
@@ -220,10 +285,16 @@ impl Validate for DeploymentConfig {
             )));
         }
 
-        validate_port(self.port)?;
-
         // Validate IP format
-        self.is_valid_ip_or_hostname(&self.ip)?;
+        match &self.target {
+            DeploymentTarget::IpAndPort { ip, port } => {
+                validate_port(*port)?;
+                self.is_valid_ip_or_hostname(ip)?;
+            }
+            DeploymentTarget::Service { service_name } => {
+                validate_is_alphanumeric(service_name)?;
+            }
+        };
 
         if self.weight > 100 {
             return Err(TraefikError::DeploymentConfig(format!(
@@ -243,23 +314,7 @@ impl DeploymentConfig {
         Ok(())
     }
     fn is_valid_ip_or_hostname(&self, host: &str) -> TraefikResult<()> {
-        // IP address validation
-        let parts: Vec<&str> = host.split('.').collect();
-        if parts.len() == 4 {
-            let valid = parts.iter().all(|part| {
-                if let Ok(_num) = part.parse::<u8>() {
-                    !part.is_empty() && part.len() <= 3
-                } else {
-                    false
-                }
-            });
-            if !valid {
-                return Err(TraefikError::DeploymentConfig(format!(
-                    "Invalid IP or hostname '{}' in deployment",
-                    host
-                )));
-            }
-        }
+        validate_ip(host)?;
 
         // Hostname validation
         if host.is_empty() {
@@ -275,22 +330,7 @@ impl DeploymentConfig {
     }
 
     fn validate_valid_hostname(&self, hostname: &str) -> TraefikResult<()> {
-        fn is_valid_char(byte: u8) -> bool {
-            byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'.'
-        }
-
-        if hostname.bytes().any(|byte| !is_valid_char(byte))
-            || hostname
-                .split('.')
-                .any(|label| label.is_empty() || label.len() > 63 || label.starts_with('-'))
-            || hostname.is_empty()
-            || hostname.len() > 255
-        {
-            return Err(TraefikError::DeploymentConfig(format!(
-                "Invalid hostname '{}' in deployment",
-                hostname
-            )));
-        }
+        validate_hostname(hostname)?;
 
         Ok(())
     }
@@ -303,8 +343,7 @@ mod tests {
     #[test]
     fn test_default_config() {
         let deployment = DeploymentConfig::default();
-        assert_eq!(deployment.ip, "127.0.0.1".to_string());
-        assert_eq!(deployment.port, 80);
+        assert_eq!(deployment.target, DeploymentTarget::default());
         assert_eq!(deployment.weight, 100);
     }
 
@@ -326,10 +365,9 @@ mod tests {
     }
 
     #[test]
-    fn test_default_values() {
+    fn test_deployment_config_default_values() {
         let deployment = DeploymentConfig::default();
-        assert_eq!(deployment.ip, "127.0.0.1".to_string());
-        assert_eq!(deployment.port, 80);
+        assert_eq!(deployment.target, DeploymentTarget::default());
         assert_eq!(deployment.weight, 100);
     }
 
@@ -345,7 +383,10 @@ mod tests {
     #[test]
     fn test_deployment_config_is_invalid_if_port_is_not_between_1_and_65535() {
         let deployment = DeploymentConfig {
-            port: 0,
+            target: DeploymentTarget::IpAndPort {
+                ip: "127.0.0.1".to_string(),
+                port: 0,
+            },
             ..Default::default()
         };
         assert!(deployment.validate().is_err());

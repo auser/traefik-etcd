@@ -140,11 +140,7 @@ impl HostConfig {
 
     fn validate_deployment_ports(&self) -> TraefikResult<()> {
         for deployment in self.deployments.values() {
-            if deployment.port == 0 {
-                return Err(TraefikError::DeploymentError(
-                    "Invalid port 0 for deployment".to_string(),
-                ));
-            }
+            deployment.target.validate()?;
         }
 
         Ok(())
@@ -441,7 +437,9 @@ mod tests {
             .domain("test.com".to_string())
             .deployment(
                 "test".to_string(),
-                DeploymentConfigBuilder::default().port(0).build(),
+                DeploymentConfigBuilder::default()
+                    .ip_and_port("10.0.0.1".to_string(), 0)
+                    .build(),
             )
             .build();
         assert!(host.is_ok());
