@@ -455,13 +455,16 @@ pub fn add_deployment_rules(
         let base_key = format!("{}/{}", base_key, deployment_protocol);
 
         debug!("Adding deployment middlewares for {}", router_name);
-        let additional_middlewares = host.middlewares.clone();
+        let mut additional_middlewares = host.middlewares.clone();
         let strip_prefix_name = add_strip_prefix_middleware(
             pairs,
             &base_key,
             &router_name,
             deployment.path_config.clone(),
         )?;
+        if let Some(strip_prefix_middleware_name) = strip_prefix_name.clone() {
+            additional_middlewares.push(strip_prefix_middleware_name);
+        }
 
         let service_name = format!("{}-service", router_name);
         let middleware_names = add_middlewares(
@@ -587,15 +590,7 @@ pub fn add_middlewares(
 
     // Add strip prefix if provided
     if let Some(strip_name) = strip_prefix_name {
-        let strip_prefix_name = format!("{}-strip", strip_name);
-        pairs.push(EtcdPair::new(
-            format!(
-                "{}/middlewares/{}/stripPrefix/prefixes/{}",
-                base_key, strip_prefix_name, middleware_idx
-            ),
-            strip_prefix_name.to_string(),
-        ));
-        middleware_names.push(strip_prefix_name);
+        middleware_names.push(strip_name.to_string());
         middleware_idx += 1;
     }
 
@@ -655,10 +650,13 @@ pub fn add_middlewares(
                 middleware_names.push(middleware_custom_name);
             }
             None => {
-                return Err(TraefikError::MiddlewareConfig(format!(
-                    "middleware {} not found",
-                    middleware
-                )));
+                // Strip prefix middleware is handled separately
+                if !middleware.ends_with("-strip") {
+                    return Err(TraefikError::MiddlewareConfig(format!(
+                        "middleware {} not found",
+                        middleware
+                    )));
+                }
             }
         }
     }
@@ -947,6 +945,38 @@ mod tests {
         assert_contains_pair(
             &pairs,
             "test/http/services/test-example-com-test1-router-service/loadBalancer/servers/0/url http://10.0.0.1:8080",
+        );
+    }
+
+    #[test]
+    fn test_add_deployment_rules_with_strip_prefix() {
+        let host = create_test_host();
+        let base_key = "test";
+        let mut pairs = Vec::new();
+        let mut rules = RuleConfig::default();
+
+        // Create test deployments
+        let mut deployment1 = InternalDeploymentConfig {
+            name: "test1".to_string(),
+            deployment: create_test_deployment(),
+            host_config: host.clone(),
+            path_config: Some(PathConfig {
+                path: "/api".to_string(),
+                strip_prefix: true,
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        deployment1.init();
+
+        let deployments = vec![deployment1];
+
+        add_deployment_rules(&host, &deployments, &mut pairs, base_key, &mut rules).unwrap();
+
+        // Verify strip prefix middleware for path deployment
+        assert_contains_pair(
+            &pairs,
+            "test/http/middlewares/test-example-com-test1-router-strip/stripPrefix/prefixes/0 /api",
         );
     }
 
