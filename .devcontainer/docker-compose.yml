@@ -38,6 +38,26 @@ services:
     volumes:
       - etcd_data:/opt/bitnami/etcd/data
 
+  redirector:
+    build:
+      context: ..
+      dockerfile: ./.devcontainer/redirector/Dockerfile
+    expose:
+      - 3000
+    ports:
+      - 3000:3000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    deploy:
+      restart_policy:
+        condition: on-failure
+    environment:
+      RUST_LOG: info
+
+
 # - ETCD_DATA_DIR=/etcd/data
 # - ./dockerfiles/etcd/etcd-healthcheck.sh:/etcd-healthcheck.sh
 # - ./cert/etcd/etcd.pem:/etc/etcd/server.pem:ro
