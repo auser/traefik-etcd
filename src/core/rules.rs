@@ -464,15 +464,17 @@ pub fn add_deployment_rules(
         )?;
 
         let service_name = format!("{}-service", router_name);
-        add_middlewares(
+        let middleware_names = add_middlewares(
             &deployment.traefik_config,
             pairs,
             &base_key,
             &router_name,
             &additional_middlewares,
             strip_prefix_name.as_deref(),
-            &host,
+            host,
         )?;
+
+        attach_middlewares(pairs, &base_key, &router_name, &middleware_names)?;
 
         add_base_service_configuration(pairs, &base_key, &service_name, deployment)?;
 
@@ -486,6 +488,21 @@ pub fn add_deployment_rules(
         add_root_router(pairs, &base_key, &router_name, &rule)?;
     }
 
+    Ok(())
+}
+
+pub fn attach_middlewares(
+    pairs: &mut Vec<EtcdPair>,
+    base_key: &str,
+    router_name: &str,
+    middleware_names: &[String],
+) -> TraefikResult<()> {
+    for (idx, middleware_name) in middleware_names.iter().enumerate() {
+        pairs.push(EtcdPair::new(
+            format!("{}/routers/{}/middlewares/{}", base_key, router_name, idx),
+            middleware_name.clone(),
+        ));
+    }
     Ok(())
 }
 
@@ -564,8 +581,9 @@ pub fn add_middlewares(
     additional_middlewares: &[String],
     strip_prefix_name: Option<&str>,
     host_config: &HostConfig,
-) -> TraefikResult<()> {
+) -> TraefikResult<Vec<String>> {
     let mut middleware_idx = 0;
+    let mut middleware_names = Vec::new();
 
     // Add strip prefix if provided
     if let Some(strip_name) = strip_prefix_name {
@@ -577,6 +595,7 @@ pub fn add_middlewares(
             ),
             strip_prefix_name.to_string(),
         ));
+        middleware_names.push(strip_prefix_name);
         middleware_idx += 1;
     }
 
@@ -597,6 +616,7 @@ pub fn add_middlewares(
             ),
             "https".to_string(),
         ));
+
         pairs.push(EtcdPair::new(
             format!(
                 // traefik/http/middlewares/host-helpdesk-herringbank-com-headers/headers/customRequestHeaders/X-Original-Host
@@ -632,6 +652,7 @@ pub fn add_middlewares(
                     middleware.clone(),
                 ));
                 middleware_idx += 1;
+                middleware_names.push(middleware_custom_name);
             }
             None => {
                 return Err(TraefikError::MiddlewareConfig(format!(
@@ -642,7 +663,7 @@ pub fn add_middlewares(
         }
     }
 
-    Ok(())
+    Ok(middleware_names)
 }
 
 pub fn add_strip_prefix_middleware(
@@ -964,6 +985,21 @@ mod tests {
             &pairs,
             "test/http/middlewares/test-example-com-test1-router-headers/headers/customRequestHeaders/X-Original-Host test.example.com",
         );
+    }
+
+    #[test]
+    fn test_attach_middlewares_attaches_to_the_router() {
+        let mut pairs = Vec::new();
+        attach_middlewares(
+            &mut pairs,
+            "test",
+            "router",
+            &["middleware1".to_string(), "middleware2".to_string()],
+        )
+        .unwrap();
+
+        assert_contains_pair(&pairs, "test/routers/router/middlewares/0 middleware1");
+        assert_contains_pair(&pairs, "test/routers/router/middlewares/1 middleware2");
     }
 
     #[test]
