@@ -505,6 +505,11 @@ pub fn attach_middlewares(
             format!("{}/routers/{}/middlewares/{}", base_key, router_name, idx),
             middleware_name.clone(),
         ));
+        println!(
+            "Added middleware: {} => {}",
+            format!("{}/routers/{}/middlewares/{}", base_key, router_name, idx),
+            middleware_name
+        );
     }
     Ok(())
 }

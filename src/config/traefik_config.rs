@@ -50,6 +50,10 @@ impl ToEtcdPairs for TraefikConfig {
     fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
         let mut pairs = Vec::new();
 
+        // Add global pairs
+        pairs.push(EtcdPair::new(base_key, "true"));
+        pairs.push(EtcdPair::new(format!("{}/http", base_key), "true"));
+
         // self.add_defaults(&mut pairs, base_key)?;
         // Start with middleware rules
         for (name, middleware) in self.middlewares.clone().iter_mut() {
