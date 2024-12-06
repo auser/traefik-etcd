@@ -22,6 +22,7 @@ services:
     build:
       context: ..
       dockerfile: ./.devcontainer/etcd/Dockerfile
+    hostname: etcd
     environment:
       - ALLOW_NONE_AUTHENTICATION=yes
       - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
@@ -42,6 +43,7 @@ services:
     build:
       context: ..
       dockerfile: ./.devcontainer/redirector/Dockerfile
+    hostname: redirector
     expose:
       - 3000
     ports:
