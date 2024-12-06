@@ -471,6 +471,7 @@ pub fn add_deployment_rules(
             &router_name,
             &additional_middlewares,
             strip_prefix_name.as_deref(),
+            &host,
         )?;
 
         add_base_service_configuration(pairs, &base_key, &service_name, deployment)?;
@@ -562,6 +563,7 @@ pub fn add_middlewares(
     router_name: &str,
     additional_middlewares: &[String],
     strip_prefix_name: Option<&str>,
+    host_config: &HostConfig,
 ) -> TraefikResult<()> {
     let mut middleware_idx = 0;
 
@@ -576,6 +578,17 @@ pub fn add_middlewares(
             strip_prefix_name.to_string(),
         ));
         middleware_idx += 1;
+    }
+
+    if host_config.forward_host {
+        pairs.push(EtcdPair::new(
+            format!(
+                // traefik/http/middlewares/host-helpdesk-herringbank-com-headers/headers/customRequestHeaders/X-Forwarded-Host
+                "{}/middlewares/{}-headers/headers/customRequestHeaders/X-Forwarded-Host",
+                base_key, router_name
+            ),
+            host_config.domain.clone(),
+        ));
     }
 
     // Add additional middlewares
@@ -633,7 +646,7 @@ pub fn add_pass_through_middleware(
     pairs: &mut Vec<EtcdPair>,
     base_key: &str,
     path_safe_name: &str,
-    path_config: PathConfig,
+    path_config: &PathConfig,
 ) -> TraefikResult<()> {
     if path_config.pass_through {
         pairs.push(EtcdPair::new(
@@ -889,6 +902,31 @@ mod tests {
         assert_contains_pair(
             &pairs,
             "test/http/services/test-example-com-test1-router-service/loadBalancer/servers/0/url http://10.0.0.1:8080",
+        );
+    }
+
+    #[test]
+    fn test_forward_host_middleware() {
+        let mut host = create_test_host();
+        let base_key = "test";
+        let mut pairs = Vec::new();
+        let mut rules = RuleConfig::default();
+        host.forward_host = true;
+
+        // Create test deployments
+        let mut deployment1 = InternalDeploymentConfig {
+            name: "test1".to_string(),
+            deployment: create_test_deployment(),
+            host_config: host.clone(),
+            ..Default::default()
+        };
+        deployment1.init();
+        add_deployment_rules(&host, &[deployment1], &mut pairs, base_key, &mut rules).unwrap();
+
+        debug!("{:#?}", pairs);
+        assert_contains_pair(
+            &pairs,
+            "test/http/middlewares/test-example-com-test1-router-headers/headers/customRequestHeaders/X-Forwarded-Host test.example.com",
         );
     }
 

@@ -35,6 +35,7 @@ revert_all() {
     echo -e "$ecd put traefik true\n" >> "$OUTPUT_FILE"
 
     while IFS= read -r line; do
+        line=$(echo "$line" | sed 's/=//')
         echo -e "$ecd put $line" >> "$OUTPUT_FILE"
     done < "$INPUT_FILE"
 

@@ -43,6 +43,7 @@ pub fn create_test_host() -> HostConfig {
         deployments: HashMap::new(),
         middlewares: vec![],
         selection: None,
+        forward_host: false,
     };
 
     // Add a default blue deployment
@@ -194,6 +195,7 @@ pub fn create_test_config(host_configs: Option<Vec<HostConfig>>) -> TraefikConfi
             strip_prefix: true,
             pass_through: false,
         }],
+        forward_host: false,
         deployments: HashMap::from([("blue".to_string(), DeploymentConfig::default())]),
         middlewares: vec![],
     }]);

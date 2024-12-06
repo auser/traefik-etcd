@@ -36,6 +36,9 @@ pub struct HostConfig {
     /// such as weighted selections.
     #[serde(default, flatten)]
     pub selection: Option<SelectionConfig>,
+    /// Whether to forward the host to the backend
+    #[serde(default)]
+    pub forward_host: bool,
 }
 
 impl Validate for HostConfig {
@@ -245,6 +248,7 @@ pub struct HostConfigBuilder {
     deployments: HashMap<String, DeploymentConfig>,
     paths: HashMap<String, PathConfig>,
     middlewares: Vec<String>,
+    forward_host: bool,
 }
 
 impl HostConfigBuilder {
@@ -268,12 +272,18 @@ impl HostConfigBuilder {
         self
     }
 
+    pub fn forward_host(mut self, forward_host: bool) -> Self {
+        self.forward_host = forward_host;
+        self
+    }
+
     pub fn build(self) -> TraefikResult<HostConfig> {
         let host_config = HostConfig {
             domain: self.domain,
             deployments: self.deployments,
             paths: self.paths.values().cloned().collect(),
             middlewares: self.middlewares,
+            forward_host: self.forward_host,
             selection: None,
         };
         Ok(host_config)
@@ -313,6 +323,7 @@ pub struct PathConfigBuilder {
     middlewares: Vec<String>,
     strip_prefix: bool,
     pass_through: bool,
+    forward_host: bool,
 }
 
 impl PathConfigBuilder {
@@ -338,6 +349,11 @@ impl PathConfigBuilder {
 
     pub fn pass_through(mut self, pass_through: bool) -> Self {
         self.pass_through = pass_through;
+        self
+    }
+
+    pub fn forward_host(mut self, forward_host: bool) -> Self {
+        self.forward_host = forward_host;
         self
     }
 

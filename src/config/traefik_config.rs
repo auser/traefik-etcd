@@ -242,6 +242,7 @@ impl TraefikConfig {
                     paths: Vec::new(),
                     middlewares: Vec::new(),
                     selection: None,
+                    forward_host: true,
                 });
 
             // Parse deployment if this is a URL entry
