@@ -16,3 +16,4 @@ config/certs/
 scripts/reset.sh
 config/tls
 config/tls/*.cs
+.envrc

@@ -4,3 +4,4 @@ export MYSQL_DATABASE=traefikctl
 export MYSQL_ROOT_PASSWORD=mysql
 
 export DATABASE_URL=mysql://mysql:mysql@mysql:3306/traefikctl
+export TRAFEIKCTL_CONFIG_FILE=./config/simple.yml

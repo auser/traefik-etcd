@@ -245,6 +245,7 @@ pub fn create_test_middleware() -> HashMap<String, MiddlewareConfig> {
                     access_control_allow_origin_list: vec![],
                     add_vary_header: true,
                 }),
+                forward_auth: None,
             },
         ),
         (
@@ -259,6 +260,7 @@ pub fn create_test_middleware() -> HashMap<String, MiddlewareConfig> {
                     )]),
                     ..Default::default()
                 }),
+                forward_auth: None,
             },
         ),
     ])

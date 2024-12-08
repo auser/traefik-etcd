@@ -1,7 +1,7 @@
 use crate::{
     core::{
         etcd_trait::{EtcdPair, ToEtcdPairs},
-        util::{get_safe_key, validate_is_alphanumeric},
+        util::{format_list_value, get_safe_key, validate_is_alphanumeric},
         Validate,
     },
     error::{TraefikError, TraefikResult},
@@ -17,6 +17,62 @@ use super::headers::HeadersConfig;
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 #[cfg_attr(feature = "codegen", derive(ExportType))]
 #[export_type(rename_all = "camelCase", path = "generated/types")]
+pub struct ForwardAuthConfig {
+    /// The address of the forward auth service
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub address: Option<String>,
+    /// Whether to trust the forward header
+    #[serde(skip_serializing_if = "Option::is_none", rename = "trustForwardHeader")]
+    pub trust_forward_header: Option<bool>,
+    /// The auth response headers to add to the response
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        rename = "authResponseHeaders"
+    )]
+    pub auth_response_headers: Option<Vec<String>>,
+    /// The auth response headers regex to add to the response
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        rename = "authResponseHeadersRegex"
+    )]
+    pub auth_response_headers_regex: Option<String>,
+}
+
+impl ToEtcdPairs for ForwardAuthConfig {
+    fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
+        let mut pairs = vec![];
+        if let Some(address) = &self.address {
+            pairs.push(EtcdPair::new(
+                format!("{}/forwardAuth/address", base_key),
+                address.clone(),
+            ));
+        }
+        if let Some(trust_forward_header) = &self.trust_forward_header {
+            pairs.push(EtcdPair::new(
+                format!("{}/forwardAuth/trustForwardHeader", base_key),
+                trust_forward_header.to_string(),
+            ));
+        }
+        if let Some(auth_response_headers) = &self.auth_response_headers {
+            pairs.push(EtcdPair::new(
+                format!("{}/forwardAuth/authResponseHeaders", base_key),
+                format_list_value(auth_response_headers),
+            ));
+        }
+        if let Some(auth_response_headers_regex) = &self.auth_response_headers_regex {
+            pairs.push(EtcdPair::new(
+                format!("{}/forwardAuth/authResponseHeadersRegex", base_key),
+                auth_response_headers_regex.clone(),
+            ));
+        }
+        Ok(pairs)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
+#[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
+#[cfg_attr(feature = "codegen", derive(ExportType))]
+#[export_type(rename_all = "camelCase", path = "generated/types")]
 pub struct MiddlewareConfig {
     /// The name of the middleware
     #[serde(default)]
@@ -27,6 +83,9 @@ pub struct MiddlewareConfig {
     /// The type of middleware
     #[serde(default = "default_protocol")]
     pub protocol: String,
+    /// The forward auth configuration for the middleware
+    #[serde(skip_serializing_if = "Option::is_none", rename = "forwardAuth")]
+    pub forward_auth: Option<ForwardAuthConfig>,
 }
 
 impl Default for MiddlewareConfig {
@@ -35,6 +94,7 @@ impl Default for MiddlewareConfig {
             name: "test-middleware".to_string(),
             headers: None,
             protocol: default_protocol(),
+            forward_auth: None,
         }
     }
 }
@@ -73,6 +133,10 @@ impl ToEtcdPairs for MiddlewareConfig {
             );
             let headers_pairs = headers.to_etcd_pairs(headers_base_key)?;
             pairs.extend(headers_pairs);
+        }
+        if let Some(forward_auth) = &self.forward_auth {
+            let forward_auth_pairs = forward_auth.to_etcd_pairs(base_key)?;
+            pairs.extend(forward_auth_pairs);
         }
         Ok(pairs)
     }
@@ -224,5 +288,65 @@ mod tests {
             &"test/http/middlewares/enable-headers/headers/accessControlAllowHeaders Content-Type, Authorization"
                 .to_string()
         ));
+    }
+
+    #[test]
+    fn test_forward_auth_config_to_etcd_pairs() {
+        let forward_auth = ForwardAuthConfig {
+            address: Some("http://localhost:8080".to_string()),
+            trust_forward_header: Some(true),
+            auth_response_headers: Some(vec!["X-Forwarded-Proto".to_string()]),
+            auth_response_headers_regex: Some(".*".to_string()),
+        };
+        let pairs = forward_auth.to_etcd_pairs("test").unwrap();
+        let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
+        assert!(pair_strs.contains(&"test/forwardAuth/address http://localhost:8080".to_string()));
+        assert!(pair_strs.contains(&"test/forwardAuth/trustForwardHeader true".to_string()));
+    }
+
+    #[test]
+    fn test_middleware_config_to_etcd_pairs_with_forward_auth() {
+        let forward_auth = ForwardAuthConfig {
+            address: None,
+            trust_forward_header: Some(true),
+            auth_response_headers: Some(vec!["X-Forwarded-Proto".to_string()]),
+            auth_response_headers_regex: Some(".*".to_string()),
+        };
+        let pairs = forward_auth.to_etcd_pairs("test").unwrap();
+        let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
+        assert!(pair_strs.contains(&"test/forwardAuth/trustForwardHeader true".to_string()));
+    }
+
+    #[test]
+    fn test_to_etcd_pairs_with_auth_response_headers() {
+        let forward_auth = ForwardAuthConfig {
+            address: None,
+            trust_forward_header: Some(true),
+            auth_response_headers: Some(vec![
+                "X-Forwarded-Proto".to_string(),
+                "ServiceAddr".to_string(),
+                "ServiceUrl".to_string(),
+            ]),
+            auth_response_headers_regex: None,
+        };
+        let pairs = forward_auth.to_etcd_pairs("test").unwrap();
+        let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
+        assert!(pair_strs.contains(
+            &"test/forwardAuth/authResponseHeaders X-Forwarded-Proto, ServiceAddr, ServiceUrl"
+                .to_string()
+        ));
+    }
+
+    #[test]
+    fn test_to_etcd_pairs_with_auth_response_headers_regex() {
+        let forward_auth = ForwardAuthConfig {
+            address: None,
+            trust_forward_header: Some(true),
+            auth_response_headers: None,
+            auth_response_headers_regex: Some("^X-.*".to_string()),
+        };
+        let pairs = forward_auth.to_etcd_pairs("test").unwrap();
+        let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
+        assert!(pair_strs.contains(&"test/forwardAuth/authResponseHeadersRegex ^X-.*".to_string()));
     }
 }
