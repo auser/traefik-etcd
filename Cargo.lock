@@ -5090,7 +5090,7 @@ dependencies = [
 
 [[package]]
 name = "traefikctl"
-version = "0.2.33"
+version = "0.2.36"
 dependencies = [
  "anyhow",
  "argon2",

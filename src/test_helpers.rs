@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use crate::{
     config::{
-        deployment::{DeploymentConfig, DeploymentProtocol},
+        deployment::{DeploymentConfig, DeploymentProtocol, DeploymentTarget},
         headers::HeadersConfig,
         host::{HostConfig, PathConfig},
         middleware::MiddlewareConfig,
@@ -19,6 +19,11 @@ pub fn assert_contains_pair(pairs: &[EtcdPair], expected_value: &str) {
     assert!(pair_strs.contains(&expected_value.to_string()));
 }
 
+pub fn assert_does_not_contain_pair(pairs: &[EtcdPair], expected_value: &str) {
+    let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
+    assert!(!pair_strs.contains(&expected_value.to_string()));
+}
+
 pub fn read_test_config() -> TraefikConfig {
     let config_str = include_str!("../config/config.yml");
     serde_yaml::from_str(config_str).unwrap()
@@ -27,8 +32,10 @@ pub fn read_test_config() -> TraefikConfig {
 pub fn create_test_deployment() -> DeploymentConfig {
     DeploymentConfig {
         name: "blue".to_string(),
-        ip: "10.0.0.1".to_string(),
-        port: 8080,
+        target: DeploymentTarget::IpAndPort {
+            ip: "10.0.0.1".to_string(),
+            port: 8080,
+        },
         weight: 100,
         selection: None,
         protocol: DeploymentProtocol::Http,
@@ -43,6 +50,7 @@ pub fn create_test_host() -> HostConfig {
         deployments: HashMap::new(),
         middlewares: vec![],
         selection: None,
+        forward_host: false,
     };
 
     // Add a default blue deployment
@@ -50,8 +58,10 @@ pub fn create_test_host() -> HostConfig {
         "blue".to_string(),
         DeploymentConfig {
             name: "blue".to_string(),
-            ip: "10.0.0.1".to_string(),
-            port: 80,
+            target: DeploymentTarget::IpAndPort {
+                ip: "10.0.0.1".to_string(),
+                port: 80,
+            },
             weight: 100,
             selection: None,
             protocol: DeploymentProtocol::Http,
@@ -68,8 +78,10 @@ pub fn create_test_host() -> HostConfig {
                 "blue".to_string(),
                 DeploymentConfig {
                     name: "blue".to_string(),
-                    ip: "10.0.0.1".to_string(),
-                    port: 80,
+                    target: DeploymentTarget::IpAndPort {
+                        ip: "10.0.0.1".to_string(),
+                        port: 80,
+                    },
                     weight: 100,
                     selection: None,
                     protocol: DeploymentProtocol::Http,
@@ -92,8 +104,7 @@ pub fn create_complex_test_config() -> TraefikConfig {
             .deployment(
                 "green".to_string(),
                 DeploymentConfig::builder()
-                    .ip("10.0.0.2".to_string())
-                    .port(8080)
+                    .ip_and_port("10.0.0.2".to_string(), 8080)
                     .weight(50)
                     .selection(SelectionConfig {
                         with_cookie: Some(WithCookieConfig {
@@ -107,16 +118,14 @@ pub fn create_complex_test_config() -> TraefikConfig {
             .deployment(
                 "blue".to_string(),
                 DeploymentConfig::builder()
-                    .ip("10.0.0.3".to_string())
-                    .port(8080)
+                    .ip_and_port("10.0.0.3".to_string(), 8080)
                     .weight(50)
                     .build(),
             )
             .deployment(
                 "catch-all".to_string(),
                 DeploymentConfig::builder()
-                    .ip("10.0.0.1".to_string())
-                    .port(8080)
+                    .ip_and_port("10.0.0.1".to_string(), 8080)
                     .weight(100)
                     .build(),
             )
@@ -127,8 +136,7 @@ pub fn create_complex_test_config() -> TraefikConfig {
                     .deployment(
                         "test-1".to_string(),
                         DeploymentConfig::builder()
-                            .ip("11.11.11.11".to_string())
-                            .port(8080)
+                            .ip_and_port("11.11.11.11".to_string(), 8080)
                             .weight(30)
                             .selection(SelectionConfig {
                                 with_cookie: Some(WithCookieConfig {
@@ -142,16 +150,14 @@ pub fn create_complex_test_config() -> TraefikConfig {
                     .deployment(
                         "test-2".to_string(),
                         DeploymentConfig::builder()
-                            .ip("22.22.22.22".to_string())
-                            .port(8080)
+                            .ip_and_port("22.22.22.22".to_string(), 8080)
                             .weight(40)
                             .build(),
                     )
                     .deployment(
                         "test-3".to_string(),
                         DeploymentConfig::builder()
-                            .ip("33.33.33.33".to_string())
-                            .port(8080)
+                            .ip_and_port("33.33.33.33".to_string(), 8080)
                             .weight(30)
                             .build(),
                     )
@@ -163,7 +169,7 @@ pub fn create_complex_test_config() -> TraefikConfig {
             .deployment(
                 "bingo".to_string(),
                 DeploymentConfig::builder()
-                    .ip("1.1.1.1".to_string())
+                    .ip_and_port("1.1.1.1".to_string(), 8080)
                     .build(),
             )
             .build()
@@ -182,8 +188,10 @@ pub fn create_test_config(host_configs: Option<Vec<HostConfig>>) -> TraefikConfi
                 "blue".to_string(),
                 DeploymentConfig {
                     name: "blue".to_string(),
-                    ip: "10.0.0.1".to_string(),
-                    port: 80,
+                    target: DeploymentTarget::IpAndPort {
+                        ip: "10.0.0.1".to_string(),
+                        port: 80,
+                    },
                     weight: 100,
                     selection: None,
                     protocol: DeploymentProtocol::Http,
@@ -194,6 +202,7 @@ pub fn create_test_config(host_configs: Option<Vec<HostConfig>>) -> TraefikConfi
             strip_prefix: true,
             pass_through: false,
         }],
+        forward_host: false,
         deployments: HashMap::from([("blue".to_string(), DeploymentConfig::default())]),
         middlewares: vec![],
     }]);
@@ -205,6 +214,7 @@ pub fn create_test_config(host_configs: Option<Vec<HostConfig>>) -> TraefikConfi
         rule_prefix: "test".to_string(),
         name: Some("test".to_string()),
         description: Some("test".to_string()),
+        services: None,
     }
 }
 
@@ -237,6 +247,7 @@ pub fn create_test_middleware() -> HashMap<String, MiddlewareConfig> {
                     access_control_allow_origin_list: vec![],
                     add_vary_header: true,
                 }),
+                forward_auth: None,
             },
         ),
         (
@@ -251,6 +262,7 @@ pub fn create_test_middleware() -> HashMap<String, MiddlewareConfig> {
                     )]),
                     ..Default::default()
                 }),
+                forward_auth: None,
             },
         ),
     ])

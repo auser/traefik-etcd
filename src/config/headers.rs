@@ -150,6 +150,8 @@ pub struct HeadersConfigBuilder {
     pub access_control_allow_headers: Vec<String>,
     pub access_control_expose_headers: Vec<String>,
     pub access_control_allow_origin_list: Vec<String>,
+    pub auth_response_headers: Vec<String>,
+    pub auth_response_headers_regex: String,
     pub add_vary_header: bool,
 }
 

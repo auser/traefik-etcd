@@ -2,30 +2,30 @@ etcd:
   endpoints: ["https://etcd:2379"]
   timeout: 2000
   keep_alive: 300
+
+services:
+  redirector:
+    ip: redirector
+    port: 3000
+
 hosts:
-- domain: ibs.financialpayments.com
+  - domain: "ari.io"
     pass_through: true
     www_redirect: false
     paths:
-      - path: /rails-sso
+      - path: /api
         deployments:
-          green-with-cookie: &green-with-cookie
+          green-with-cookie:
             ip: 10.8.92.2
             port: 3002
-            weight: 0
+            weight: 100
             with_cookie:
               name: "green"
               value: "true"
-          blue: &blue
-            ip: redirector
-            port: 3000
-            weight: 100
         middlewares:
           - enable-headers
-          - forward-server
         strip_prefix: true
     deployments:
-      green-with-cookie: *green-with-cookie
-      blue: *blue
-      protocol: "tcp"
-
+      catch-all:
+        service_name: redirector
+        weight: 100

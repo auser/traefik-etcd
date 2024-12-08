@@ -9,8 +9,7 @@ export interface ConfigVersionHistory {
 
 export interface DeploymentConfig {
     name: string;
-    ip: string;
-    port: number;
+    target: DeploymentTarget;
     weight: number;
     selection?: SelectionConfig | undefined;
     protocol: DeploymentProtocol;
@@ -24,11 +23,23 @@ export enum DeploymentProtocol {
     INVALID = "Invalid",
 }
 
+export enum DeploymentTarget {
+    IP_AND_PORT = "IpAndPort",
+    SERVICE = "Service",
+}
+
 export interface EtcdConfig {
     endpoints: string[];
     timeout: number;
     keepAlive: number;
     tls?: TlsOptions | undefined;
+}
+
+export interface ForwardAuthConfig {
+    address?: string | undefined;
+    trustForwardHeader?: boolean | undefined;
+    authResponseHeaders?: string[] | undefined;
+    authResponseHeadersRegex?: string | undefined;
 }
 
 export interface FromClientIpConfig {
@@ -58,12 +69,19 @@ export interface HostConfig {
     deployments: Record<string, DeploymentConfig>;
     middlewares: string[];
     selection?: SelectionConfig | undefined;
+    forwardHost: boolean;
+}
+
+export interface IPAndPort {
+    ip: string;
+    port: number;
 }
 
 export interface MiddlewareConfig {
     name: string;
     headers?: HeadersConfig | undefined;
     protocol: string;
+    forwardAuth?: ForwardAuthConfig | undefined;
 }
 
 export interface PartialEtcdConfig {
@@ -84,6 +102,12 @@ export interface PathConfig {
 export interface SelectionConfig {
     withCookie?: WithCookieConfig | undefined;
     fromClientIp?: FromClientIpConfig | undefined;
+}
+
+export interface ServiceConfig {
+    name: string;
+    deployment: DeploymentConfig;
+    passHostHeader: boolean;
 }
 
 export interface TemplateInfo {
@@ -110,6 +134,7 @@ export interface TraefikConfig {
     etcd: EtcdConfig;
     hosts: HostConfig[];
     middlewares: Record<string, MiddlewareConfig>;
+    services?: Record<string, ServiceConfig> | undefined;
 }
 
 export interface TraefikConfigVersion {

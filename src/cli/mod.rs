@@ -39,7 +39,8 @@ pub struct Cli {
         long,
         short = 'f',
         global = true,
-        default_value = "/etc/traefikctl/traefikctl.yaml"
+        default_value = "/etc/traefikctl/traefikctl.yaml",
+        env = "TRAFEIKCTL_CONFIG_FILE"
     )]
     pub config_file: Option<PathBuf>,
 

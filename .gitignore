@@ -10,5 +10,11 @@ frontend/.svelte-kit/
 .envrc
 .DS_Store
 crates/export-type/target/
-.pnpm-store/
+config/.DS_Store
+output.txt
+config/certs/
+scripts/reset.sh
+config/tls
+config/tls/*.cs
 .envrc
+.pnpm-store/
