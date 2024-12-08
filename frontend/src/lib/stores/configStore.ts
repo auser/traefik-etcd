@@ -1,65 +1,118 @@
-// src/lib/stores/configStore.ts
 import { writable } from 'svelte/store';
-import type { TraefikConfig } from '$lib/types';
-import { fetching } from '$lib/utils/fetching';
+
+interface TraefikConfig {
+  id?: number;
+  name: string;
+  content: {
+    http?: {
+      middlewares?: Record<string, any>;
+      services?: Record<string, any>;
+    };
+    tcp?: Record<string, any>;
+    tls?: Record<string, any>;
+  };
+  created_at?: string;
+  updated_at?: string;
+}
 
 interface ConfigState {
+  configs: TraefikConfig[];
   currentConfig: TraefikConfig | null;
-  configName: string;
-  configId: number | null;
-  loading: boolean;
-  error: string | null;
+  isDirty: boolean;
+  lastSaved: Date | null;
 }
 
 function createConfigStore() {
   const { subscribe, set, update } = writable<ConfigState>({
+    configs: [],
     currentConfig: null,
-    configName: '',
-    configId: null,
-    loading: false,
-    error: null
+    isDirty: false,
+    lastSaved: null
   });
+
+  const AUTOSAVE_DELAY = 3000; // 3 seconds
+  let autosaveTimer: NodeJS.Timeout;
 
   return {
     subscribe,
 
-    loadConfig: async (id: number) => {
-      update(s => ({ ...s, loading: true }));
+    // Load configs from backend
+    async loadConfigs() {
       try {
-        const response = await fetching(`/configs/${id}`);
-        const data = await response.json();
-        update(s => ({
-          ...s,
-          currentConfig: data.config,
-          configName: data.name,
-          configId: data.id,
-          loading: false
-        }));
-      } catch (e) {
-        update(s => ({ ...s, error: 'Failed to load config', loading: false }));
+        const response = await fetch('/api/configs');
+        const configs = await response.json();
+        update(state => ({ ...state, configs }));
+      } catch (error) {
+        console.error('Failed to load configs:', error);
       }
     },
 
-    updateConfig: (config: TraefikConfig) => {
-      update(s => ({ ...s, currentConfig: config }));
+    // Set current config
+    setCurrentConfig(config: TraefikConfig) {
+      update(state => ({ ...state, currentConfig: config, isDirty: false }));
     },
 
-    updateName: (name: string) => {
-      update(s => ({ ...s, configName: name }));
-    },
+    // Update current config with changes
+    updateCurrentConfig(changes: Partial<TraefikConfig>) {
+      update(state => {
+        if (!state.currentConfig) return state;
 
-    reset: () => {
-      set({
-        currentConfig: null,
-        configName: '',
-        configId: null,
-        loading: false,
-        error: null
+        const updatedConfig = {
+          ...state.currentConfig,
+          ...changes
+        };
+
+        clearTimeout(autosaveTimer);
+        autosaveTimer = setTimeout(() => {
+          this.saveConfig(updatedConfig);
+        }, AUTOSAVE_DELAY);
+
+        return {
+          ...state,
+          currentConfig: updatedConfig,
+          isDirty: true
+        };
       });
     },
 
-    clearError: () => {
-      update(s => ({ ...s, error: null }));
+    // Save config to backend
+    async saveConfig(config: TraefikConfig) {
+      try {
+        const response = await fetch('/api/configs', {
+          method: config.id ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(config)
+        });
+
+        const savedConfig = await response.json();
+
+        update(state => ({
+          ...state,
+          configs: state.configs.map(c =>
+            c.id === savedConfig.id ? savedConfig : c
+          ),
+          currentConfig: savedConfig,
+          isDirty: false,
+          lastSaved: new Date()
+        }));
+      } catch (error) {
+        console.error('Failed to save config:', error);
+      }
+    },
+
+    // Delete config
+    async deleteConfig(id: number) {
+      try {
+        await fetch(`/api/configs/${id}`, { method: 'DELETE' });
+
+        update(state => ({
+          ...state,
+          configs: state.configs.filter(c => c.id !== id),
+          currentConfig: state.currentConfig?.id === id ? null : state.currentConfig
+        }));
+      } catch (error) {
+        console.error('Failed to delete config:', error);
+      }
     }
   };
 }

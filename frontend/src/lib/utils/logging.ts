@@ -1,5 +1,5 @@
-import { env } from "$env/dynamic/public";
-import { debug as debugLib } from "debug";
+import { env } from '$env/dynamic/public';
+import debugLib from 'debug';
 
 const isProd = env.PUBLIC_PROD === 'true';
 

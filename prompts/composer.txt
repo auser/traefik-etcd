@@ -1,0 +1,18 @@
+I'm building a frontend for editing Traefik configs from the rust config. 
+
+I'm using SvelteKit and the config is stored in a MySQL database inside the rust store.
+
+Can you help me build and extend the frontend so that new traefik configurations can be created, edited, and deleted?
+
+I've already built the backend and have a MySQL database with a table for configs.
+
+I'm also using a Rust backend with a SvelteKit frontend.
+
+I want to add the ability to create, edit, and delete traefik configurations.
+
+Can you help me build and extend the frontend so that new traefik configurations can be created, edited, and deleted?
+
+In addition, I want to be able to autosave when editing a configuration as well as be able to load a previous configuration. I also want to be able to submit a post request to the backend to save the configuration.
+
+Can you help me build and extend the frontend so that new traefik configurations can be created, edited, and deleted?
+
