@@ -1,10 +1,10 @@
-use axum::extract::Path;
+use axum::extract::{Path, Query};
 use axum::routing::{delete, get, post, put};
 use axum::{Extension, Json, Router};
-use tracing::error;
+use tracing::{debug, error};
 
 use crate::config::traefik_config::{ConfigVersionHistory, TraefikConfigVersion};
-use crate::features::controllers::configs::get_database_config;
+use crate::features::controllers::configs::{get_database_config, SearchConfigsParams};
 use crate::features::models::SaveConfigRequest;
 use crate::features::routes::ApiContext;
 use crate::features::{controllers, TraefikApiResult, TraefikConfigListItem};
@@ -14,6 +14,7 @@ pub fn routes() -> Router {
     Router::new()
         .route("/configs", get(get_all_configs))
         .route("/configs", post(save_config))
+        .route("/configs/search", get(search_configs))
         .route("/configs/default", get(get_default_config))
         .route("/configs/files", get(get_file_configs))
         .route("/configs/version", post(save_config_version))
@@ -56,6 +57,29 @@ pub(crate) async fn get_file_configs(
     let file_configs =
         controllers::configs::get_yaml_configs(&ctx.config.base_templates_path).await?;
     Ok(Json(file_configs))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/configs/search",
+    params(
+        ("search" = Option<String>, Query, description = "Search term for filtering configs")
+    ),
+    responses(
+            (status = 200, description = "List of available configs", body = Vec<TraefikConfigVersion>)
+    ),
+    tags = ["configs"]
+)]
+pub(crate) async fn search_configs(
+    ctx: Extension<ApiContext>,
+    Query(params): Query<SearchConfigsParams>,
+) -> TraefikApiResult<Json<Vec<TraefikConfigVersion>>> {
+    debug!(
+        "Searching templates with search term: {:?}",
+        params.search_term()
+    );
+    let configs = controllers::configs::search_configs(&ctx.db, params.search_term()).await?;
+    Ok(Json(configs))
 }
 
 /// Get default configuration

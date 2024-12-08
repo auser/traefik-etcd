@@ -1,136 +1,124 @@
-<!-- src/routes/config-editor/+page.svelte -->
+<!-- src/routes/+page.svelte -->
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { configStore } from '$lib/stores/configStore';
-  import TemplateSelector from '$lib/components/config/TemplateSelector.svelte';
-  import VisualConfigEditor from '$lib/components/config/VisualConfigEditor.svelte';
-  import ConfigActions from '$lib/components/config/ConfigActions.svelte';
-  import StatusMessages from '$lib/components/config/StatusMessages.svelte';
-  import VersionHistory from '$lib/components/config/VersionHistory.svelte';
-  import DiffViewer from '$lib/components/config/DiffViewer.svelte';
-  import AreYouSure from '$lib/components/AreYouSure.svelte';
+    import { configStore } from '$lib/stores/configStore';
+    import { configListStore } from '$lib/stores/configListStore';
+    import { Settings, GitBranch, FileJson, ArrowRight } from 'lucide-svelte';
+    import { onMount } from 'svelte';
   
-  let deleteConfigDialogOpen = false;
-
-  onMount(() => {
-    if ($configStore.draft) {
-      $configStore.showDraftDialog = true;
-    }
-  });
-</script>
-
-<div class="p-4 max-w-4xl mx-auto">
-  {#if $configStore.showDraftDialog}
-    <AreYouSure
-      open={true}
-      title="Resume Editing?"
-      message="You have an unsaved draft from {new Date($configStore.draft.lastSaved).toLocaleString()}. Would you like to continue editing?"
-      onConfirm={() => configStore.discardDraft()}
-    />
-    <!-- <AlertDialog open={true}>
-      <AlertDialogContent>
-        <h2 class="text-lg font-semibold">Resume Editing?</h2>
-        <p class="mt-2">
-          You have an unsaved draft from {new Date($configStore.draft.lastSaved).toLocaleString()}.
-          Would you like to continue editing?
-        </p>
-        <div class="flex justify-end gap-2 mt-4">
-          <button
-            class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
-            on:click={() => configStore.discardDraft()}
+    let recentConfigs: any[] = [];
+    let loading = false;
+  
+    const quickActions = [
+      {
+        title: "New Configuration",
+        description: "Create a new Traefik configuration from scratch",
+        icon: FileJson,
+        href: "/editor"
+      },
+      {
+        title: "Browse Configurations",
+        description: "View and manage existing configurations",
+        icon: Settings,
+        href: "/config-list"
+      },
+      {
+        title: "Documentation",
+        description: "Learn more about Traefik configuration",
+        icon: GitBranch,
+        href: "https://docs.traefik.io",
+        external: true
+      }
+    ];
+  
+    onMount(async () => {
+      loading = true;
+      recentConfigs = await configListStore.loadConfigs();
+      loading = false;
+    });
+  </script>
+  
+  <div class="min-h-screen bg-gray-50">
+    <!-- Hero Section -->
+    <div class="bg-white border-b">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <h1 class="text-4xl font-bold text-gray-900">Welcome to TraefikCtl</h1>
+        <p class="mt-2 text-xl text-gray-600">Manage your Traefik configurations with ease</p>
+      </div>
+    </div>
+  
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <!-- Quick Actions -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        {#each quickActions as action}
+          <a 
+            href={action.href}
+            target={action.external ? "_blank" : "_self"}
+            class="group p-6 bg-white rounded-lg border hover:shadow-md transition-all"
           >
-            Discard
-          </button>
-          <button
-            class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            on:click={() => configStore.loadDraft()}
+            <div class="flex items-center justify-between">
+              <div class="p-2 bg-blue-50 rounded-lg text-blue-500">
+                <svelte:component this={action.icon} class="w-6 h-6" />
+              </div>
+              <ArrowRight class="w-5 h-5 text-gray-400 group-hover:text-blue-500" />
+            </div>
+            <h3 class="mt-4 text-lg font-semibold text-gray-900">
+              {action.title}
+            </h3>
+            <p class="mt-2 text-sm text-gray-600">
+              {action.description}
+            </p>
+          </a>
+        {/each}
+      </div>
+  
+      <!-- Recent Configurations -->
+      <section class="bg-white rounded-lg border p-6">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-xl font-semibold">Recent Configurations</h2>
+          <a 
+            href="/config-list"
+            class="text-blue-500 hover:text-blue-600 flex items-center"
           >
-            Resume Editing
-          </button>
+            View all
+            <ArrowRight class="w-4 h-4 ml-1" />
+          </a>
         </div>
-      </AlertDialogContent>
-    </AlertDialog> -->
-  {/if}
-
-  {#if !$configStore.currentConfig}
-    <TemplateSelector />
-  {:else}
-    <div class="mb-4 flex items-center justify-between">
-      <h2 class="text-2xl font-bold">
-        {$configStore.configId ? 'Edit Configuration' : 'New Configuration'}
-        {#if $configStore.selectedTemplate}
-          <span class="text-sm font-normal text-gray-500">
-            (based on {$configStore.selectedTemplate.name})
-          </span>
+  
+        {#if loading}
+          <div class="text-center py-8">
+            <div class="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto"></div>
+            <p class="mt-4 text-gray-600">Loading configurations...</p>
+          </div>
+        {:else if recentConfigs.length === 0}
+          <div class="text-center py-8 border-2 border-dashed rounded-lg">
+            <p class="text-gray-500">No configurations yet</p>
+            <a 
+              href="/editor"
+              class="mt-4 inline-flex items-center px-4 py-2 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            >
+              Create your first configuration
+            </a>
+          </div>
+        {:else}
+          <div class="divide-y">
+            {#each recentConfigs.slice(0, 5) as config}
+              <a 
+                href={`/editor/${config.id}`}
+                class="block py-4 hover:bg-gray-50 -mx-6 px-6 first:-mt-6 last:-mb-6"
+              >
+                <div class="flex items-center justify-between">
+                  <div>
+                    <h4 class="font-medium text-gray-900">{config.name}</h4>
+                    <p class="text-sm text-gray-500">
+                      Updated {new Date(config.updated_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <ArrowRight class="w-5 h-5 text-gray-400" />
+                </div>
+              </a>
+            {/each}
+          </div>
         {/if}
-      </h2>
-      <div class="flex items-center gap-2">
-        <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-          v{$configStore.currentVersion}
-        </span>
-        <button 
-          class="text-sm font-normal text-gray-500" 
-          on:click={() => configStore.reset()}
-        >
-          <small>back</small>
-        </button>
-        <button 
-          class="text-sm font-normal text-gray-500" 
-          on:click={() => deleteConfigDialogOpen = true}
-        >
-          <small>delete</small>
-        </button>
-      </div>
-    </div>
-
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <div class="lg:col-span-2">
-        <VisualConfigEditor
-          config={$configStore.currentConfig}
-          configName={$configStore.configName}
-          onChange={(config) => configStore.updateConfig(config)}
-          onNameChange={(name) => configStore.updateName(name)}
-        />
-
-        <div class="mt-4">
-          <ConfigActions
-            loading={$configStore.loading}
-            saving={$configStore.saving}
-            disabled={!$configStore.hasUnsavedChanges}
-            onSave={() => configStore.save()}
-            onReset={() => configStore.reset()}
-          />
-        </div>
-      </div>
-
-      <div>
-        <VersionHistory
-          versions={$configStore.versions}
-          currentVersion={$configStore.currentVersion}
-        />
-      </div>
-    </div>
-
-    <AreYouSure 
-      open={deleteConfigDialogOpen}
-      title="Delete Configuration" 
-      message="Are you sure you want to delete this configuration?"
-      onConfirm={() => {
-        configStore.deleteCurrentConfig();
-        deleteConfigDialogOpen = false;
-      }}
-    />
-
-    {#if $configStore.showDiff}
-      <DiffViewer
-        oldVersion={$configStore.diffOldVersion}
-        newVersion={$configStore.diffNewVersion}
-      />
-    {/if}
-
-    <StatusMessages 
-      error={$configStore.error} 
-      success={$configStore.saveStatus} 
-    />
-  {/if}
-</div>
+      </section>
+    </main>
+  </div>

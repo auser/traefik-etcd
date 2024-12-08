@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use chrono::{DateTime, Utc};
+use serde::Deserialize;
 use sqlx::{Acquire, MySql, Pool};
 use tokio::fs;
 use tracing::error;
@@ -91,6 +92,53 @@ pub async fn get_default_config() -> TraefikApiResult<TraefikConfigVersion> {
         updated_at,
         version: 1,
     })
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SearchConfigsParams {
+    q: Option<String>,
+}
+
+impl SearchConfigsParams {
+    pub fn search_term(&self) -> Option<String> {
+        self.q.as_deref().map(|s| s.to_string())
+    }
+}
+
+pub async fn search_configs(
+    pool: &Pool<MySql>,
+    search_term: Option<String>,
+) -> TraefikApiResult<Vec<TraefikConfigVersion>> {
+    let query = match &search_term {
+        Some(search) => sqlx::query_as::<_, TraefikConfigVersion>(
+            r#"
+                SELECT 
+                    id,
+                    name,
+                    config,
+                    created_at,
+                    updated_at,
+                    version
+                FROM config_versions 
+                WHERE name LIKE ?
+                ORDER BY created_at DESC
+                "#,
+        )
+        .bind(format!("%{}%", search)),
+        None => sqlx::query_as::<_, TraefikConfigVersion>(
+            r#"
+                SELECT id, name, config, created_at, updated_at, version FROM config_versions ORDER BY created_at DESC
+                "#,
+        ),
+    };
+
+    match query.fetch_all(pool).await {
+        Ok(templates) => Ok(templates),
+        Err(e) => {
+            error!("Error searching templates: {:?}", e);
+            Err(TraefikApiError::InternalServerError)
+        }
+    }
 }
 
 pub async fn save_config(
