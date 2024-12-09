@@ -1,23 +1,15 @@
+import type { TraefikConfig } from '@/types';
+import { fetching } from '@/utils/fetching';
 import { writable } from 'svelte/store';
 
-interface TraefikConfig {
+interface TraefikConfigWrapper {
   id?: number;
-  name: string;
-  content: {
-    http?: {
-      middlewares?: Record<string, any>;
-      services?: Record<string, any>;
-    };
-    tcp?: Record<string, any>;
-    tls?: Record<string, any>;
-  };
-  created_at?: string;
-  updated_at?: string;
+  config: TraefikConfig;
 }
 
 interface ConfigState {
-  configs: TraefikConfig[];
-  currentConfig: TraefikConfig | null;
+  configs: TraefikConfigWrapper[];
+  currentConfig: TraefikConfigWrapper | null;
   isDirty: boolean;
   lastSaved: Date | null;
 }
@@ -39,7 +31,7 @@ function createConfigStore() {
     // Load configs from backend
     async loadConfigs() {
       try {
-        const response = await fetch('/api/configs');
+        const response = await fetching('/configs');
         const configs = await response.json();
         update(state => ({ ...state, configs }));
       } catch (error) {
@@ -48,7 +40,7 @@ function createConfigStore() {
     },
 
     // Set current config
-    setCurrentConfig(config: TraefikConfig) {
+    setCurrentConfig(config: TraefikConfigWrapper) {
       update(state => ({ ...state, currentConfig: config, isDirty: false }));
     },
 
@@ -75,10 +67,34 @@ function createConfigStore() {
       });
     },
 
+    // Create new config
+    createNewConfig() {
+      const newConfig: TraefikConfigWrapper = {
+        id: undefined,
+        content: {
+          name: 'New Configuration',
+          http: {
+            services: {},
+            middlewares: {},
+          },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      };
+
+      update(state => ({
+        ...state,
+        currentConfig: newConfig,
+        isDirty: true
+      }));
+
+      return newConfig;
+    },
+
     // Save config to backend
-    async saveConfig(config: TraefikConfig) {
+    async saveConfig(config: TraefikConfigWrapper) {
       try {
-        const response = await fetch('/api/configs', {
+        const response = await fetching('/configs', {
           method: config.id ? 'PUT' : 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(config)
@@ -103,7 +119,7 @@ function createConfigStore() {
     // Delete config
     async deleteConfig(id: number) {
       try {
-        await fetch(`/api/configs/${id}`, { method: 'DELETE' });
+        await fetching(`/configs/${id}`, { method: 'DELETE' });
 
         update(state => ({
           ...state,

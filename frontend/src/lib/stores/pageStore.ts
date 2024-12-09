@@ -10,19 +10,23 @@ export type PageAction = {
 interface PageState {
   title: string;
   actions: PageAction[];
+  lastSavedMessage?: string;
 }
 
 function createPageStore() {
   const { subscribe, set, update } = writable<PageState>({
     title: '',
-    actions: []
+    actions: [],
+    lastSavedMessage: undefined
   });
 
   return {
     subscribe,
     setTitle: (title: string) => update((state) => ({ ...state, title })),
     setActions: (actions: PageAction[]) => update((state) => ({ ...state, actions })),
-    reset: () => set({ title: '', actions: [] })
+    setLastSavedMessage: (lastSavedMessage: string) =>
+      update((state) => ({ ...state, lastSavedMessage })),
+    reset: () => set({ title: '', actions: [], lastSavedMessage: undefined })
   };
 }
 

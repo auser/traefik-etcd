@@ -19,6 +19,8 @@ use crate::{
 #[export_type(rename_all = "camelCase", path = "generated/types")]
 pub struct HeadersConfig {
     #[serde(default)]
+    pub headers: HashMap<String, String>,
+    #[serde(default)]
     pub custom_request_headers: HashMap<String, String>,
     #[serde(default)]
     pub custom_response_headers: HashMap<String, String>,
@@ -39,6 +41,14 @@ impl ToEtcdPairs for HeadersConfig {
     fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
         let mut pairs = Vec::new();
         let headers_base_key = format!("{}/headers", base_key);
+
+        for (key, value) in self.headers.iter() {
+            pairs.push(EtcdPair::new(
+                format!("{}/headers/{}", headers_base_key, key),
+                value.to_string(),
+            ));
+        }
+
         // process custom request headers
         for (key, value) in self.custom_request_headers.iter() {
             pairs.push(EtcdPair::new(
@@ -153,6 +163,7 @@ pub struct HeadersConfigBuilder {
     pub auth_response_headers: Vec<String>,
     pub auth_response_headers_regex: String,
     pub add_vary_header: bool,
+    pub headers: HashMap<String, String>,
 }
 
 impl HeadersConfigBuilder {
@@ -194,8 +205,14 @@ impl HeadersConfigBuilder {
         self
     }
 
+    pub fn add_header(&mut self, name: &str, value: &str) -> &mut Self {
+        self.headers.insert(name.to_string(), value.to_string());
+        self
+    }
+
     pub fn build(&self) -> HeadersConfig {
         HeadersConfig {
+            headers: self.headers.clone(),
             custom_request_headers: self.custom_request_headers.clone(),
             custom_response_headers: self.custom_response_headers.clone(),
             access_control_allow_methods: self.access_control_allow_methods.clone(),

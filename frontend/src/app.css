@@ -76,3 +76,63 @@
     @apply bg-background text-foreground;
   }
 }
+
+.services-editor {
+  padding: 2rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.header-content {
+  flex: 1;
+}
+
+.title {
+  font-size: 1.875rem;
+  font-weight: 600;
+  color: #1a202c;
+  margin: 0;
+}
+
+.config-name {
+  color: #4a5568;
+  margin: 0.5rem 0 0;
+  font-size: 1rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.save-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #48bb78;
+  font-size: 0.875rem;
+}
+
+.editor-content {
+  flex: 1;
+  background: #f7fafc;
+  border-radius: 0.75rem;
+  padding: 2rem;
+}
+
+.placeholder {
+  text-align: center;
+  color: #718096;
+  padding: 4rem 0;
+}

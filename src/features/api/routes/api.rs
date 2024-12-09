@@ -56,7 +56,8 @@ pub async fn handler() -> impl IntoResponse {
     ),
     tags(
         (name = "config", description = "Configuration management endpoints"),
-        (name = "templates", description = "Template management endpoints")
+        (name = "templates", description = "Template management endpoints"),
+        (name = "services", description = "Service management endpoints")
     )
 )]
 pub struct ApiDoc;

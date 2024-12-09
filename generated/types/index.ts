@@ -48,6 +48,7 @@ export interface FromClientIpConfig {
 }
 
 export interface HeadersConfig {
+    headers: Record<string, string>;
     customRequestHeaders: Record<string, string>;
     customResponseHeaders: Record<string, string>;
     accessControlAllowMethods: string[];

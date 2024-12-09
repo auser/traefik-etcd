@@ -6,7 +6,11 @@
 
 <ConfigEditorLayout>
 	<slot name="header">
-		<LayoutHeader title={$pageStore.title} actions={$pageStore.actions} />
+		<LayoutHeader
+			title={$pageStore.title}
+			actions={$pageStore.actions}
+			lastSavedMessage={$pageStore.lastSavedMessage}
+		/>
 	</slot>
 	<main class="">
 		<slot />

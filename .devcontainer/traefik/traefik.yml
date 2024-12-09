@@ -20,6 +20,8 @@ entryPoints:
             sans: ["*.ari.io", "localhost"]
           - main: "example.com"
             sans: ["localhost", "*.example.com"]
+          - main: "collegegreen.net"
+            sans: ["*.collegegreen.net"]
   metrics:
     address: ":8899"
 

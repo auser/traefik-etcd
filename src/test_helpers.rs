@@ -226,6 +226,19 @@ pub fn create_test_middleware() -> HashMap<String, MiddlewareConfig> {
                 protocol: "http".to_string(),
                 name: "enable-headers".to_string(),
                 headers: Some(HeadersConfig {
+                    headers: HashMap::from([
+                        ("frameDeny".to_string(), "true".to_string()),
+                        ("browserXssFilter".to_string(), "true".to_string()),
+                        ("contentTypeNosniff".to_string(), "true".to_string()),
+                        ("forceSTSHeader".to_string(), "true".to_string()),
+                        ("stsIncludeSubdomains".to_string(), "true".to_string()),
+                        ("stsPreload".to_string(), "true".to_string()),
+                        ("stsSeconds".to_string(), "31536000".to_string()),
+                        (
+                            "customFrameOptionsValue".to_string(),
+                            "SAMEORIGIN".to_string(),
+                        ),
+                    ]),
                     custom_request_headers: HashMap::from([
                         ("X-Forwarded-Proto".to_string(), "https".to_string()),
                         ("X-Forwarded-Port".to_string(), "443".to_string()),
