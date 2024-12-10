@@ -117,10 +117,13 @@ impl From<TraefikConfig> for serde_json::Value {
 impl ToEtcdPairs for TraefikConfig {
     fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
         let mut pairs = Vec::new();
+        let mut rule_set: HashSet<EtcdPair> = HashSet::new();
 
         // Add global pairs
-        pairs.push(EtcdPair::new(base_key, "true"));
-        pairs.push(EtcdPair::new(format!("{}/http", base_key), "true"));
+        // pairs.push(EtcdPair::new(base_key, "true"));
+        rule_set.insert(EtcdPair::new(base_key, "true"));
+        // pairs.push(EtcdPair::new(format!("{}/http", base_key), "true"));
+        rule_set.insert(EtcdPair::new(format!("{}/http", base_key), "true"));
 
         // Add services
         if let Some(services) = &self.services {
@@ -130,7 +133,8 @@ impl ToEtcdPairs for TraefikConfig {
                 debug!("Adding global service: {}", service_name);
                 let service_base_key = format!("{}/http", base_key);
                 let service_pairs = service.to_etcd_pairs(&service_base_key)?;
-                pairs.extend(service_pairs);
+                // pairs.extend(service_pairs.clone());
+                rule_set.extend(service_pairs.iter().cloned());
             }
         }
 
@@ -142,10 +146,12 @@ impl ToEtcdPairs for TraefikConfig {
             let new_rules = middleware.to_etcd_pairs(&middleware_base_key)?;
             debug!("New rules middleware rules: {:?}", new_rules);
             for new_rule in new_rules.iter().cloned() {
-                pairs.push(new_rule);
+                pairs.push(new_rule.clone());
+                rule_set.insert(new_rule);
             }
         }
 
+        let mut pairs = rule_set.into_iter().collect();
         let sorted_hosts = get_sorted_deployments(self)?;
         for deployment_config in sorted_hosts.iter() {
             let mut rules = deployment_config.rules.clone();
@@ -247,6 +253,8 @@ impl TraefikConfig {
         for rule in &rules {
             rule_to_priority.insert(rule.get_rule().clone(), rule.get_priority());
         }
+
+        debug!("Rule set: {:?}", rule_to_priority);
 
         if dry_run {
             if show_rules {

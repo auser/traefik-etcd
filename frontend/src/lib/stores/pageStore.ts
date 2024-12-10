@@ -22,6 +22,7 @@ function createPageStore() {
 
   return {
     subscribe,
+    set,
     setTitle: (title: string) => update((state) => ({ ...state, title })),
     setActions: (actions: PageAction[]) => update((state) => ({ ...state, actions })),
     setLastSavedMessage: (lastSavedMessage: string) =>

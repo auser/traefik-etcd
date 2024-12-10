@@ -22,6 +22,8 @@ entryPoints:
             sans: ["localhost", "*.example.com"]
           - main: "collegegreen.net"
             sans: ["*.collegegreen.net"]
+          - main: "herringbank.com"
+            sans: ["*.herringbank.com"]
   metrics:
     address: ":8899"
 

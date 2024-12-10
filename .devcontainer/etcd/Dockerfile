@@ -1,13 +1,15 @@
 FROM docker.io/bitnami/etcd:3.5
 
+ARG CERT_DIR=${CERT_DIR:-./config/tls}
+
 USER root
 
-COPY ./config/tls/etcd.pem /etc/etcd/server.pem
-COPY ./config/tls/etcd-key.pem /etc/etcd/server-key.pem
-COPY ./config/tls/ca.pem /etc/etcd/ca.pem
+COPY $CERT_DIR/etcd.pem /etc/etcd/server.pem
+COPY $CERT_DIR/etcd-key.pem /etc/etcd/server-key.pem
+COPY $CERT_DIR/ca.pem /etc/etcd/ca.pem
 
-COPY ./config/tls/etcd-peer.pem /etc/etcd/peer.pem
-COPY ./config/tls/etcd-peer-key.pem /etc/etcd/peer-key.pem
+COPY $CERT_DIR/etcd-peer.pem /etc/etcd/peer.pem
+COPY $CERT_DIR/etcd-peer-key.pem /etc/etcd/peer-key.pem
 
 COPY ./.devcontainer/etcd/etcd.yml /etc/etcd/config.yml
 COPY ./.devcontainer/etcd/setup-etcd.sh /usr/local/bin/setup_etcd.sh

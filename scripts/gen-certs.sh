@@ -1,38 +1,9 @@
 #!/usr/bin/env bash
 
-set -e
+
 
 DIR_PATH=$(realpath $(dirname "$0"))
-#source $DIR_PATH/colors.sh
-declare -A Colors=(
-    [Color_Off]='\033[0m'
-    [Black]='\033[0;30m'
-    [Red]='\033[0;31m'
-    [Green]='\033[0;32m'
-    [Yellow]='\033[0;33m'
-    [Blue]='\033[0;34m'
-    [Purple]='\033[0;35m'
-    [Cyan]='\033[0;36m'
-    [White]='\033[0;37m'
-    [BBlack]='\033[1;30m'
-    [BRed]='\033[1;31m'
-    [BGreen]='\033[1;32m'
-    [BYellow]='\033[1;33m'
-    [BBlue]='\033[1;34m'
-    [BPurple]='\033[1;35m'
-    [BCyan]='\033[1;36m'
-    [BWhite]='\033[1;37m'
-    [UBlack]='\033[4;30m'
-    [URed]='\033[4;31m'
-    [UGreen]='\033[4;32m'
-    [UYellow]='\033[4;33m'
-    [UBlue]='\033[4;34m'
-    [UPurple]='\033[4;35m'
-    [UCyan]='\033[4;36m'
-    [UWhite]='\033[4;37m'
-)
-
-
+source $DIR_PATH/colors.sh
 
 CERT_BASE_DIR=${CERT_BASE_DIR:-"./config/tls"}
 
@@ -44,8 +15,26 @@ OUTPUT_DIR=${OUTPUT_DIR:-"./config/tls"}
 BASE_DIR=${BASE_DIR:-"./config/tls"}
 DOMAIN=${DOMAIN:-"ari.io"}
 
-CFSSL=$(which cfssl)
-CFSSLJSON=$(which cfssljson)
+# Check if cfssl is installed
+if ! command -v cfssl &> /dev/null; then
+    echo -e "${Red}Error: cfssl is not installed ${COLOR_OFF}"
+    echo "Please install cfssl first:"
+    echo "  go install github.com/cloudflare/cfssl/cmd/cfssl@latest"
+    exit 1
+fi
+
+# Check if cfssljson is installed 
+if ! command -v cfssljson &> /dev/null; then
+    echo -e "${Red}Error: cfssljson is not installed ${COLOR_OFF}"
+    echo "Please install cfssljson first:"
+    echo "  go install github.com/cloudflare/cfssl/cmd/cfssljson@latest" 
+    exit 1
+fi
+
+# Set paths to binaries
+CFSSL=$(command -v cfssl)
+CFSSLJSON=$(command -v cfssljson)
+
 
 generate_ca() {
     # Generate CA if it doesn't exist
@@ -56,10 +45,11 @@ generate_ca() {
 
 # ./scripts/gen-certs.sh -p server -c etcd -h localhost,127.0.0.1,etcd -o ./proxy/cert/etcd
 generate_cert() {
-    echo "Generating certificate for ${NAME} with common name ${COMMON_NAME} and hosts ${HOSTS}"
+    echo -e "${YELLOW}Generating certificate for ${NAME} with common name ${COMMON_NAME} and hosts ${HOSTS} ${COLOR_OFF}"
 
     JSON_HOSTS=$(echo "$HOSTS" | jq -R 'split(",")')
-    echo $JSON_HOSTS
+
+    echo "${OUTPUT_DIR}/${NAME}-csr.json"
 
     mkdir -p "${OUTPUT_DIR}"
     jq --arg cn "$COMMON_NAME" --argjson hosts "$JSON_HOSTS" '.CN = $cn | .hosts = $hosts' "${BASE_DIR}/csr-template.json" > "${OUTPUT_DIR}/${NAME}-csr.json"
@@ -92,7 +82,7 @@ generate_cert() {
 # echo "Certificates generated in ${CERT_BASE_DIR}"
 
 function generate_etcd() {
-    echo -e "${Colors[Yellow]}Generating etcd peer certificate${Colors[Color_Off]}"
+    echo -e "${YELLOW}Generating etcd peer certificate $COLOR_OFF"
     ./scripts/gen-certs.sh \
         -p peer \
         -c etcd-cluster \
@@ -101,7 +91,7 @@ function generate_etcd() {
         -o $CERT_BASE_DIR \
         gen
 
-    echo -e "${Colors[Yellow]}Generating etcd server certificate${Colors[Color_Off]}"
+    echo -e "${YELLOW}Generating etcd server certificate ${COLOR_OFF}"
     ./scripts/gen-certs.sh \
         -p server \
         -c etcd-cluster \
@@ -112,18 +102,18 @@ function generate_etcd() {
 }
 
 function generate_traefik() {
-    echo -e "${Colors[Yellow]}Generating traefik server certificate${Colors[Color_Off]}"
+    echo -e "${YELLOW}Generating traefik server certificate ${COLOR_OFF}"
     ./scripts/gen-certs.sh \
         -p server \
         -c traefik \
         -h "localhost,127.0.0.1,traefik,$DOMAIN,*.$DOMAIN,$HOSTS" \
-        -n traefik-server \
+        -n traefik \
         -o $CERT_BASE_DIR \
         gen
 }
 
 function generate_asterisk() {
-    echo -e "${Colors[Yellow]}Generating asterisk certificate${Colors[Color_Off]}"
+    echo -e "${YELLOW}Generating asterisk certificate ${COLOR_OFF}"
     ./scripts/gen-certs.sh \
         -p server \
         -c asterisk \
@@ -134,7 +124,7 @@ function generate_asterisk() {
 }
 
 function generate_herringbank() {
-    echo -e "${Colors[Yellow]}Generating herringbank certificate${Colors[Color_Off]}"
+    echo -e "${YELLOW}Generating herringbank certificate ${COLOR_OFF}"
     ./scripts/gen-certs.sh \
         -p server \
         -c wildcard_herringbank \
@@ -145,7 +135,7 @@ function generate_herringbank() {
 }
 
 function generate_etcd_traefik_communication() {
-    echo -e "${Colors[Yellow]}Generating etcd traefik communication certificate${Colors[Color_Off]}"
+    echo -e "${YELLOW}Generating etcd traefik communication certificate ${COLOR_OFF}"
     ./scripts/gen-certs.sh \
         -p client \
         -c traefik-etcd-client \
@@ -156,7 +146,7 @@ function generate_etcd_traefik_communication() {
 }
 
 function generate_prometheus() {
-    echo -e "${Colors[Yellow]}Generating prometheus certificate${Colors[Color_Off]}"
+    echo -e "${YELLOW}Generating prometheus certificate ${COLOR_OFF}"
     ./scripts/gen-certs.sh \
         -p server \
         -c prometheus \
@@ -167,7 +157,7 @@ function generate_prometheus() {
 }
 
 function generate_grafana() {
-    echo -e "${Colors[Yellow]}Generating grafana certificate${Colors[Color_Off]}"
+    echo -e "${YELLOW}Generating grafana certificate ${COLOR_OFF}"
     ./scripts/gen-certs.sh \
         -p server \
         -c grafana \
@@ -211,7 +201,7 @@ parse_opts() {
 }
 
 help() {
-  echo -e "${Colors[Blue]}Usage: $(basename "$0") [options] <command>
+  echo -e "${BLUE}Usage: $(basename "$0") [options <command>
 Options:
   -p  Profile
   -c  Common Name
@@ -222,18 +212,19 @@ Options:
   -v  Verbose mode
 
 Commands:
-  ${Colors[Green]}all${Colors[Color_Off]}                            Generate all certificates
-  ${Colors[Green]}ca${Colors[Color_Off]}                             Generate CA
-  ${Colors[Green]}gen${Colors[Color_Off]}                            Generate certificate
-  ${Colors[Green]}gen_etcd${Colors[Color_Off]}                       Generate etcd certificate
-  ${Colors[Green]}gen_traefik${Colors[Color_Off]}                    Generate traefik certificate
-  ${Colors[Green]}gen_etcd_traefik_communication${Colors[Color_Off]} Generate etcd traefik communication certificate
-  ${Colors[Green]}gen_prometheus${Colors[Color_Off]}                 Generate prometheus certificate
-  ${Colors[Green]}gen_grafana${Colors[Color_Off]}                    Generate grafana certificate
-  ${Colors[Green]}gen_asterisk_herringbank${Colors[Color_Off]}       Generate asterisk and herringbank certificates
+  ${GREEN}all  ${COLOR_OFF}                             Generate all certificates
+  ${GREEN}ca  ${COLOR_OFF}                              Generate CA
+  ${GREEN}gen  ${COLOR_OFF}                             Generate certificate
+  ${GREEN}gen_etcd  ${COLOR_OFF}                        Generate etcd certificate
+  ${GREEN}gen_traefik  ${COLOR_OFF}                     Generate traefik certificate
+  ${GREEN}gen_etcd_traefik_communication  ${COLOR_OFF}  Generate etcd traefik communication certificate
+  ${GREEN}gen_prometheus ${COLOR_OFF}                   Generate prometheus certificate
+  ${GREEN}gen_grafana ${COLOR_OFF}                      Generate grafana certificate
+  ${GREEN}gen_asterisk_herringbank  ${COLOR_OFF}        Generate asterisk and herringbank certificates
 "
   exit 1
 }
+
 
 main() {
   parse_opts "$@"
@@ -241,7 +232,8 @@ main() {
   if [ $# -eq 0 ]; then
     help
   fi
-  echo "HOSTS: $HOSTS"
+
+  CERT_BASE_DIR=${OUTPUT_DIR:-"./config/tls"}
   case "$1" in
   all) generate_all ;;
   ca) generate_ca ;;

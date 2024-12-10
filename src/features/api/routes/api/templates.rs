@@ -113,7 +113,7 @@ pub(crate) async fn delete_template(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+
     #[allow(unused_imports)]
     use crate::test_helpers::init_test_tracing;
     #[allow(unused_imports)]

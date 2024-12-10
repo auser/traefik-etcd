@@ -132,7 +132,7 @@ impl ToEtcdPairs for MiddlewareConfig {
                 headers_base_key, base_key
             );
             let headers_pairs = headers.to_etcd_pairs(headers_base_key)?;
-            pairs.extend(headers_pairs);
+            pairs.extend(headers_pairs.clone());
         }
         if let Some(forward_auth) = &self.forward_auth {
             let forward_auth_pairs = forward_auth.to_etcd_pairs(base_key)?;

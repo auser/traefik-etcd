@@ -6,7 +6,7 @@ pub trait ToEtcdPairs {
     fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>>;
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct EtcdPair(String, String);
 
 impl EtcdPair {

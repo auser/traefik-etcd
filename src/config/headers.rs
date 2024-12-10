@@ -44,7 +44,7 @@ impl ToEtcdPairs for HeadersConfig {
 
         for (key, value) in self.headers.iter() {
             pairs.push(EtcdPair::new(
-                format!("{}/headers/{}", headers_base_key, key),
+                format!("{}/{}", headers_base_key, key),
                 value.to_string(),
             ));
         }

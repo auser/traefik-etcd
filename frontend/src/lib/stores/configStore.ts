@@ -27,6 +27,7 @@ function createConfigStore() {
 
   return {
     subscribe,
+    set,
 
     // Load configs from backend
     async loadConfigs() {

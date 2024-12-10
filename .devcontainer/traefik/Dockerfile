@@ -15,6 +15,8 @@ RUN arch=$(arch | sed s/aarch64/arm64/ | sed s/x86_64/amd64/) && \
 
 FROM docker.io/traefik:v3.2.1
 
+ARG CERT_DIR=${CERT_DIR:-./.devcontainer/config/tls}
+
 # Install envsubst
 RUN apk update && apk add --no-cache gettext shadow
 
@@ -31,18 +33,18 @@ COPY ./.devcontainer/traefik/dynamic.yml /etc/traefik/dynamic_conf.yaml
 # Nope, but good enough for now
 
 # Server certificates
-COPY ./config/tls/etcd.pem /etc/traefik/etcd.pem
-COPY ./config/tls/etcd-key.pem /etc/traefik/etcd-key.pem
-COPY ./config/tls/ca.pem /etc/traefik/ca.pem
+COPY $CERT_DIR/etcd.pem /etc/traefik/etcd.pem
+COPY $CERT_DIR/etcd-key.pem /etc/traefik/etcd-key.pem
+COPY $CERT_DIR/ca.pem /etc/traefik/ca.pem
 
-COPY ./config/tls/traefik.pem /etc/traefik/traefik.pem
-COPY ./config/tls/traefik-key.pem /etc/traefik/traefik-key.pem
+COPY $CERT_DIR/traefik.pem /etc/traefik/traefik.pem
+COPY $CERT_DIR/traefik-key.pem /etc/traefik/traefik-key.pem
 
-COPY ./config/tls/etcd-peer.pem /etc/traefik/peer.pem
-COPY ./config/tls/etcd-peer-key.pem /etc/traefik/peer-key.pem
+COPY $CERT_DIR/etcd-peer.pem /etc/traefik/peer.pem
+COPY $CERT_DIR/etcd-peer-key.pem /etc/traefik/peer-key.pem
 
-COPY ./config/tls/traefik-etcd-client.pem /etc/traefik/etcd-client.pem
-COPY ./config/tls/traefik-etcd-client-key.pem /etc/traefik/etcd-client-key.pem
+COPY $CERT_DIR/traefik-etcd-client.pem /etc/traefik/etcd-client.pem
+COPY $CERT_DIR/traefik-etcd-client-key.pem /etc/traefik/etcd-client-key.pem
 
 COPY --from=etcd /bin/etcd /bin/etcd
 COPY --from=etcd /bin/etcdctl /bin/etcdctl
