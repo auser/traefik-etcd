@@ -26,8 +26,14 @@ workspace = false
 [tasks.dev]
 run_task = { name = ["watch-backend", "watch-frontend"], parallel = true }
 
+[tasks.build-release]
+command = "cargo"
+args = ["build", "--release"]
+workspace = false
+dependencies = ["build-frontend"]
+
 [tasks.release]
 command = "cargo"
-args = ["release", "--execute", "--no-confirm"]
+args = ["release", "--execute", "--no-confirm", "--allow-dirty"]
 workspace = false
 dependencies = ["build-frontend"]
