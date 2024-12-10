@@ -31,16 +31,11 @@ command = "cargo"
 args = ["package"]
 dependencies = ["prepare-package"]
 
-[tasks.test-release]
-command = "cargo"
-args = ["build", "--release"]
-dependencies = ["prepare-package"]
-
 [tasks.dev]
 run_task = { name = ["watch-backend", "watch-frontend"], parallel = true }
 
 [tasks.release]
 command = "cargo"
-args = ["build", "--release"]
+args = ["release", "--execute"]
 workspace = false
 dependencies = ["build-frontend"]
