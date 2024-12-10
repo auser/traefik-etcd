@@ -4,7 +4,9 @@
 	import ConfigSidebar from '$lib/components/layouts/config/ConfigSidebar.svelte';
 	import { ChevronLeft, Save } from 'lucide-svelte';
 
-	export let showSaveButton = true;
+	export const showSaveButton = true;
+
+	console.log('$configStore.isDirty', $configStore);
 </script>
 
 <div class="flex h-screen bg-gray-50">

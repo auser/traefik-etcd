@@ -12,7 +12,7 @@ use tower_http::services::ServeDir;
 
 pub fn router() -> Router {
     let assets = include_dir!("frontend/build");
-    let serve_dir = ServeDir::new(assets.path().to_path_buf());
+    let serve_dir = ServeDir::new(assets.path());
     Router::new().nest_service("/frontend", serve_dir)
 }
 

@@ -226,6 +226,13 @@ pub fn create_test_middleware() -> HashMap<String, MiddlewareConfig> {
             MiddlewareConfig {
                 protocol: "http".to_string(),
                 name: "enable-headers".to_string(),
+                strip_prefix: None,
+                rate_limit: None,
+                basic_auth: None,
+                compress: false,
+                circuit_breaker: None,
+                redirect_regex: None,
+                redirect_scheme: None,
                 headers: Some(HeadersConfig {
                     headers: HashMap::from([
                         ("frameDeny".to_string(), "true".to_string()),
@@ -257,6 +264,7 @@ pub fn create_test_middleware() -> HashMap<String, MiddlewareConfig> {
                         "Content-Type".to_string(),
                         "Authorization".to_string(),
                     ],
+                    access_control_allow_credentials: true,
                     access_control_expose_headers: vec!["Location".to_string()],
                     access_control_allow_origin_list: vec![],
                     add_vary_header: true,
@@ -277,6 +285,13 @@ pub fn create_test_middleware() -> HashMap<String, MiddlewareConfig> {
                     ..Default::default()
                 }),
                 forward_auth: None,
+                strip_prefix: None,
+                rate_limit: None,
+                basic_auth: None,
+                compress: false,
+                circuit_breaker: None,
+                redirect_regex: None,
+                redirect_scheme: None,
             },
         ),
     ])
@@ -292,4 +307,20 @@ pub fn init_test_tracing() {
         },
     )
     .unwrap();
+}
+
+pub fn create_base_middleware_config() -> MiddlewareConfig {
+    MiddlewareConfig {
+        headers: None,
+        forward_auth: None,
+        redirect_regex: None,
+        redirect_scheme: None,
+        strip_prefix: None,
+        rate_limit: None,
+        basic_auth: None,
+        compress: false,
+        circuit_breaker: None,
+        name: "test-middleware".to_string(),
+        protocol: "http".to_string(),
+    }
 }

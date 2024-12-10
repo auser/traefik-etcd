@@ -21,6 +21,7 @@
 			href: '/editor/services'
 		}
 	];
+	export let showSaveButton = true;
 </script>
 
 <!-- Left Sidebar -->

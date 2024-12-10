@@ -2,6 +2,65 @@ etcd:
   endpoints: ["https://etcd:2379"]
   timeout: 2000
   keep_alive: 300
+  tls:
+    cert: "./config/tls/traefik-server.pem"
+    key: "./config/tls/traefik-server-key.pem"
+    ca: "./config/tls/ca.pem"
+    domain: etcd
+
+
+middlewares:
+  enable-headers:
+    headers:
+      headers:
+        frameDeny: true
+        browserXssFilter: true
+        contentTypeNosniff: true
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+        customFrameOptionsValue: "SAMEORIGIN"
+      custom_request_headers:
+        X-Forwarded-Proto: "https"
+        X-Forwarded-Port: "443"
+        Location: ""
+        server: ""
+        x-powered-by: "Traefik"
+      access_control_allow_methods:
+        - "GET"
+        - "POST"
+        - "PUT"
+        - "DELETE"
+        - "OPTIONS"
+        - HEAD
+      access_control_allow_headers:
+        - "Content-Type"
+        - Content-Length
+        - Accept-Encoding
+        - "X-CSRF-Token"
+        - Authorization
+        - accept
+        - origin
+        - Cache-Control
+        - X-Requested-With
+        - "Location"
+      access_control_expose_headers:
+        - "X-CSRF-Token"
+        - Location
+      add_vary_header: true
+  add-www:
+    headers:
+      custom_request_headers:
+        X-Forwarded-Proto: "https"
+        X-Forwarded-Port: "443"
+        Location: ""
+
+alias:
+  default_middlewares: &default_middlewares
+    - enable-headers
+    - add-www
+
 
 services:
   redirector:
@@ -23,8 +82,9 @@ hosts:
               name: "green"
               value: "true"
         middlewares:
-          - enable-headers
+          - add-www
         strip_prefix: true
+    middlewares: *default_middlewares
     deployments:
       catch-all:
         service_name: redirector

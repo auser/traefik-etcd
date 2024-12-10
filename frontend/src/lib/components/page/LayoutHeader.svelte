@@ -69,11 +69,7 @@
 <style>
 	.status-icon,
 	.btn-icon,
-	.warning-icon {
-		width: 1.25rem;
-		height: 1.25rem;
-	}
-
+	
 	.back-btn {
 		display: flex;
 		align-items: center;

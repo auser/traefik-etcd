@@ -1,12 +1,15 @@
 use std::{fmt::Display, path::PathBuf};
 
+use serde::{Deserialize, Serialize};
+
 use crate::error::TraefikResult;
 
 pub trait ToEtcdPairs {
     fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>>;
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "api", derive(schemars::JsonSchema, utoipa::ToSchema))]
 pub struct EtcdPair(String, String);
 
 impl EtcdPair {

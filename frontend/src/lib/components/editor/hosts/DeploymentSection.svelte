@@ -64,8 +64,9 @@
 
 					<div class="grid grid-cols-2 gap-3">
 						<div>
-							<label class="text-sm text-gray-600">IP Address</label>
+							<label for={`deployment-${name}-ip`} class="text-sm text-gray-600">IP Address</label>
 							<input
+								id={`deployment-${name}-ip`}
 								type="text"
 								class="mt-1 w-full rounded-md border-gray-300 text-sm"
 								value={deployment.ip}
@@ -79,8 +80,9 @@
 						</div>
 
 						<div>
-							<label class="text-sm text-gray-600">Port</label>
+							<label for={`deployment-${name}-port`} class="text-sm text-gray-600">Port</label>
 							<input
+								id={`deployment-${name}-port`}
 								type="number"
 								class="mt-1 w-full rounded-md border-gray-300 text-sm"
 								value={deployment.port}
@@ -95,8 +97,9 @@
 
 					<div class="grid grid-cols-2 gap-3">
 						<div>
-							<label class="text-sm text-gray-600">Weight</label>
+							<label for={`deployment-${name}-weight`} class="text-sm text-gray-600">Weight</label>
 							<input
+								id={`deployment-${name}-weight`}
 								type="number"
 								class="mt-1 w-full rounded-md border-gray-300 text-sm"
 								min="0"
@@ -111,8 +114,9 @@
 						</div>
 
 						<div>
-							<label class="text-sm text-gray-600">Protocol</label>
+							<label for={`deployment-${name}-protocol`} class="text-sm text-gray-600">Protocol</label>
 							<select
+								id={`deployment-${name}-protocol`}
 								class="mt-1 w-full rounded-md border-gray-300 text-sm"
 								value={deployment.protocol}
 								on:change={(e) =>

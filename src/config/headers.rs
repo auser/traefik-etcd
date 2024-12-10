@@ -29,6 +29,8 @@ pub struct HeadersConfig {
     #[serde(default)]
     pub access_control_allow_headers: Vec<String>,
     #[serde(default)]
+    pub access_control_allow_credentials: bool,
+    #[serde(default)]
     pub access_control_expose_headers: Vec<String>,
     #[serde(default)]
     pub access_control_allow_origin_list: Vec<String>,
@@ -38,9 +40,10 @@ pub struct HeadersConfig {
 
 impl ToEtcdPairs for HeadersConfig {
     /// Convert the headers configuration to etcd pairs
-    fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
+    fn to_etcd_pairs(&self, _base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
         let mut pairs = Vec::new();
-        let headers_base_key = format!("{}/headers", base_key);
+        // let headers_base_key = format!("{}/headers", base_key);
+        let headers_base_key = "headers";
 
         for (key, value) in self.headers.iter() {
             pairs.push(EtcdPair::new(
@@ -94,6 +97,13 @@ impl ToEtcdPairs for HeadersConfig {
             pairs.push(EtcdPair::new(
                 format!("{}/accessControlAllowOriginList", headers_base_key),
                 format_list_value(&self.access_control_allow_origin_list),
+            ));
+        }
+
+        if self.access_control_allow_credentials {
+            pairs.push(EtcdPair::new(
+                format!("{}/accessControlAllowCredentials", headers_base_key),
+                "true".to_string(),
             ));
         }
 
@@ -159,6 +169,7 @@ pub struct HeadersConfigBuilder {
     pub access_control_allow_methods: Vec<String>,
     pub access_control_allow_headers: Vec<String>,
     pub access_control_expose_headers: Vec<String>,
+    pub access_control_allow_credentials: bool,
     pub access_control_allow_origin_list: Vec<String>,
     pub auth_response_headers: Vec<String>,
     pub auth_response_headers_regex: String,
@@ -194,6 +205,11 @@ impl HeadersConfigBuilder {
         self
     }
 
+    pub fn add_access_control_allow_credentials(&mut self, allow_credentials: bool) -> &mut Self {
+        self.access_control_allow_credentials = allow_credentials;
+        self
+    }
+
     pub fn add_access_control_allow_origin(&mut self, origin: &str) -> &mut Self {
         self.access_control_allow_origin_list
             .push(origin.to_string());
@@ -219,6 +235,7 @@ impl HeadersConfigBuilder {
             access_control_allow_headers: self.access_control_allow_headers.clone(),
             access_control_expose_headers: self.access_control_expose_headers.clone(),
             access_control_allow_origin_list: self.access_control_allow_origin_list.clone(),
+            access_control_allow_credentials: self.access_control_allow_credentials,
             add_vary_header: self.add_vary_header,
         }
     }
@@ -330,10 +347,10 @@ mod tests {
             .build();
         let pairs = headers.to_etcd_pairs("test").unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
-        assert!(pair_strs
-            .contains(&"test/headers/customRequestHeaders/X-Forwarded-Proto https".to_string()));
-        assert!(pair_strs
-            .contains(&"test/headers/customRequestHeaders/X-Forwarded-Port 80".to_string()));
+        assert!(
+            pair_strs.contains(&"headers/customRequestHeaders/X-Forwarded-Proto https".to_string())
+        );
+        assert!(pair_strs.contains(&"headers/customRequestHeaders/X-Forwarded-Port 80".to_string()));
     }
 
     #[test]
@@ -345,8 +362,7 @@ mod tests {
             .build();
         let pairs = headers.to_etcd_pairs("test").unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
-        assert!(pair_strs
-            .contains(&"test/headers/accessControlAllowMethods GET, POST, PUT".to_string()));
+        assert!(pair_strs.contains(&"headers/accessControlAllowMethods GET, POST, PUT".to_string()));
     }
 
     #[test]
@@ -358,7 +374,7 @@ mod tests {
         let pairs = headers.to_etcd_pairs("test").unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
         assert!(pair_strs.contains(
-            &"test/headers/accessControlAllowHeaders Content-Type, Content-Length".to_string()
+            &"headers/accessControlAllowHeaders Content-Type, Content-Length".to_string()
         ));
     }
 
@@ -371,7 +387,7 @@ mod tests {
         let pairs = headers.to_etcd_pairs("test").unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
         assert!(pair_strs.contains(
-            &"test/headers/accessControlExposeHeaders Content-Type, Content-Length".to_string()
+            &"headers/accessControlExposeHeaders Content-Type, Content-Length".to_string()
         ));
     }
 
@@ -382,8 +398,7 @@ mod tests {
             .build();
         let pairs = headers.to_etcd_pairs("test").unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
-        assert!(pair_strs
-            .contains(&"test/headers/accessControlAllowOriginList example.com".to_string()));
+        assert!(pair_strs.contains(&"headers/accessControlAllowOriginList example.com".to_string()));
     }
 
     #[test]
@@ -391,7 +406,7 @@ mod tests {
         let headers = HeadersConfig::builder().add_vary_header(true).build();
         let pairs = headers.to_etcd_pairs("test").unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
-        assert!(pair_strs.contains(&"test/headers/addVaryHeader true".to_string()));
+        assert!(pair_strs.contains(&"headers/addVaryHeader true".to_string()));
     }
 
     #[test]
@@ -401,8 +416,7 @@ mod tests {
             .build();
         let pairs = headers.to_etcd_pairs("test").unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
-        assert!(pair_strs.contains(
-            &"test/headers/customResponseHeaders/Content-Type application/json".to_string()
-        ));
+        assert!(pair_strs
+            .contains(&"headers/customResponseHeaders/Content-Type application/json".to_string()));
     }
 }
