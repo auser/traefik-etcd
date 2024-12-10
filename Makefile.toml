@@ -17,12 +17,18 @@ cwd = "./frontend"
 args = ["install", "--force"]
 workspace = false
 
+[tasks.make-frontend-build]
+command = "mkdir"
+args = ["-p", "./frontend/build"]
+workspace = false
+dependencies = ["install-frontend-deps"]
+
 [tasks.build-frontend]
 command = "pnpm"
 cwd = "./frontend"
 args = ["run", "build"]
 workspace = false
-dependencies = ["install-frontend-deps"]
+dependencies = ["make-frontend-build"]
 
 [tasks.dev]
 run_task = { name = ["watch-backend", "watch-frontend"], parallel = true }
