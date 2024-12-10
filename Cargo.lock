@@ -5165,6 +5165,7 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-tls",
+ "include_dir",
  "jwt",
  "mime",
  "once_cell",

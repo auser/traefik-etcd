@@ -5,7 +5,7 @@ use axum_embed::ServeEmbed;
 use rust_embed::RustEmbed;
 
 #[derive(RustEmbed, Clone)]
-#[folder = "frontend/build"]
+#[folder = "$CARGO_MANIFEST_DIR/frontend/build"]
 struct Assets;
 
 pub fn router() -> Router {
