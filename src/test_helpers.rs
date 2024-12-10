@@ -215,6 +215,7 @@ pub fn create_test_config(host_configs: Option<Vec<HostConfig>>) -> TraefikConfi
         name: Some("test".to_string()),
         description: Some("test".to_string()),
         services: None,
+        entry_points: None,
     }
 }
 

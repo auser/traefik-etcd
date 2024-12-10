@@ -14,7 +14,7 @@ http:
           X-Forwarded-Proto: https
         customResponseHeaders:
           server: ""
-          x-powered-by: "Ari dot io"
+          x-powered-by: "Your host"
 
     traefikAuth:
       basicAuth:
@@ -30,7 +30,7 @@ http:
     default-redirect-middleware:
       redirectRegex:
         regex: "^https?://(.+)"
-        replacement: "https://ari.io"
+        replacement: "https://example.com"
         permanent: true
 
     handle-service-redirect-middleware:
@@ -70,70 +70,24 @@ http:
         middlewares:
           - default-headers
 
-  # routers:
-  #   catch-all-router:
-  #     rule: "HostRegexp(`{host:.+}`)"
-  #     priority: 1
-  #     middlewares:
-  #       - default-redirect-middleware
-  #     service: catch-all-service
-  #     entryPoints:
-  #       - websecure
-  
-  #   #  traefik-dashboard:
-  #   #    rule: "PathPrefix(`/api`) || PathPrefix(`/dashboard`)"
-  #   #    service: "api@internal"
-  #   #    middlewares:
-  #   #      - traefikAuth
-  #   #    entrypoints:
-  #   #      - dashboard
-
-  #   # prometheus-router:
-  #   #   rule: "Host(`www.financialpayments.com`) && PathPrefix(`/prometheus`)"
-  #   #   service: prometheus-service
-  #   #   entrypoints:
-  #   #     - web
-  #   #   tls: false
-
-  #   # grafana-router:
-  #   #   rule: "Host(`www.financialpayments.com`) && PathPrefix(`/grafana`)"
-  #   #   service: grafana-service
-  #   #   middlewares:
-  #   #     - default
-  #   #     - default-auth
-  #   #   entrypoints:
-  #   #     - web
-  #   #   tls: false
-
-  # services:
-  #   catch-all-service:
-  #     loadBalancer:
-  #       servers:
-  #         - url: "http://localhost" # This is a dummy URL
-
-  # #   # catch-all-service:
-  # #   #   loadBalancer:
-  # #   #     servers:
-  # #   #       - url: "http://localhost" # This is a dummy URL
-
-  # #   prometheus-service:
-  # #     loadBalancer:
-  # #       servers:
-  # #         - port: 9090
-  # #   grafana-service:
-  # #     loadBalancer:
-  # #       servers:
-  # #         - port: 3000
+    prometheus-service:
+      loadBalancer:
+        servers:
+          - port: 9090
+    grafana-service:
+      loadBalancer:
+        servers:
+          - port: 3000
 tls:
   options:
     default:
       minVersion: VersionTLS12
       sniStrict: false # Allow requests without SNI
   certificates:
-    - certFile: /etc/traefik/traefik.pem
-      keyFile: /etc/traefik/traefik-key.pem
+    - certFile: /etc/traefik/tls/server.pem
+      keyFile: /etc/traefik/tls/server-key.pem
   stores:
     default:
       defaultCertificate:
-        certFile: /etc/traefik/traefik.pem
-        keyFile: /etc/traefik/traefik-key.pem
+        certFile: /etc/traefik/tls/server.pem
+        keyFile: /etc/traefik/tls/server-key.pem

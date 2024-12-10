@@ -33,18 +33,18 @@ COPY ./.devcontainer/traefik/dynamic.yml /etc/traefik/dynamic_conf.yaml
 # Nope, but good enough for now
 
 # Server certificates
-COPY $CERT_DIR/etcd.pem /etc/traefik/etcd.pem
-COPY $CERT_DIR/etcd-key.pem /etc/traefik/etcd-key.pem
-COPY $CERT_DIR/ca.pem /etc/traefik/ca.pem
+COPY $CERT_DIR/etcd.pem /etc/traefik/tls/etcd.pem
+COPY $CERT_DIR/etcd-key.pem /etc/traefik/tls/etcd-key.pem
+COPY $CERT_DIR/ca.pem /etc/traefik/tls/ca.pem
 
-COPY $CERT_DIR/traefik.pem /etc/traefik/traefik.pem
-COPY $CERT_DIR/traefik-key.pem /etc/traefik/traefik-key.pem
+COPY $CERT_DIR/traefik.pem /etc/traefik/tls/traefik.pem
+COPY $CERT_DIR/traefik-key.pem /etc/traefik/tls/traefik-key.pem
 
-COPY $CERT_DIR/etcd-peer.pem /etc/traefik/peer.pem
-COPY $CERT_DIR/etcd-peer-key.pem /etc/traefik/peer-key.pem
+COPY $CERT_DIR/etcd-peer.pem /etc/traefik/tls/peer.pem
+COPY $CERT_DIR/etcd-peer-key.pem /etc/traefik/tls/peer-key.pem
 
-COPY $CERT_DIR/traefik-etcd-client.pem /etc/traefik/etcd-client.pem
-COPY $CERT_DIR/traefik-etcd-client-key.pem /etc/traefik/etcd-client-key.pem
+COPY $CERT_DIR/traefik-etcd-client.pem /etc/traefik/tls/etcd-client.pem
+COPY $CERT_DIR/traefik-etcd-client-key.pem /etc/traefik/tls/etcd-client-key.pem
 
 COPY --from=etcd /bin/etcd /bin/etcd
 COPY --from=etcd /bin/etcdctl /bin/etcdctl
@@ -63,8 +63,8 @@ RUN chmod +x /docker-entrypoint.sh && \
     chown traefik:traefik /docker-entrypoint.sh && \
     mkdir -p /etc/traefik && mkdir -p /logs
 
-RUN chmod 644 /etc/traefik/*.pem && \
-    chmod 600 /etc/traefik/*-key.pem && \
+RUN chmod 644 /etc/traefik/tls/*.pem && \
+    chmod 600 /etc/traefik/tls/*-key.pem && \
     chown traefik:traefik -R /etc/traefik && \
     chown traefik:traefik -R /logs
 

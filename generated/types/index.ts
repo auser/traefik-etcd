@@ -28,6 +28,17 @@ export enum DeploymentTarget {
     SERVICE = "Service",
 }
 
+export interface EntryPoint {
+    address: string;
+    http: HttpConfig;
+}
+
+export interface EntryPointsConfig {
+    web?: EntryPoint | undefined;
+    websecure?: EntryPoint | undefined;
+    metrics?: EntryPoint | undefined;
+}
+
 export interface EtcdConfig {
     endpoints: string[];
     timeout: number;
@@ -73,6 +84,11 @@ export interface HostConfig {
     forwardHost: boolean;
 }
 
+export interface HttpConfig {
+    tls?: TlsConfig | undefined;
+    redirections?: RedirectionsConfig | undefined;
+}
+
 export interface IPAndPort {
     ip: string;
     port: number;
@@ -100,6 +116,15 @@ export interface PathConfig {
     passThrough: boolean;
 }
 
+export interface RedirectionConfig {
+    to: string;
+    scheme?: string | undefined;
+}
+
+export interface RedirectionsConfig {
+    entryPoint?: RedirectionConfig | undefined;
+}
+
 export interface SelectionConfig {
     withCookie?: WithCookieConfig | undefined;
     fromClientIp?: FromClientIpConfig | undefined;
@@ -121,6 +146,15 @@ export interface TemplateInfo {
     created_at: Date;
 }
 
+export interface TlsConfig {
+    domains: TlsDomainConfig[];
+}
+
+export interface TlsDomainConfig {
+    main: string;
+    sans: string[];
+}
+
 export interface TlsOptions {
     domain?: string | undefined;
     cert?: string | undefined;
@@ -136,6 +170,7 @@ export interface TraefikConfig {
     hosts: HostConfig[];
     middlewares: Record<string, MiddlewareConfig>;
     services?: Record<string, ServiceConfig> | undefined;
+    entryPoints?: EntryPointsConfig | undefined;
 }
 
 export interface TraefikConfigVersion {

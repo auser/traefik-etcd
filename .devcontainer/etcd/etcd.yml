@@ -9,13 +9,13 @@ initial-cluster-state: new
 initial-cluster-token: etcd-cluster-1
 
 client-transport-security:
-  cert-file: /etc/etcd/server.pem
-  key-file: /etc/etcd/server-key.pem
+  cert-file: /etc/etcd/tls/server.pem
+  key-file: /etc/etcd/tls/server-key.pem
   client-cert-auth: true
-  trusted-ca-file: /etc/etcd/ca.pem
+  trusted-ca-file: /etc/etcd/tls/ca.pem
 
 peer-transport-security:
-  cert-file: /etc/etcd/peer.pem
-  key-file: /etc/etcd/peer-key.pem
+  cert-file: /etc/etcd/tls/peer.pem
+  key-file: /etc/etcd/tls/peer-key.pem
   client-cert-auth: true
-  trusted-ca-file: /etc/etcd/ca.pem
+  trusted-ca-file: /etc/etcd/tls/ca.pem

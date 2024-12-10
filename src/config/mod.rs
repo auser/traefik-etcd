@@ -1,4 +1,5 @@
 pub mod deployment;
+pub mod entry_points;
 pub mod headers;
 pub mod health_check;
 pub mod host;

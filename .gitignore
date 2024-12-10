@@ -18,3 +18,6 @@ config/tls
 config/tls/*.cs
 .envrc
 .pnpm-store/
+.devcontainer/traefik/dynamic.yml
+.devcontainer/traefik/traefik.yml
+.devcontainer/traefik/.htpasswd

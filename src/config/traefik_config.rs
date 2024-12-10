@@ -19,6 +19,7 @@ use crate::{
 
 use super::{
     deployment::{DeploymentConfig, DeploymentProtocol},
+    entry_points::EntryPointsConfig,
     host::{HostConfig, PathConfig},
     middleware::MiddlewareConfig,
     services::ServiceConfig,
@@ -90,6 +91,8 @@ pub struct TraefikConfig {
     pub middlewares: HashMap<String, MiddlewareConfig>,
     #[serde(default)]
     pub services: Option<HashMap<String, ServiceConfig>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub entry_points: Option<EntryPointsConfig>,
 }
 
 fn default_etcd_config() -> etcd::EtcdConfig {
@@ -116,14 +119,14 @@ impl From<TraefikConfig> for serde_json::Value {
 
 impl ToEtcdPairs for TraefikConfig {
     fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
-        let mut pairs = Vec::new();
+        // let mut pairs: Vec<EtcdPair> = Vec::new();
         let mut rule_set: HashSet<EtcdPair> = HashSet::new();
 
         // Add global pairs
         // pairs.push(EtcdPair::new(base_key, "true"));
-        rule_set.insert(EtcdPair::new(base_key, "true"));
+        // rule_set.insert(EtcdPair::new(base_key, "true"));
         // pairs.push(EtcdPair::new(format!("{}/http", base_key), "true"));
-        rule_set.insert(EtcdPair::new(format!("{}/http", base_key), "true"));
+        // rule_set.insert(EtcdPair::new(format!("{}/http", base_key), "true"));
 
         // Add services
         if let Some(services) = &self.services {
@@ -146,7 +149,7 @@ impl ToEtcdPairs for TraefikConfig {
             let new_rules = middleware.to_etcd_pairs(&middleware_base_key)?;
             debug!("New rules middleware rules: {:?}", new_rules);
             for new_rule in new_rules.iter().cloned() {
-                pairs.push(new_rule.clone());
+                // pairs.push(new_rule.clone());
                 rule_set.insert(new_rule);
             }
         }
@@ -253,8 +256,6 @@ impl TraefikConfig {
         for rule in &rules {
             rule_to_priority.insert(rule.get_rule().clone(), rule.get_priority());
         }
-
-        debug!("Rule set: {:?}", rule_to_priority);
 
         if dry_run {
             if show_rules {
@@ -423,6 +424,7 @@ impl TraefikConfig {
             hosts: host_configs,
             rule_prefix: "test".to_string(),
             services: None,
+            entry_points: None,
         }
     }
 }

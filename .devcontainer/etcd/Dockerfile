@@ -4,12 +4,12 @@ ARG CERT_DIR=${CERT_DIR:-./config/tls}
 
 USER root
 
-COPY $CERT_DIR/etcd.pem /etc/etcd/server.pem
-COPY $CERT_DIR/etcd-key.pem /etc/etcd/server-key.pem
-COPY $CERT_DIR/ca.pem /etc/etcd/ca.pem
+COPY $CERT_DIR/etcd.pem /etc/etcd/tls/server.pem
+COPY $CERT_DIR/etcd-key.pem /etc/etcd/tls/server-key.pem
+COPY $CERT_DIR/ca.pem /etc/etcd/tls/ca.pem
 
-COPY $CERT_DIR/etcd-peer.pem /etc/etcd/peer.pem
-COPY $CERT_DIR/etcd-peer-key.pem /etc/etcd/peer-key.pem
+COPY $CERT_DIR/etcd-peer.pem /etc/etcd/tls/peer.pem
+COPY $CERT_DIR/etcd-peer-key.pem /etc/etcd/tls/peer-key.pem
 
 COPY ./.devcontainer/etcd/etcd.yml /etc/etcd/config.yml
 COPY ./.devcontainer/etcd/setup-etcd.sh /usr/local/bin/setup_etcd.sh
@@ -32,8 +32,8 @@ RUN mkdir -p /opt/bitnami/etcd/data && \
     chown -R etcduser:etcd /opt/bitnami && \
     chmod -R 744 /opt/bitnami
 
-RUN chmod 644 /etc/etcd/*.pem && \
-    chmod 600 /etc/etcd/*-key.pem && \
+RUN chmod 644 /etc/etcd/tls/*.pem && \
+    chmod 600 /etc/etcd/tls/*-key.pem && \
     chown etcduser:etcd -R /etc/etcd && \
     chown etcduser:etcd -R /usr/local/bin/etcd-entrypoint.sh && \
     chmod 755 /usr/local/bin/etcd-entrypoint.sh

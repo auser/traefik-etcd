@@ -16,14 +16,8 @@ entryPoints:
     http:
       tls:
         domains:
-          - main: "ari.io"
-            sans: ["*.ari.io", "localhost"]
           - main: "example.com"
-            sans: ["localhost", "*.example.com"]
-          - main: "collegegreen.net"
-            sans: ["*.collegegreen.net"]
-          - main: "herringbank.com"
-            sans: ["*.herringbank.com"]
+            sans: ["*.example.com"]
   metrics:
     address: ":8899"
 
@@ -36,9 +30,9 @@ providers:
       - "etcd:2379"
     rootKey: "traefik"
     tls:
-      cert: /etc/traefik/etcd-client.pem
-      key: /etc/traefik/etcd-client-key.pem
-      ca: /etc/traefik/ca.pem
+      cert: /etc/traefik/tls/etcd-client.pem
+      key: /etc/traefik/tls/etcd-client-key.pem
+      ca: /etc/traefik/tls/ca.pem
   file:
     filename: /etc/traefik/dynamic_conf.yaml
     watch: true
@@ -66,8 +60,8 @@ accessLog:
       RouterName: keep
 
 tracing:
-  addInternals: true
-  serviceName: traefik
+  # addInternals: true
+  # serviceName: traefik
 
 metrics:
   prometheus:
