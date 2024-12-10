@@ -11,7 +11,7 @@ struct Assets;
 
 #[cfg(not(debug_assertions))]
 #[derive(RustEmbed, Clone)]
-#[folder = "${CARGO_TARGET_DIR}/frontend/build"]
+#[folder = "$CARGO_MANIFEST_DIR/frontend/build"]
 struct Assets;
 
 pub fn router() -> Router {
