@@ -23,6 +23,14 @@ cwd = "./frontend"
 args = ["run", "build"]
 workspace = false
 
+[tasks.prepare-package]
+dependencies = ["build-frontend"]
+
+[tasks.package]
+command = "cargo"
+args = ["package"]
+dependencies = ["prepare-package"]
+
 [tasks.dev]
 run_task = { name = ["watch-backend", "watch-frontend"], parallel = true }
 
@@ -31,4 +39,4 @@ cwd = "."
 command = "cargo"
 args = ["release", "--execute"]
 workspace = false
-dependencies = ["build-frontend"]
+dependencies = ["build-frontend", "package"]
