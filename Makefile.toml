@@ -23,6 +23,12 @@ cwd = "./frontend"
 args = ["run", "build"]
 workspace = false
 
+[tasks.make-frontend-build]
+command = "cp"
+args = ["-r", "./frontend/build", "./${CARGO_TARGET_DIR}/frontend/build"]
+workspace = false
+# dependencies = ["install-frontend-deps", "build-frontend"]
+
 [tasks.dev]
 run_task = { name = ["watch-backend", "watch-frontend"], parallel = true }
 
