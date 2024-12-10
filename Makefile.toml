@@ -11,11 +11,24 @@ args = ["run", "dev", "--host"]
 watch = { watch = ["./frontend/"] }
 workspace = false
 
+[tasks.install-frontend-deps]
+command = "pnpm"
+cwd = "./frontend"
+args = ["install", "--force"]
+workspace = false
+
 [tasks.build-frontend]
 command = "pnpm"
 cwd = "./frontend"
 args = ["run", "build"]
 workspace = false
+dependencies = ["install-frontend-deps"]
 
 [tasks.dev]
 run_task = { name = ["watch-backend", "watch-frontend"], parallel = true }
+
+[tasks.release]
+command = "cargo"
+args = ["release", "--execute"]
+workspace = false
+dependencies = ["build-frontend"]

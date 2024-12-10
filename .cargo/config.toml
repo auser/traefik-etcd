@@ -4,3 +4,5 @@ DATABASE_URL = "mysql://root:mysql@mysql:3306/traefikctl"
 # [workspace]
 # # Explicitly exclude frontend directory from packaging if needed
 # exclude = ["frontend/*"]
+[alias]
+build = "cargo build --release"
