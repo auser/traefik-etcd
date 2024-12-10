@@ -184,3 +184,6 @@ opt-level = 0
 
 [profile.release]
 opt-level = 3
+
+[package.metadata.release]
+verify = false
