@@ -34,6 +34,6 @@ dependencies = ["build-frontend"]
 
 [tasks.release]
 command = "cargo"
-args = ["release", "--execute", "--no-confirm", "--no-verify"]
+args = ["release", "--execute", "--no-confirm"]
 workspace = false
 dependencies = ["build-frontend"]

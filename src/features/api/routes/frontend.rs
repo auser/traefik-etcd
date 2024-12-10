@@ -1,16 +1,19 @@
 use axum::Router;
 // use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
-use axum_embed::ServeEmbed;
-use rust_embed::RustEmbed;
+use include_dir::include_dir;
+// use axum_embed::ServeEmbed;
+// use rust_embed::RustEmbed;
+use tower_http::services::ServeDir;
 
-#[derive(RustEmbed, Clone)]
-#[folder = "$CARGO_MANIFEST_DIR/frontend/build"]
-struct Assets;
+// #[derive(RustEmbed, Clone)]
+// #[folder = "$CARGO_MANIFEST_DIR/frontend/build"]
+// struct Assets;
 
 pub fn router() -> Router {
-    let serve_assets = ServeEmbed::<Assets>::new();
-    Router::new().nest_service("/frontend", serve_assets)
+    let assets = include_dir!("frontend/build");
+    let serve_dir = ServeDir::new(assets.path().to_path_buf());
+    Router::new().nest_service("/frontend", serve_dir)
 }
 
 // .fallback_service(
