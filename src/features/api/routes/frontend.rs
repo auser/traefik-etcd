@@ -4,8 +4,14 @@ use axum::Router;
 use axum_embed::ServeEmbed;
 use rust_embed::RustEmbed;
 
+#[cfg(debug_assertions)]
 #[derive(RustEmbed, Clone)]
 #[folder = "frontend/build"]
+struct Assets;
+
+#[cfg(not(debug_assertions))]
+#[derive(RustEmbed, Clone)]
+#[folder = "${CARGO_TARGET_DIR}/frontend/build"]
 struct Assets;
 
 pub fn router() -> Router {
