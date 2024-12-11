@@ -22,19 +22,13 @@ pub struct ForwardAuthConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub address: Option<String>,
     /// Whether to trust the forward header
-    #[serde(skip_serializing_if = "Option::is_none", rename = "trustForwardHeader")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub trust_forward_header: Option<bool>,
     /// The auth response headers to add to the response
-    #[serde(
-        skip_serializing_if = "Option::is_none",
-        rename = "authResponseHeaders"
-    )]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub auth_response_headers: Option<Vec<String>>,
     /// The auth response headers regex to add to the response
-    #[serde(
-        skip_serializing_if = "Option::is_none",
-        rename = "authResponseHeadersRegex"
-    )]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub auth_response_headers_regex: Option<String>,
 }
 
@@ -121,7 +115,6 @@ impl ToEtcdPairs for MiddlewareConfig {
     fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
         // First set the middleware name to true
         debug!("to_etcd_pairs: {}", base_key);
-        debug!("Adding middleware: {}", self.get_path(base_key));
         // The middleware config path is `{base_key}/{protocol}/middlewares/{name}`
         let headers_base_key = base_key;
         let mut pairs = vec![];
@@ -132,6 +125,7 @@ impl ToEtcdPairs for MiddlewareConfig {
                 headers_base_key, base_key
             );
             let headers_pairs = headers.to_etcd_pairs(headers_base_key)?;
+            debug!("headers_pairs: {:?}", headers_pairs);
             pairs.extend(headers_pairs.clone());
         }
         if let Some(forward_auth) = &self.forward_auth {

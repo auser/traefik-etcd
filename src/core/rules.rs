@@ -683,6 +683,7 @@ pub fn add_middlewares(
                     middleware_custom_name, mw_base_key
                 );
                 let mw_pairs = middleware_config.to_etcd_pairs(&mw_base_key)?;
+                debug!("mw_pairs: {:?}", mw_pairs);
                 pairs.extend(mw_pairs);
 
                 pairs.push(EtcdPair::new(
