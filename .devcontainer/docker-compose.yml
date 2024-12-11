@@ -61,7 +61,7 @@ services:
       restart_policy:
         condition: on-failure
     environment:
-      RUST_LOG: info
+      RUST_LOG: debug
 
 
 # - ETCD_DATA_DIR=/etcd/data

@@ -128,3 +128,22 @@ ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -L 2379:0.0.0.0:
 The frontend is a simple web app that is used to manage the configuration. It is built with [Svelte](https://svelte.dev/) and [Skeleton](http://getskeleton.com/). 
 
 It is not built with any frameworks in mind, so it could be hosted on any static file server.
+
+## Dev notes
+
+Check the etcd container for keys:
+
+```
+# Find the etcd container ID
+docker ps --format '{{.ID}} {{.Image}} {{.Names}}' | awk '($2 ~ /docker.io\/bitnami\/etcd/ || $3 ~ /etcd$/) {print $1}'
+
+# Or as a one-liner:
+ETCD_ID=$(docker ps --format '{{.ID}} {{.Image}} {{.Names}}' | awk '($3 ~ /etcd/) {print $1}')
+
+# Then use it like:
+docker exec -it $ETCD_ID etcdctl get /traefik/config --prefix
+# Or as a one-liner:
+docker exec -it $(docker ps --format '{{.ID}} {{.Image}} {{.Names}}' | awk '($3 ~ /etcd/) {print $1}') bash
+
+export ecd="/opt/bitnami/etcd/bin/etcdctl --endpoints=https://localhost:2379 --cacert=/etc/etcd/tls/ca.pem --cert=/etc/etcd/tls/server.pem --key=/etc/etcd/tls/server-key.pem"
+```

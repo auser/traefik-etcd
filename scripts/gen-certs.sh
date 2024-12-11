@@ -35,8 +35,12 @@ fi
 CFSSL=$(command -v cfssl)
 CFSSLJSON=$(command -v cfssljson)
 
+ensure_directory_exists() {
+    mkdir -p "${OUTPUT_DIR}"
+}
 
 generate_ca() {
+    ensure_directory_exists
     # Generate CA if it doesn't exist
     if [ ! -f "${BASE_DIR}/ca.pem" ]; then
         cfssl gencert -initca "${BASE_DIR}/ca-csr.json" | cfssljson -bare "${BASE_DIR}/ca"
@@ -45,6 +49,7 @@ generate_ca() {
 
 # ./scripts/gen-certs.sh -p server -c etcd -h localhost,127.0.0.1,etcd -o ./proxy/cert/etcd
 generate_cert() {
+    ensure_directory_exists
     echo -e "${YELLOW}Generating certificate for ${NAME} with common name ${COMMON_NAME} and hosts ${HOSTS} ${COLOR_OFF}"
 
     JSON_HOSTS=$(echo "$HOSTS" | jq -R 'split(",")')
@@ -82,6 +87,7 @@ generate_cert() {
 # echo "Certificates generated in ${CERT_BASE_DIR}"
 
 function generate_etcd() {
+    ensure_directory_exists
     echo -e "${YELLOW}Generating etcd peer certificate $COLOR_OFF"
     ./scripts/gen-certs.sh \
         -p peer \
@@ -102,6 +108,7 @@ function generate_etcd() {
 }
 
 function generate_traefik() {
+      ensure_directory_exists
     echo -e "${YELLOW}Generating traefik server certificate ${COLOR_OFF}"
     ./scripts/gen-certs.sh \
         -p server \
@@ -113,6 +120,7 @@ function generate_traefik() {
 }
 
 function generate_asterisk() {
+    ensure_directory_exists
     echo -e "${YELLOW}Generating asterisk certificate ${COLOR_OFF}"
     ./scripts/gen-certs.sh \
         -p server \
@@ -124,6 +132,7 @@ function generate_asterisk() {
 }
 
 function generate_herringbank() {
+    ensure_directory_exists
     echo -e "${YELLOW}Generating herringbank certificate ${COLOR_OFF}"
     ./scripts/gen-certs.sh \
         -p server \
@@ -135,6 +144,7 @@ function generate_herringbank() {
 }
 
 function generate_etcd_traefik_communication() {
+    ensure_directory_exists
     echo -e "${YELLOW}Generating etcd traefik communication certificate ${COLOR_OFF}"
     ./scripts/gen-certs.sh \
         -p client \
@@ -146,6 +156,7 @@ function generate_etcd_traefik_communication() {
 }
 
 function generate_prometheus() {
+    ensure_directory_exists
     echo -e "${YELLOW}Generating prometheus certificate ${COLOR_OFF}"
     ./scripts/gen-certs.sh \
         -p server \
@@ -157,6 +168,7 @@ function generate_prometheus() {
 }
 
 function generate_grafana() {
+    ensure_directory_exists
     echo -e "${YELLOW}Generating grafana certificate ${COLOR_OFF}"
     ./scripts/gen-certs.sh \
         -p server \
@@ -168,7 +180,7 @@ function generate_grafana() {
 }
 
 function generate_all() {
-  mkdir -p "${BASE_DIR}"
+  ensure_directory_exists
   # generate_ca
   generate_etcd
   generate_traefik

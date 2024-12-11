@@ -7,6 +7,7 @@ IMAGE_NAME="auser/traefikctl"
 IMAGE_TAG="latest"
 CONTAINER_NAME="traefikctl_devcontainer-development"
 FORCE_REBUILD_IMAGE=false
+FORCE_RESET_CONTAINER=false
 DOCKER_DIR=".devcontainer"
 RUN_PRIVILEGED=false
 VERBOSE="false"
@@ -58,8 +59,16 @@ build_image() {
 }
 
 reset_container() {
-    echo $DEVCONTAINER_BIN
-    $DEVCONTAINER_BIN up --build-no-cache --remove-existing-container 
+    echo -e "${BBlack}Resetting container...${COLOR_OFF}"
+    if [[ "$FORCE_REBUILD_IMAGE" == "true" ]]; then
+        ARGS="--build-no-cache"
+    fi
+
+    if [[ "$FORCE_RESET_CONTAINER" == "true" ]]; then
+        ARGS="$ARGS --remove-existing-container"
+    fi
+
+    $DEVCONTAINER_BIN up $ARGS
 }
 
 start_container() {
@@ -105,9 +114,11 @@ exec_instance() {
 
 parse_opts() {
     local opt
-    while getopts "n:v" opt; do
+    while getopts "n:vfr" opt; do
         case ${opt} in
             v ) VERBOSE="true" ;;
+            f ) FORCE_REBUILD_IMAGE="true" ;;
+            r ) FORCE_RESET_CONTAINER="true" ;;
             \? ) echo "Invalid option: $OPTARG" 1>&2; exit 1 ;;
         esac
     done
@@ -117,6 +128,8 @@ help() {
     echo -e "${BGREEN}Usage: $(basename "$0") [options] <command>${COLOR_OFF}
 Options:
   -v  Verbose mode
+  -f  Force rebuild the Docker image
+  -r  Force reset the container
 
 Commands:
   ${BGREEN}build${COLOR_OFF}             Build the Docker image
