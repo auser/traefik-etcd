@@ -13,6 +13,14 @@ VERBOSE="false"
 ADDITIONAL_ARGS=""
 declare -a MOUNTS=("$(pwd):/workspace")
 
+# Check if devcontainer binary exists
+DEVCONTAINER_BIN=$(which devcontainer 2>/dev/null)
+if [[ -z "$DEVCONTAINER_BIN" ]]; then
+    printf "${Red}Error: devcontainer CLI not found. Please install it first.${COLOR_OFF}\n"
+    exit 1
+fi
+
+
 # docker_service_address=$(docker network inspect kind -f "{{(index .IPAM.Config 1).Subnet}}" | cut -d '.' -f1,2,3)
 # my_ip=$(ipconfig getifaddr en0)
 # api_server_address="${my_ip}"
@@ -33,20 +41,25 @@ build_image() {
     cmd+=($DOCKER_DIR)
 
     if [[ "$VERBOSE" == "true" ]]; then
-        printf "${Colors[BBlack]}%s" echo -e "${Colors[BBlack]}-------- Docker command --------${Colors[Color_Off]}"
-        printf "${Colors[BBlack]}%s" echo -e "${Colors[Green]}${cmd[@]}${Colors[Color_Off]}"
+        printf "${BBlack}%s" echo -e "${BBlack}-------- Docker command --------${COLOR_OFF}"
+        printf "${BBlack}%s" echo -e "${Green}${cmd[@}${COLOR_OFF}"
     fi
 
-    "${cmd[@]}"
+    "${cmd[@}"
 
     if [[ $? -eq 0 ]]; then
-        printf "${Colors[BBlack]}${Colors[Green]}%s${Colors[Color_Off]}" "Image $IMAGE_NAME:$IMAGE_TAG built successfully"
+        printf "${BBlack}${Green}%s${COLOR_OFF}" "Image $IMAGE_NAME:$IMAGE_TAG built successfully"
     else
-        printf "${Colors[BBlack]}${Colors[Red]}%s${Colors[Color_Off]}" "Failed to build image $IMAGE_NAME:$IMAGE_TAG"
+        printf "${BBlack}${Red}%s${COLOR_OFF}" "Failed to build image $IMAGE_NAME:$IMAGE_TAG"
         exit 1
     fi
 
     docker tag "$IMAGE_NAME:$IMAGE_TAG" "$IMAGE_NAME:latest"
+}
+
+reset_container() {
+    echo $DEVCONTAINER_BIN
+    $DEVCONTAINER_BIN up --build-no-cache --remove-existing-container 
 }
 
 start_container() {
@@ -57,7 +70,7 @@ start_container() {
         [[ "$RUN_PRIVILEGED" == "true" ]] && cmd+=(--privileged)
 
         # Add volume mounts to the command
-        for mount in "${MOUNTS[@]}"; do
+        for mount in "${MOUNTS[@}"; do
             cmd+=(-v "$mount")
         done
         cmd+=($ADDITIONAL_ARGS)
@@ -70,11 +83,11 @@ start_container() {
 
         if [[ "$VERBOSE" == "true" ]]; then
             echo_color "BBlack" "-------- Docker command --------"
-            echo_color "Green" "${cmd[@]}"
+            echo_color "Green" "${cmd[@}"
         fi
 
         # Execute the command
-        "${cmd[@]}"
+        "${cmd[@}"
 
         sleep 2
     fi
@@ -83,7 +96,7 @@ start_container() {
 exec_instance() {
     local docker_instance=$(docker_instance)
     if [[ -z "$docker_instance" ]]; then
-        printf "${Colors[BRed]}No container found${Colors[Color_Off]}"
+        printf "${BRED}No container found${COLOR_OFF}"
         exit 1
     fi
     docker exec -it ${docker_instance} /usr/bin/zsh
@@ -101,14 +114,15 @@ parse_opts() {
 }
 
 help() {
-    echo -e "${Colors[BGreen]}Usage: $(basename "$0") [options] <command>${Colors[Color_Off]}
+    echo -e "${BGREEN}Usage: $(basename "$0") [options] <command>${COLOR_OFF}
 Options:
   -v  Verbose mode
 
 Commands:
-  ${Colors[Green]}build${Colors[Color_Off]}             Build the Docker image
-  ${Colors[Green]}start${Colors[Color_Off]}             Start the Docker container
-  ${Colors[Green]}exec${Colors[Color_Off]}              Exec into the container
+  ${BGREEN}build${COLOR_OFF}             Build the Docker image
+  ${BGREEN}start${COLOR_OFF}             Start the Docker container
+  ${BGREEN}exec${COLOR_OFF}              Exec into the container
+  ${BGREEN}reset${COLOR_OFF}             Reset the container
 "
     exit 1
 }
@@ -123,6 +137,7 @@ main() {
         build) build_image ;;
         start) start_container ;;
         exec) exec_instance ;;
+        reset) reset_container ;;
         *) help ;;
     esac
 }

@@ -38,9 +38,10 @@ pub struct HeadersConfig {
 
 impl ToEtcdPairs for HeadersConfig {
     /// Convert the headers configuration to etcd pairs
-    fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
+    fn to_etcd_pairs(&self, _base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
         let mut pairs = Vec::new();
-        let headers_base_key = format!("{}/headers", base_key);
+        // let headers_base_key = format!("{}/headers", base_key);
+        let headers_base_key = "headers".to_string();
 
         for (key, value) in self.headers.iter() {
             pairs.push(EtcdPair::new(
@@ -330,10 +331,10 @@ mod tests {
             .build();
         let pairs = headers.to_etcd_pairs("test").unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
-        assert!(pair_strs
-            .contains(&"test/headers/customRequestHeaders/X-Forwarded-Proto https".to_string()));
-        assert!(pair_strs
-            .contains(&"test/headers/customRequestHeaders/X-Forwarded-Port 80".to_string()));
+        assert!(
+            pair_strs.contains(&"headers/customRequestHeaders/X-Forwarded-Proto https".to_string())
+        );
+        assert!(pair_strs.contains(&"headers/customRequestHeaders/X-Forwarded-Port 80".to_string()));
     }
 
     #[test]
@@ -345,8 +346,7 @@ mod tests {
             .build();
         let pairs = headers.to_etcd_pairs("test").unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
-        assert!(pair_strs
-            .contains(&"test/headers/accessControlAllowMethods GET, POST, PUT".to_string()));
+        assert!(pair_strs.contains(&"headers/accessControlAllowMethods GET, POST, PUT".to_string()));
     }
 
     #[test]
@@ -357,8 +357,9 @@ mod tests {
             .build();
         let pairs = headers.to_etcd_pairs("test").unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
+        println!("pair_strs: {:?}", pair_strs);
         assert!(pair_strs.contains(
-            &"test/headers/accessControlAllowHeaders Content-Type, Content-Length".to_string()
+            &"headers/accessControlAllowHeaders Content-Type, Content-Length".to_string()
         ));
     }
 
@@ -371,7 +372,7 @@ mod tests {
         let pairs = headers.to_etcd_pairs("test").unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
         assert!(pair_strs.contains(
-            &"test/headers/accessControlExposeHeaders Content-Type, Content-Length".to_string()
+            &"headers/accessControlExposeHeaders Content-Type, Content-Length".to_string()
         ));
     }
 
@@ -382,8 +383,7 @@ mod tests {
             .build();
         let pairs = headers.to_etcd_pairs("test").unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
-        assert!(pair_strs
-            .contains(&"test/headers/accessControlAllowOriginList example.com".to_string()));
+        assert!(pair_strs.contains(&"headers/accessControlAllowOriginList example.com".to_string()));
     }
 
     #[test]
@@ -391,7 +391,7 @@ mod tests {
         let headers = HeadersConfig::builder().add_vary_header(true).build();
         let pairs = headers.to_etcd_pairs("test").unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
-        assert!(pair_strs.contains(&"test/headers/addVaryHeader true".to_string()));
+        assert!(pair_strs.contains(&"headers/addVaryHeader true".to_string()));
     }
 
     #[test]
@@ -401,8 +401,7 @@ mod tests {
             .build();
         let pairs = headers.to_etcd_pairs("test").unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
-        assert!(pair_strs.contains(
-            &"test/headers/customResponseHeaders/Content-Type application/json".to_string()
-        ));
+        assert!(pair_strs
+            .contains(&"headers/customResponseHeaders/Content-Type application/json".to_string()));
     }
 }
