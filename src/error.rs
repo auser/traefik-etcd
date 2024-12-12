@@ -83,6 +83,9 @@ pub enum TraefikError {
 
     #[error("Middleware template error: {0}")]
     MiddlewareTemplateError(String),
+
+    #[error("Template error: {0}")]
+    Template(String),
 }
 
 impl From<Box<dyn std::error::Error>> for TraefikError {

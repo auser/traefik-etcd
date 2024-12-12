@@ -5,6 +5,7 @@ use crate::{
     core::{
         client::StoreClient,
         rules::{add_selection_rules, RuleConfig},
+        templating::{TemplateContext, TemplateResolver},
         util::{get_safe_key, validate_is_alphanumeric},
         Validate,
     },
@@ -42,7 +43,11 @@ pub struct HostConfig {
 }
 
 impl Validate for HostConfig {
-    fn validate(&self) -> TraefikResult<()> {
+    fn validate(
+        &self,
+        resolver: &mut impl TemplateResolver,
+        context: &TemplateContext,
+    ) -> TraefikResult<()> {
         // validate domain is not empty
         if self.domain.is_empty() {
             return Err(TraefikError::HostConfig("domain is empty".to_string()));
@@ -50,19 +55,22 @@ impl Validate for HostConfig {
 
         // validate paths if they exist
         for path in self.paths.iter() {
-            path.validate()?;
+            path.validate(resolver, &context)?;
         }
 
         // validate deployments if they exist
         for deployment in self.deployments.values() {
-            deployment.validate()?;
+            deployment.validate(resolver, &context)?;
         }
 
         if self.selection.is_some() {
-            self.selection.as_ref().unwrap().validate()?;
+            self.selection
+                .as_ref()
+                .unwrap()
+                .validate(resolver, &context)?;
         }
 
-        self.validate_paths()?;
+        self.validate_paths(resolver, &context)?;
 
         Ok(())
     }
@@ -73,7 +81,11 @@ impl HostConfig {
         self.deployments.get(name)
     }
 
-    fn validate_paths(&self) -> TraefikResult<()> {
+    fn validate_paths(
+        &self,
+        resolver: &mut impl TemplateResolver,
+        context: &TemplateContext,
+    ) -> TraefikResult<()> {
         self.validate_has_deployments()?;
 
         let mut path_set = HashSet::new();
@@ -89,7 +101,7 @@ impl HostConfig {
         }
 
         self.validate_has_valid_middlewares()?;
-        self.validate_deployment_ports()?;
+        self.validate_deployment_ports(resolver, &context)?;
         self.validate_deployment_weights()?;
         self.validate_middleware_references()?;
 
@@ -138,9 +150,13 @@ impl HostConfig {
         Ok(())
     }
 
-    fn validate_deployment_ports(&self) -> TraefikResult<()> {
+    fn validate_deployment_ports(
+        &self,
+        resolver: &mut impl TemplateResolver,
+        context: &TemplateContext,
+    ) -> TraefikResult<()> {
         for deployment in self.deployments.values() {
-            deployment.target.validate()?;
+            deployment.target.validate(resolver, &context)?;
         }
 
         Ok(())
@@ -365,7 +381,11 @@ impl PathConfigBuilder {
 }
 
 impl Validate for PathConfig {
-    fn validate(&self) -> TraefikResult<()> {
+    fn validate(
+        &self,
+        resolver: &mut impl TemplateResolver,
+        context: &TemplateContext,
+    ) -> TraefikResult<()> {
         // validate path is not empty
         if self.path.is_empty() {
             return Err(TraefikError::HostConfig("path is empty".to_string()));
@@ -373,7 +393,7 @@ impl Validate for PathConfig {
 
         // validate deployments if they exist
         for deployment in self.deployments.values() {
-            deployment.validate()?;
+            deployment.validate(resolver, &context)?;
         }
 
         Ok(())
@@ -382,7 +402,10 @@ impl Validate for PathConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::config::deployment::DeploymentConfigBuilder;
+    use crate::{
+        config::deployment::DeploymentConfigBuilder,
+        test_helpers::{create_test_resolver, create_test_template_context},
+    };
 
     use super::*;
 
@@ -395,7 +418,9 @@ mod tests {
             strip_prefix: false,
             pass_through: false,
         };
-        assert!(path.validate().is_ok());
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        assert!(path.validate(&mut resolver, &context).is_ok());
     }
 
     #[test]
@@ -412,14 +437,18 @@ mod tests {
             .build()
             .unwrap();
 
-        let validate_result = host.validate();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let validate_result = host.validate(&mut resolver, &context);
         assert!(validate_result.is_ok());
     }
 
     #[test]
     fn test_validate_host_with_invalid_path() {
         let host = HostConfig::default();
-        assert!(host.validate().is_err());
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        assert!(host.validate(&mut resolver, &context).is_err());
     }
 
     #[test]
@@ -427,7 +456,9 @@ mod tests {
         let host = HostConfigBuilder::default().domain("".to_string()).build();
         assert!(host.is_ok());
         let host = host.unwrap();
-        let validate_result = host.validate();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let validate_result = host.validate(&mut resolver, &context);
         assert!(validate_result.is_err());
     }
 
@@ -444,7 +475,9 @@ mod tests {
             .build();
         assert!(host.is_ok());
         let host = host.unwrap();
-        let validate_result = host.validate();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let validate_result = host.validate(&mut resolver, &context);
         assert!(validate_result.is_err());
     }
 
@@ -459,7 +492,9 @@ mod tests {
             .build();
         assert!(host.is_ok());
         let host = host.unwrap();
-        let validate_result = host.validate();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let validate_result = host.validate(&mut resolver, &context);
         assert!(validate_result.is_err());
     }
 
@@ -470,7 +505,9 @@ mod tests {
             .build();
         assert!(host.is_ok());
         let host = host.unwrap();
-        let validate_result = host.validate();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let validate_result = host.validate(&mut resolver, &context);
         assert!(validate_result.is_err());
     }
 
@@ -481,7 +518,9 @@ mod tests {
             .build();
         assert!(host.is_ok());
         let host = host.unwrap();
-        let validate_result = host.validate();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let validate_result = host.validate(&mut resolver, &context);
         assert!(validate_result.is_err());
     }
 
@@ -493,7 +532,9 @@ mod tests {
             .build();
         assert!(host.is_ok());
         let host = host.unwrap();
-        let validate_result = host.validate();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let validate_result = host.validate(&mut resolver, &context);
         assert!(validate_result.is_err());
     }
 
@@ -505,7 +546,9 @@ mod tests {
             .build();
         assert!(host.is_ok());
         let host = host.unwrap();
-        let validate_result = host.validate();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let validate_result = host.validate(&mut resolver, &context);
         assert!(validate_result.is_err());
     }
 }

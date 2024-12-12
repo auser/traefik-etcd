@@ -11,6 +11,7 @@ use crate::{
         client::StoreClient,
         etcd_trait::{EtcdPair, ToEtcdPairs},
         rules::{add_deployment_rules, get_sorted_deployments, RouterRule},
+        templating::{create_template_context, TemplateContext, TemplateResolver, TeraResolver},
         Validate,
     },
     error::{TraefikError, TraefikResult},
@@ -111,6 +112,18 @@ fn default_description() -> Option<String> {
     None
 }
 
+impl TraefikConfig {
+    pub fn resolver(&self) -> TraefikResult<TeraResolver> {
+        let resolver = TeraResolver::new()?;
+        Ok(resolver)
+    }
+
+    pub fn context(&self) -> TraefikResult<TemplateContext> {
+        let context = create_template_context(&self, None, None, None)?;
+        Ok(context)
+    }
+}
+
 impl From<TraefikConfig> for serde_json::Value {
     fn from(config: TraefikConfig) -> Self {
         serde_json::to_value(config).unwrap()
@@ -118,7 +131,12 @@ impl From<TraefikConfig> for serde_json::Value {
 }
 
 impl ToEtcdPairs for TraefikConfig {
-    fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
+    fn to_etcd_pairs(
+        &self,
+        base_key: &str,
+        resolver: &mut impl TemplateResolver,
+        context: &TemplateContext,
+    ) -> TraefikResult<Vec<EtcdPair>> {
         // let mut pairs: Vec<EtcdPair> = Vec::new();
         let mut rule_set: HashSet<EtcdPair> = HashSet::new();
 
@@ -135,7 +153,7 @@ impl ToEtcdPairs for TraefikConfig {
                 service.set_name(service_name);
                 debug!("Adding global service: {}", service_name);
                 let service_base_key = format!("{}/http", base_key);
-                let service_pairs = service.to_etcd_pairs(&service_base_key)?;
+                let service_pairs = service.to_etcd_pairs(&service_base_key, resolver, context)?;
                 // pairs.extend(service_pairs.clone());
                 rule_set.extend(service_pairs.iter().cloned());
             }
@@ -146,7 +164,7 @@ impl ToEtcdPairs for TraefikConfig {
         for (name, middleware) in self.middlewares.clone().iter_mut() {
             middleware.set_name(name);
             let middleware_base_key = format!("{}/http/middlewares", base_key);
-            let new_rules = middleware.to_etcd_pairs(&middleware_base_key)?;
+            let new_rules = middleware.to_etcd_pairs(&middleware_base_key, resolver, context)?;
             debug!("New rules middleware rules: {:?}", new_rules);
             for new_rule in new_rules.iter().cloned() {
                 // pairs.push(new_rule.clone());
@@ -166,6 +184,8 @@ impl ToEtcdPairs for TraefikConfig {
                 &mut pairs,
                 base_key,
                 &mut rules,
+                resolver,
+                context,
             )?;
         }
 
@@ -173,14 +193,26 @@ impl ToEtcdPairs for TraefikConfig {
     }
 }
 
+impl TraefikConfig {
+    pub fn validate_config(&self) -> TraefikResult<()> {
+        let mut resolver = self.resolver()?;
+        let context = self.context()?;
+        self.validate(&mut resolver, &context)
+    }
+}
+
 impl Validate for TraefikConfig {
-    fn validate(&self) -> TraefikResult<()> {
+    fn validate(
+        &self,
+        resolver: &mut impl TemplateResolver,
+        context: &TemplateContext,
+    ) -> TraefikResult<()> {
         // Validate services
         if let Some(services) = &self.services {
             let mut services = services.clone();
             for (name, service) in services.iter_mut() {
                 service.set_name(name);
-                service.validate()?;
+                service.validate(resolver, context)?;
             }
         }
 
@@ -188,7 +220,7 @@ impl Validate for TraefikConfig {
         let mut middlewares = self.middlewares.clone();
         for (name, middleware) in middlewares.iter_mut() {
             middleware.set_name(name);
-            middleware.validate()?;
+            middleware.validate(resolver, context)?;
         }
 
         // Validate hosts
@@ -202,7 +234,7 @@ impl Validate for TraefikConfig {
             }
 
             // Validate host
-            host.validate()?;
+            host.validate(resolver, context)?;
 
             // Validate host middleware references
             self.validate_middleware_references(host)?;
@@ -246,8 +278,10 @@ impl TraefikConfig {
         should_clean: bool,
     ) -> TraefikResult<()> {
         debug!("applying to etcd: {:#?}", self);
-        self.validate()?;
-        let pairs = self.to_etcd_pairs(&self.rule_prefix)?;
+        let mut resolver = self.resolver()?;
+        let context = self.context()?;
+        self.validate(&mut resolver, &context)?;
+        let pairs = self.to_etcd_pairs(&self.rule_prefix, &mut resolver, &context)?;
         let rules = RouterRule::from_pairs(&pairs);
 
         let mut rule_to_priority: HashMap<String, i32> = HashMap::new();
@@ -465,9 +499,12 @@ impl TraefikConfigBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::config::{
-        deployment::{DeploymentProtocol, DeploymentTarget},
-        host::HostConfigBuilder,
+    use crate::{
+        config::{
+            deployment::{DeploymentProtocol, DeploymentTarget},
+            host::HostConfigBuilder,
+        },
+        test_helpers::{create_test_resolver, create_test_template_context},
     };
 
     use super::*;
@@ -475,7 +512,10 @@ mod tests {
     #[test]
     fn test_validate_middleware_references() {
         let config = TraefikConfig::default();
-        config.validate().unwrap();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let result = config.validate(&mut resolver, &context);
+        assert!(result.is_ok());
     }
 
     #[test]
@@ -483,7 +523,9 @@ mod tests {
         let mut config = TraefikConfig::default();
         config.hosts.push(HostConfig::default());
         config.hosts.push(HostConfig::default());
-        let result = config.validate();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let result = config.validate(&mut resolver, &context);
         assert!(result.is_err());
     }
 
@@ -491,7 +533,9 @@ mod tests {
     fn test_validate_middleware_references_duplicate_middleware_in_host() {
         let mut config = TraefikConfig::default();
         config.hosts.push(HostConfig::default());
-        let result = config.validate();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let result = config.validate(&mut resolver, &context);
         assert!(result.is_err());
     }
 
@@ -499,7 +543,9 @@ mod tests {
     fn test_validate_middleware_references_middleware_not_found() {
         let mut config = TraefikConfig::default();
         config.hosts.push(HostConfig::default());
-        let result = config.validate();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let result = config.validate(&mut resolver, &context);
         assert!(result.is_err());
     }
 
@@ -507,7 +553,9 @@ mod tests {
     fn test_validate_middleware_references_middleware_not_found_in_host() {
         let mut config = TraefikConfig::default();
         config.hosts.push(HostConfig::default());
-        let result = config.validate();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let result = config.validate(&mut resolver, &context);
         assert!(result.is_err());
     }
 
@@ -523,7 +571,9 @@ mod tests {
                 .build()
                 .unwrap(),
         );
-        let result = config.validate();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let result = config.validate(&mut resolver, &context);
         assert!(result.is_err());
     }
 
@@ -569,7 +619,9 @@ mod tests {
                     weight: 50
         "#;
         let config: TraefikConfig = serde_yaml::from_str(config_str).unwrap();
-        let validation_result = config.validate();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let validation_result = config.validate(&mut resolver, &context);
         assert!(validation_result.is_ok());
         assert_eq!(config.hosts.len(), 1);
         assert_eq!(config.hosts[0].domain, "ari.io");
@@ -607,7 +659,9 @@ mod tests {
     fn test_validate_middleware_references_www_redirect() {
         let config_str = include_str!("../../config/config.yml");
         let config: TraefikConfig = serde_yaml::from_str(config_str).unwrap();
-        let validation_result = config.validate();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let validation_result = config.validate(&mut resolver, &context);
         assert!(validation_result.is_ok());
     }
 

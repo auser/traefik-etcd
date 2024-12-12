@@ -23,14 +23,18 @@ pub async fn run(
     traefik_config: &mut TraefikConfig,
 ) -> TraefikResult<()> {
     // Get the pairs from our current config
-    let current_pairs = traefik_config.to_etcd_pairs(&traefik_config.rule_prefix)?;
+    let mut resolver = traefik_config.resolver()?;
+    let context = traefik_config.context()?;
+    let current_pairs =
+        traefik_config.to_etcd_pairs(&traefik_config.rule_prefix, &mut resolver, &context)?;
 
     // Get the pairs to compare against (either from etcd or file)
     let comparison_pairs = if let Some(file_path) = &command.from_file {
         // Load and parse the file-based config
         let file_pairs = EtcdPair::from_file(file_path)?;
         let file_config = TraefikConfig::parse_etcd_to_traefik_config(file_pairs)?;
-        file_config.to_etcd_pairs(&traefik_config.rule_prefix)?
+        let mut file_resolver = file_config.resolver()?;
+        file_config.to_etcd_pairs(&traefik_config.rule_prefix, &mut file_resolver, &context)?
     } else {
         // Get pairs from live etcd
         let live_pairs = client

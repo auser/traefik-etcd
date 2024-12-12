@@ -1,4 +1,3 @@
-use crate::core::Validate;
 use crate::{core::client::StoreClient, error::TraefikResult, features::etcd::Etcd, TraefikConfig};
 
 pub async fn run(
@@ -6,7 +5,7 @@ pub async fn run(
     traefik_config: &mut TraefikConfig,
 ) -> TraefikResult<()> {
     println!("Validating Traefik configuration...");
-    traefik_config.validate()?;
+    traefik_config.validate_config()?;
     println!("Validation completed successfully");
 
     Ok(())

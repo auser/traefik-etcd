@@ -7,110 +7,131 @@ use serde::{Deserialize, Serialize};
 use crate::{
     core::{
         etcd_trait::{EtcdPair, ToEtcdPairs},
+        templating::{TemplateContext, TemplateOr, TemplateResolver},
         util::format_list_value,
         Validate,
     },
     error::{TraefikError, TraefikResult},
 };
 
-#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, Eq, JsonSchema)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 #[cfg_attr(feature = "codegen", derive(ExportType))]
 #[export_type(rename_all = "camelCase", path = "generated/types")]
 pub struct HeadersConfig {
     #[serde(default)]
-    pub headers: HashMap<String, String>,
+    pub headers: HashMap<String, TemplateOr<String>>,
     #[serde(default)]
-    pub custom_request_headers: HashMap<String, String>,
+    pub custom_request_headers: HashMap<String, TemplateOr<String>>,
     #[serde(default)]
-    pub custom_response_headers: HashMap<String, String>,
+    pub custom_response_headers: HashMap<String, TemplateOr<String>>,
     #[serde(default)]
-    pub access_control_allow_methods: Vec<String>,
+    pub access_control_allow_methods: Vec<TemplateOr<String>>,
     #[serde(default)]
-    pub access_control_allow_headers: Vec<String>,
+    pub access_control_allow_headers: Vec<TemplateOr<String>>,
     #[serde(default)]
-    pub access_control_expose_headers: Vec<String>,
+    pub access_control_expose_headers: Vec<TemplateOr<String>>,
     #[serde(default)]
-    pub access_control_allow_origin_list: Vec<String>,
+    pub access_control_allow_origin_list: Vec<TemplateOr<String>>,
     #[serde(default)]
-    pub add_vary_header: bool,
+    pub add_vary_header: TemplateOr<bool>,
 }
 
 impl ToEtcdPairs for HeadersConfig {
-    /// Convert the headers configuration to etcd pairs
-    fn to_etcd_pairs(&self, _base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
-        let mut pairs = Vec::new();
-        // let headers_base_key = format!("{}/headers", base_key);
-        let headers_base_key = "headers".to_string();
+    fn to_etcd_pairs(
+        &self,
+        base_key: &str,
+        resolver: &mut impl TemplateResolver,
+        context: &TemplateContext,
+    ) -> TraefikResult<Vec<EtcdPair>> {
+        let mut pairs = vec![];
 
-        for (key, value) in self.headers.iter() {
+        for (key, value) in &self.headers {
             pairs.push(EtcdPair::new(
-                format!("{}/{}", headers_base_key, key),
-                value.to_string(),
+                format!("{}/headers/{}", base_key, key),
+                value.resolve(resolver, context)?,
             ));
         }
 
-        // process custom request headers
-        for (key, value) in self.custom_request_headers.iter() {
+        for (key, value) in &self.custom_request_headers {
             pairs.push(EtcdPair::new(
-                format!("{}/customRequestHeaders/{}", headers_base_key, key),
-                value.to_string(),
+                format!("{}/headers/customRequestHeaders/{}", base_key, key),
+                value.resolve(resolver, context)?,
             ));
         }
 
-        // process custom response headers
-        for (key, value) in self.custom_response_headers.iter() {
+        for (key, value) in &self.custom_response_headers {
             pairs.push(EtcdPair::new(
-                format!("{}/customResponseHeaders/{}", headers_base_key, key),
-                value.to_string(),
+                format!("{}/headers/customResponseHeaders/{}", base_key, key),
+                value.resolve(resolver, context)?,
             ));
         }
 
-        // Process access control allow methods
         if !self.access_control_allow_methods.is_empty() {
+            let resolved_methods: Result<Vec<String>, _> = self
+                .access_control_allow_methods
+                .iter()
+                .map(|m| m.resolve(resolver, context))
+                .collect();
             pairs.push(EtcdPair::new(
-                format!("{}/accessControlAllowMethods", headers_base_key),
-                format_list_value(&self.access_control_allow_methods),
+                format!("{}/headers/accessControlAllowMethods", base_key),
+                format_list_value(&resolved_methods?),
             ));
         }
 
-        // Process access control allow headers
         if !self.access_control_allow_headers.is_empty() {
+            let resolved_headers: Result<Vec<String>, _> = self
+                .access_control_allow_headers
+                .iter()
+                .map(|h| h.resolve(resolver, context))
+                .collect();
             pairs.push(EtcdPair::new(
-                format!("{}/accessControlAllowHeaders", headers_base_key),
-                format_list_value(&self.access_control_allow_headers),
+                format!("{}/headers/accessControlAllowHeaders", base_key),
+                format_list_value(&resolved_headers?),
             ));
         }
 
-        // Process access control expose headers
         if !self.access_control_expose_headers.is_empty() {
+            let resolved_headers: Result<Vec<String>, _> = self
+                .access_control_expose_headers
+                .iter()
+                .map(|h| h.resolve(resolver, context))
+                .collect();
             pairs.push(EtcdPair::new(
-                format!("{}/accessControlExposeHeaders", headers_base_key),
-                format_list_value(&self.access_control_expose_headers),
+                format!("{}/headers/accessControlExposeHeaders", base_key),
+                format_list_value(&resolved_headers?),
             ));
         }
 
-        // Process access control allow origin list
         if !self.access_control_allow_origin_list.is_empty() {
+            let resolved_origins: Result<Vec<String>, _> = self
+                .access_control_allow_origin_list
+                .iter()
+                .map(|o| o.resolve(resolver, context))
+                .collect();
             pairs.push(EtcdPair::new(
-                format!("{}/accessControlAllowOriginList", headers_base_key),
-                format_list_value(&self.access_control_allow_origin_list),
+                format!("{}/headers/accessControlAllowOriginList", base_key),
+                format_list_value(&resolved_origins?),
             ));
         }
 
-        // Process add vary header
-        if self.add_vary_header {
+        if self.add_vary_header.resolve(resolver, context).is_ok() {
             pairs.push(EtcdPair::new(
-                format!("{}/addVaryHeader", headers_base_key),
-                "true".to_string(),
+                format!("{}/headers/addVaryHeader", base_key),
+                self.add_vary_header.resolve(resolver, context)?,
             ));
         }
+
         Ok(pairs)
     }
 }
 
 impl Validate for HeadersConfig {
-    fn validate(&self) -> TraefikResult<()> {
+    fn validate(
+        &self,
+        resolver: &mut impl TemplateResolver,
+        context: &TemplateContext,
+    ) -> TraefikResult<()> {
         // Validate HTTP methods
         let valid_methods: HashSet<&str> = vec![
             "GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH", "TRACE", "CONNECT",
@@ -119,34 +140,38 @@ impl Validate for HeadersConfig {
         .collect();
 
         for method in &self.access_control_allow_methods {
-            if !valid_methods.contains(method.as_str()) {
+            if !valid_methods.contains(method.resolve(resolver, context)?.as_str()) {
                 return Err(TraefikError::MiddlewareConfig(format!(
                     "Invalid HTTP method: {}",
-                    method
+                    method.resolve(resolver, context)?
                 )));
             }
         }
 
         // Validate custom headers
-        self.validate_header_names(&self.custom_request_headers)?;
-        self.validate_header_names(&self.custom_response_headers)?;
+        self.validate_header_names(&self.custom_request_headers, resolver, context)?;
+        self.validate_header_names(&self.custom_response_headers, resolver, context)?;
 
         // Validate header lists
         self.validate_header_list(
             &self.access_control_allow_headers,
             "Access-Control-Allow-Headers",
+            resolver,
+            context,
         )?;
         self.validate_header_list(
             &self.access_control_expose_headers,
             "Access-Control-Expose-Headers",
+            resolver,
+            context,
         )?;
 
         // Validate header values
         for (name, value) in &self.custom_request_headers {
-            self.validate_header_value(name, value)?;
+            self.validate_header_value(name, value, resolver, context)?;
         }
         for (name, value) in &self.custom_response_headers {
-            self.validate_header_value(name, value)?;
+            self.validate_header_value(name, value, resolver, context)?;
         }
 
         Ok(())
@@ -155,59 +180,63 @@ impl Validate for HeadersConfig {
 
 #[derive(Debug, Clone, Default)]
 pub struct HeadersConfigBuilder {
-    pub custom_request_headers: HashMap<String, String>,
-    pub custom_response_headers: HashMap<String, String>,
-    pub access_control_allow_methods: Vec<String>,
-    pub access_control_allow_headers: Vec<String>,
-    pub access_control_expose_headers: Vec<String>,
-    pub access_control_allow_origin_list: Vec<String>,
-    pub auth_response_headers: Vec<String>,
-    pub auth_response_headers_regex: String,
-    pub add_vary_header: bool,
-    pub headers: HashMap<String, String>,
+    pub custom_request_headers: HashMap<String, TemplateOr<String>>,
+    pub custom_response_headers: HashMap<String, TemplateOr<String>>,
+    pub access_control_allow_methods: Vec<TemplateOr<String>>,
+    pub access_control_allow_headers: Vec<TemplateOr<String>>,
+    pub access_control_expose_headers: Vec<TemplateOr<String>>,
+    pub access_control_allow_origin_list: Vec<TemplateOr<String>>,
+    pub auth_response_headers: Vec<TemplateOr<String>>,
+    pub auth_response_headers_regex: TemplateOr<String>,
+    pub add_vary_header: TemplateOr<bool>,
+    pub headers: HashMap<String, TemplateOr<String>>,
 }
 
 impl HeadersConfigBuilder {
     pub fn add_custom_request_header(&mut self, name: &str, value: &str) -> &mut Self {
         self.custom_request_headers
-            .insert(name.to_string(), value.to_string());
+            .insert(name.to_string(), TemplateOr::Static(value.to_string()));
         self
     }
 
     pub fn add_custom_response_header(&mut self, name: &str, value: &str) -> &mut Self {
         self.custom_response_headers
-            .insert(name.to_string(), value.to_string());
+            .insert(name.to_string(), TemplateOr::Static(value.to_string()));
         self
     }
 
     pub fn add_access_control_allow_method(&mut self, method: &str) -> &mut Self {
-        self.access_control_allow_methods.push(method.to_string());
+        self.access_control_allow_methods
+            .push(TemplateOr::Static(method.to_string()));
         self
     }
 
     pub fn add_access_control_allow_header(&mut self, header: &str) -> &mut Self {
-        self.access_control_allow_headers.push(header.to_string());
+        self.access_control_allow_headers
+            .push(TemplateOr::Static(header.to_string()));
         self
     }
 
     pub fn add_access_control_expose_header(&mut self, header: &str) -> &mut Self {
-        self.access_control_expose_headers.push(header.to_string());
+        self.access_control_expose_headers
+            .push(TemplateOr::Static(header.to_string()));
         self
     }
 
     pub fn add_access_control_allow_origin(&mut self, origin: &str) -> &mut Self {
         self.access_control_allow_origin_list
-            .push(origin.to_string());
+            .push(TemplateOr::Static(origin.to_string()));
         self
     }
 
     pub fn add_vary_header(&mut self, add_vary_header: bool) -> &mut Self {
-        self.add_vary_header = add_vary_header;
+        self.add_vary_header = TemplateOr::Static(add_vary_header);
         self
     }
 
     pub fn add_header(&mut self, name: &str, value: &str) -> &mut Self {
-        self.headers.insert(name.to_string(), value.to_string());
+        self.headers
+            .insert(name.to_string(), TemplateOr::Static(value.to_string()));
         self
     }
 
@@ -220,7 +249,7 @@ impl HeadersConfigBuilder {
             access_control_allow_headers: self.access_control_allow_headers.clone(),
             access_control_expose_headers: self.access_control_expose_headers.clone(),
             access_control_allow_origin_list: self.access_control_allow_origin_list.clone(),
-            add_vary_header: self.add_vary_header,
+            add_vary_header: self.add_vary_header.clone(),
         }
     }
 }
@@ -230,7 +259,12 @@ impl HeadersConfig {
         HeadersConfigBuilder::default()
     }
 
-    fn validate_header_names(&self, headers: &HashMap<String, String>) -> TraefikResult<()> {
+    fn validate_header_names(
+        &self,
+        headers: &HashMap<String, TemplateOr<String>>,
+        _resolver: &mut impl TemplateResolver,
+        _context: &TemplateContext,
+    ) -> TraefikResult<()> {
         for name in headers.keys() {
             if name.is_empty() {
                 return Err(TraefikError::MiddlewareConfig(
@@ -251,29 +285,46 @@ impl HeadersConfig {
         Ok(())
     }
 
-    fn validate_header_list(&self, headers: &[String], context: &str) -> TraefikResult<()> {
+    fn validate_header_list(
+        &self,
+        headers: &[TemplateOr<String>],
+        ctx: &str,
+        resolver: &mut impl TemplateResolver,
+        context: &TemplateContext,
+    ) -> TraefikResult<()> {
         let mut seen = HashSet::new();
         for header in headers {
-            let header_lower = header.to_lowercase();
+            let header_lower = header.resolve(resolver, context)?.to_lowercase();
             if !seen.insert(header_lower) {
                 return Err(TraefikError::MiddlewareConfig(format!(
                     "Duplicate header in {}: {}",
-                    context, header
+                    ctx,
+                    header.resolve(resolver, context)?
                 )));
             }
 
-            if header.is_empty() {
+            if header.resolve(resolver, context)?.is_empty() {
                 return Err(TraefikError::MiddlewareConfig(format!(
                     "Empty header name in {}",
-                    context
+                    ctx
                 )));
             }
         }
         Ok(())
     }
 
-    fn validate_header_value(&self, name: &str, value: &str) -> TraefikResult<()> {
-        if value.chars().any(|c| c.is_control() && c != '\t') {
+    fn validate_header_value(
+        &self,
+        name: &str,
+        value: &TemplateOr<String>,
+        resolver: &mut impl TemplateResolver,
+        context: &TemplateContext,
+    ) -> TraefikResult<()> {
+        if value
+            .resolve(resolver, context)?
+            .chars()
+            .any(|c| c.is_control() && c != '\t')
+        {
             return Err(TraefikError::MiddlewareConfig(format!(
                 "Invalid value for header '{}': contains control characters",
                 name
@@ -282,18 +333,20 @@ impl HeadersConfig {
 
         match name.to_lowercase().as_str() {
             "x-forwarded-proto" => {
-                if !["http", "https"].contains(&value.to_lowercase().as_str()) {
+                if !["http", "https"]
+                    .contains(&value.resolve(resolver, context)?.to_lowercase().as_str())
+                {
                     return Err(TraefikError::MiddlewareConfig(format!(
                         "Invalid value for X-Forwarded-Proto: must be 'http' or 'https', got '{}'",
-                        value
+                        value.resolve(resolver, context)?
                     )));
                 }
             }
             "x-forwarded-port" => {
-                if value.parse::<u16>().is_err() {
+                if value.resolve(resolver, context)?.parse::<u16>().is_err() {
                     return Err(TraefikError::MiddlewareConfig(format!(
                         "Invalid value for X-Forwarded-Port: must be a valid port number, got '{}'",
-                        value
+                        value.resolve(resolver, context)?
                     )));
                 }
             }
@@ -314,7 +367,12 @@ pub struct RuntimeHeadersConfig {
 }
 
 impl ToEtcdPairs for RuntimeHeadersConfig {
-    fn to_etcd_pairs(&self, _base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
+    fn to_etcd_pairs(
+        &self,
+        _base_key: &str,
+        _resolver: &mut impl TemplateResolver,
+        _context: &TemplateContext,
+    ) -> TraefikResult<Vec<EtcdPair>> {
         // This should never be called directly - template processing happens in InternalDeploymentConfig
         Ok(Vec::new())
     }
@@ -322,21 +380,28 @@ impl ToEtcdPairs for RuntimeHeadersConfig {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_helpers::{create_test_resolver, create_test_template_context};
+
     use super::*;
 
     #[test]
     fn test_validate_header_value() {
         let headers = HeadersConfig::default();
-        assert!(headers.validate().is_ok());
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        assert!(headers.validate(&mut resolver, &context).is_ok());
     }
 
     #[test]
     fn test_validate_header_names() {
         let mut headers = HeadersConfig::default();
-        headers
-            .custom_request_headers
-            .insert("X-Forwarded-Proto".to_string(), "http".to_string());
-        assert!(headers.validate().is_ok());
+        headers.custom_request_headers.insert(
+            "X-Forwarded-Proto".to_string(),
+            TemplateOr::Static("http".to_string()),
+        );
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        assert!(headers.validate(&mut resolver, &context).is_ok());
     }
 
     #[test]
@@ -345,12 +410,16 @@ mod tests {
             .add_custom_request_header("X-Forwarded-Proto", "https")
             .add_custom_request_header("X-Forwarded-Port", "80")
             .build();
-        let pairs = headers.to_etcd_pairs("test").unwrap();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let pairs = headers
+            .to_etcd_pairs("test", &mut resolver, &context)
+            .unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
-        assert!(
-            pair_strs.contains(&"headers/customRequestHeaders/X-Forwarded-Proto https".to_string())
-        );
-        assert!(pair_strs.contains(&"headers/customRequestHeaders/X-Forwarded-Port 80".to_string()));
+        assert!(pair_strs
+            .contains(&"test/headers/customRequestHeaders/X-Forwarded-Proto https".to_string()));
+        assert!(pair_strs
+            .contains(&"test/headers/customRequestHeaders/X-Forwarded-Port 80".to_string()));
     }
 
     #[test]
@@ -360,9 +429,14 @@ mod tests {
             .add_access_control_allow_method("POST")
             .add_access_control_allow_method("PUT")
             .build();
-        let pairs = headers.to_etcd_pairs("test").unwrap();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let pairs = headers
+            .to_etcd_pairs("test", &mut resolver, &context)
+            .unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
-        assert!(pair_strs.contains(&"headers/accessControlAllowMethods GET, POST, PUT".to_string()));
+        assert!(pair_strs
+            .contains(&"test/headers/accessControlAllowMethods GET, POST, PUT".to_string()));
     }
 
     #[test]
@@ -371,10 +445,14 @@ mod tests {
             .add_access_control_allow_header("Content-Type")
             .add_access_control_allow_header("Content-Length")
             .build();
-        let pairs = headers.to_etcd_pairs("test").unwrap();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let pairs = headers
+            .to_etcd_pairs("test", &mut resolver, &context)
+            .unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
         assert!(pair_strs.contains(
-            &"headers/accessControlAllowHeaders Content-Type, Content-Length".to_string()
+            &"test/headers/accessControlAllowHeaders Content-Type, Content-Length".to_string()
         ));
     }
 
@@ -384,10 +462,14 @@ mod tests {
             .add_access_control_expose_header("Content-Type")
             .add_access_control_expose_header("Content-Length")
             .build();
-        let pairs = headers.to_etcd_pairs("test").unwrap();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let pairs = headers
+            .to_etcd_pairs("test", &mut resolver, &context)
+            .unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
         assert!(pair_strs.contains(
-            &"headers/accessControlExposeHeaders Content-Type, Content-Length".to_string()
+            &"test/headers/accessControlExposeHeaders Content-Type, Content-Length".to_string()
         ));
     }
 
@@ -396,17 +478,26 @@ mod tests {
         let headers = HeadersConfig::builder()
             .add_access_control_allow_origin("example.com")
             .build();
-        let pairs = headers.to_etcd_pairs("test").unwrap();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let pairs = headers
+            .to_etcd_pairs("test", &mut resolver, &context)
+            .unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
-        assert!(pair_strs.contains(&"headers/accessControlAllowOriginList example.com".to_string()));
+        assert!(pair_strs
+            .contains(&"test/headers/accessControlAllowOriginList example.com".to_string()));
     }
 
     #[test]
     fn test_to_etcd_pairs_with_add_vary_header() {
         let headers = HeadersConfig::builder().add_vary_header(true).build();
-        let pairs = headers.to_etcd_pairs("test").unwrap();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let pairs = headers
+            .to_etcd_pairs("test", &mut resolver, &context)
+            .unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
-        assert!(pair_strs.contains(&"headers/addVaryHeader true".to_string()));
+        assert!(pair_strs.contains(&"test/headers/addVaryHeader true".to_string()));
     }
 
     #[test]
@@ -414,9 +505,14 @@ mod tests {
         let headers = HeadersConfig::builder()
             .add_custom_response_header("Content-Type", "application/json")
             .build();
-        let pairs = headers.to_etcd_pairs("test").unwrap();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let pairs = headers
+            .to_etcd_pairs("test", &mut resolver, &context)
+            .unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
-        assert!(pair_strs
-            .contains(&"headers/customResponseHeaders/Content-Type application/json".to_string()));
+        assert!(pair_strs.contains(
+            &"test/headers/customResponseHeaders/Content-Type application/json".to_string()
+        ));
     }
 }

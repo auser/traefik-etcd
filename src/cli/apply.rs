@@ -22,7 +22,7 @@ pub async fn run(
     client: &StoreClient<Etcd>,
     traefik_config: &mut TraefikConfig,
 ) -> TraefikResult<()> {
-    if command.clean {
+    if command.clean && !command.dry_run {
         traefik_config.clean_etcd(client, command.all).await?;
     }
     traefik_config

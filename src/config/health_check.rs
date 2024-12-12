@@ -1,5 +1,8 @@
 use crate::{
-    core::Validate,
+    core::{
+        templating::{TemplateContext, TemplateResolver},
+        Validate,
+    },
     error::{TraefikError, TraefikResult},
 };
 use export_type::ExportType;
@@ -26,7 +29,11 @@ impl Default for HealthCheckConfig {
 }
 
 impl Validate for HealthCheckConfig {
-    fn validate(&self) -> TraefikResult<()> {
+    fn validate(
+        &self,
+        _resolver: &mut impl TemplateResolver,
+        _context: &TemplateContext,
+    ) -> TraefikResult<()> {
         if self.interval.is_empty() || self.timeout.is_empty() || self.path.is_empty() {
             return Err(TraefikError::HealthCheckConfig(
                 "interval, timeout and path must not be empty".to_string(),
@@ -39,6 +46,8 @@ impl Validate for HealthCheckConfig {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_helpers::{create_test_resolver, create_test_template_context};
+
     use super::*;
 
     #[test]
@@ -47,7 +56,9 @@ mod tests {
             interval: "".to_string(),
             ..Default::default()
         };
-        assert!(health_check.validate().is_err());
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        assert!(health_check.validate(&mut resolver, &context).is_err());
     }
 
     #[test]
@@ -56,7 +67,9 @@ mod tests {
             timeout: "".to_string(),
             ..Default::default()
         };
-        assert!(health_check.validate().is_err());
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        assert!(health_check.validate(&mut resolver, &context).is_err());
     }
 
     #[test]
@@ -65,12 +78,16 @@ mod tests {
             path: "".to_string(),
             ..Default::default()
         };
-        assert!(health_check.validate().is_err());
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        assert!(health_check.validate(&mut resolver, &context).is_err());
     }
 
     #[test]
     fn test_health_check_config_is_valid() {
         let health_check = HealthCheckConfig::default();
-        assert!(health_check.validate().is_ok());
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        assert!(health_check.validate(&mut resolver, &context).is_ok());
     }
 }

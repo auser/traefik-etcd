@@ -5,8 +5,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::TraefikResult;
 
+use super::templating::{TemplateContext, TemplateResolver};
+
 pub trait ToEtcdPairs {
-    fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>>;
+    fn to_etcd_pairs(
+        &self,
+        base_key: &str,
+        resolver: &mut impl TemplateResolver,
+        context: &TemplateContext,
+    ) -> TraefikResult<Vec<EtcdPair>>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]

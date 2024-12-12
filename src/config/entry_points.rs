@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     core::{
         etcd_trait::{EtcdPair, ToEtcdPairs},
+        templating::{TemplateContext, TemplateResolver},
         util::format_list_value,
     },
     error::TraefikResult,
@@ -20,7 +21,12 @@ pub struct TlsDomainConfig {
 }
 
 impl ToEtcdPairs for TlsDomainConfig {
-    fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
+    fn to_etcd_pairs(
+        &self,
+        base_key: &str,
+        _resolver: &mut impl TemplateResolver,
+        _context: &TemplateContext,
+    ) -> TraefikResult<Vec<EtcdPair>> {
         let mut pairs = vec![];
         pairs.push(EtcdPair::new(
             format!("{}/main", base_key),
@@ -43,12 +49,17 @@ pub struct TlsConfig {
 }
 
 impl ToEtcdPairs for TlsConfig {
-    fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
+    fn to_etcd_pairs(
+        &self,
+        base_key: &str,
+        resolver: &mut impl TemplateResolver,
+        context: &TemplateContext,
+    ) -> TraefikResult<Vec<EtcdPair>> {
         let mut pairs = vec![];
         let domains_base_key = format!("{}/domains", base_key);
         for domain in self.domains.iter() {
             let domain_base_key = format!("{}/{}", domains_base_key, domain.main);
-            let domain_pairs = domain.to_etcd_pairs(&domain_base_key)?;
+            let domain_pairs = domain.to_etcd_pairs(&domain_base_key, resolver, context)?;
             pairs.extend(domain_pairs);
         }
         Ok(pairs)
@@ -65,7 +76,12 @@ pub struct RedirectionConfig {
 }
 
 impl ToEtcdPairs for RedirectionConfig {
-    fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
+    fn to_etcd_pairs(
+        &self,
+        base_key: &str,
+        _resolver: &mut impl TemplateResolver,
+        _context: &TemplateContext,
+    ) -> TraefikResult<Vec<EtcdPair>> {
         let mut pairs = vec![];
         pairs.push(EtcdPair::new(format!("{}/to", base_key), self.to.clone()));
         if let Some(scheme) = &self.scheme {
@@ -87,11 +103,17 @@ pub struct RedirectionsConfig {
 }
 
 impl ToEtcdPairs for RedirectionsConfig {
-    fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
+    fn to_etcd_pairs(
+        &self,
+        base_key: &str,
+        resolver: &mut impl TemplateResolver,
+        context: &TemplateContext,
+    ) -> TraefikResult<Vec<EtcdPair>> {
         let mut pairs = vec![];
         if let Some(entry_point) = &self.entry_point {
             let entry_point_base_key = format!("{}/entryPoint", base_key);
-            let entry_point_pairs = entry_point.to_etcd_pairs(&entry_point_base_key)?;
+            let entry_point_pairs =
+                entry_point.to_etcd_pairs(&entry_point_base_key, resolver, context)?;
             pairs.extend(entry_point_pairs);
         }
         Ok(pairs)
@@ -110,16 +132,22 @@ pub struct HttpConfig {
 }
 
 impl ToEtcdPairs for HttpConfig {
-    fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
+    fn to_etcd_pairs(
+        &self,
+        base_key: &str,
+        resolver: &mut impl TemplateResolver,
+        context: &TemplateContext,
+    ) -> TraefikResult<Vec<EtcdPair>> {
         let mut pairs = vec![];
         if let Some(tls) = &self.tls {
             let tls_base_key = format!("{}/tls", base_key);
-            let tls_pairs = tls.to_etcd_pairs(&tls_base_key)?;
+            let tls_pairs = tls.to_etcd_pairs(&tls_base_key, resolver, context)?;
             pairs.extend(tls_pairs);
         }
         if let Some(redirections) = &self.redirections {
             let redirections_base_key = format!("{}/redirections", base_key);
-            let redirections_pairs = redirections.to_etcd_pairs(&redirections_base_key)?;
+            let redirections_pairs =
+                redirections.to_etcd_pairs(&redirections_base_key, resolver, context)?;
             pairs.extend(redirections_pairs);
         }
         Ok(pairs)
@@ -136,14 +164,19 @@ pub struct EntryPoint {
 }
 
 impl ToEtcdPairs for EntryPoint {
-    fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
+    fn to_etcd_pairs(
+        &self,
+        base_key: &str,
+        resolver: &mut impl TemplateResolver,
+        context: &TemplateContext,
+    ) -> TraefikResult<Vec<EtcdPair>> {
         let mut pairs = vec![];
         pairs.push(EtcdPair::new(
             format!("{}/address", base_key),
             self.address.clone(),
         ));
         let http_base_key = format!("{}/http", base_key);
-        let http_pairs = self.http.to_etcd_pairs(&http_base_key)?;
+        let http_pairs = self.http.to_etcd_pairs(&http_base_key, resolver, context)?;
         pairs.extend(http_pairs);
         Ok(pairs)
     }
@@ -163,24 +196,30 @@ pub struct EntryPointsConfig {
 }
 
 impl ToEtcdPairs for EntryPointsConfig {
-    fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
+    fn to_etcd_pairs(
+        &self,
+        base_key: &str,
+        resolver: &mut impl TemplateResolver,
+        context: &TemplateContext,
+    ) -> TraefikResult<Vec<EtcdPair>> {
         let mut pairs = vec![];
         let entrypoints_base_key = format!("{}/entryPoints", base_key);
         if let Some(web) = &self.web {
             let web_base_key = format!("{}/web", entrypoints_base_key);
-            let web_pairs = web.to_etcd_pairs(&web_base_key)?;
+            let web_pairs = web.to_etcd_pairs(&web_base_key, resolver, context)?;
             pairs.extend(web_pairs);
         }
 
         if let Some(websecure) = &self.websecure {
             let websecure_base_key = format!("{}/websecure", entrypoints_base_key);
-            let websecure_pairs = websecure.to_etcd_pairs(&websecure_base_key)?;
+            let websecure_pairs =
+                websecure.to_etcd_pairs(&websecure_base_key, resolver, context)?;
             pairs.extend(websecure_pairs);
         }
 
         if let Some(metrics) = &self.metrics {
             let metrics_base_key = format!("{}/metrics", entrypoints_base_key);
-            let metrics_pairs = metrics.to_etcd_pairs(&metrics_base_key)?;
+            let metrics_pairs = metrics.to_etcd_pairs(&metrics_base_key, resolver, context)?;
             pairs.extend(metrics_pairs);
         }
 
@@ -190,7 +229,7 @@ impl ToEtcdPairs for EntryPointsConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_helpers::assert_contains_pair;
+    use crate::{core::templating::TeraResolver, test_helpers::assert_contains_pair};
 
     use super::*;
 
@@ -223,7 +262,9 @@ mod tests {
     #[test]
     fn test_entry_points_config_to_etcd_pairs() {
         let config = create_test_entry_points_config();
-        let pairs = config.to_etcd_pairs("test");
+        let mut resolver = TeraResolver::new().unwrap();
+        let context = TemplateContext::default();
+        let pairs = config.to_etcd_pairs("test", &mut resolver, &context);
         assert!(pairs.is_ok());
         let pairs = pairs.unwrap();
         assert_contains_pair(&pairs, "test/entryPoints/web/address 0.0.0.0:80");

@@ -2,6 +2,7 @@ use std::{collections::HashMap, fmt::Display};
 
 use crate::{
     core::{
+        templating::{TemplateContext, TemplateResolver},
         util::{validate_hostname, validate_ip, validate_is_alphanumeric, validate_port},
         Validate,
     },
@@ -101,7 +102,11 @@ impl Default for IPAndPort {
 }
 
 impl Validate for IPAndPort {
-    fn validate(&self) -> TraefikResult<()> {
+    fn validate(
+        &self,
+        _resolver: &mut impl TemplateResolver,
+        _context: &TemplateContext,
+    ) -> TraefikResult<()> {
         validate_port(self.port)?;
         validate_ip(&self.ip)?;
         Ok(())
@@ -137,7 +142,11 @@ impl Display for DeploymentTarget {
 }
 
 impl Validate for DeploymentTarget {
-    fn validate(&self) -> TraefikResult<()> {
+    fn validate(
+        &self,
+        _resolver: &mut impl TemplateResolver,
+        _context: &TemplateContext,
+    ) -> TraefikResult<()> {
         match self {
             DeploymentTarget::IpAndPort { ip, port } => {
                 validate_port(*port)?;
@@ -293,7 +302,11 @@ impl DeploymentConfigBuilder {
 }
 
 impl Validate for DeploymentConfig {
-    fn validate(&self) -> TraefikResult<()> {
+    fn validate(
+        &self,
+        _resolver: &mut impl TemplateResolver,
+        _context: &TemplateContext,
+    ) -> TraefikResult<()> {
         if self.protocol != DeploymentProtocol::Http
             && self.protocol != DeploymentProtocol::Https
             && self.protocol != DeploymentProtocol::Tcp
@@ -357,6 +370,8 @@ impl DeploymentConfig {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_helpers::{create_test_resolver, create_test_template_context};
+
     use super::*;
 
     #[test]
@@ -396,7 +411,9 @@ mod tests {
             protocol: DeploymentProtocol::Invalid,
             ..Default::default()
         };
-        assert!(deployment.validate().is_err());
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        assert!(deployment.validate(&mut resolver, &context).is_err());
     }
 
     #[test]
@@ -408,7 +425,9 @@ mod tests {
             },
             ..Default::default()
         };
-        assert!(deployment.validate().is_err());
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        assert!(deployment.validate(&mut resolver, &context).is_err());
     }
 
     #[test]
@@ -417,7 +436,9 @@ mod tests {
             weight: 101,
             ..Default::default()
         };
-        assert!(deployment.validate().is_err());
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        assert!(deployment.validate(&mut resolver, &context).is_err());
     }
 
     #[test]
@@ -429,7 +450,9 @@ mod tests {
         protocol: http
         "#;
         let deployment: DeploymentConfig = serde_yaml::from_str(deployment_config).unwrap();
-        assert!(deployment.validate().is_ok());
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        assert!(deployment.validate(&mut resolver, &context).is_ok());
     }
 
     #[test]
@@ -441,7 +464,9 @@ mod tests {
         protocol: https
         "#;
         let deployment: DeploymentConfig = serde_yaml::from_str(deployment_config).unwrap();
-        assert!(deployment.validate().is_ok());
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        assert!(deployment.validate(&mut resolver, &context).is_ok());
     }
 
     #[test]
@@ -453,8 +478,9 @@ mod tests {
         protocol: tcp
         "#;
         let deployment: DeploymentConfig = serde_yaml::from_str(deployment_config).unwrap();
-        let validation = deployment.validate();
-        assert!(validation.is_ok());
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        assert!(deployment.validate(&mut resolver, &context).is_ok());
     }
 
     #[test]
@@ -466,7 +492,8 @@ mod tests {
         protocol: csat
         "#;
         let deployment: DeploymentConfig = serde_yaml::from_str(deployment_config).unwrap();
-        let validation = deployment.validate();
-        assert!(validation.is_err());
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        assert!(deployment.validate(&mut resolver, &context).is_err());
     }
 }

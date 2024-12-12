@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     core::{
         etcd_trait::{EtcdPair, ToEtcdPairs},
+        templating::{TemplateContext, TemplateResolver},
         util::validate_is_alphanumeric,
         Validate,
     },
@@ -57,7 +58,12 @@ impl ServiceConfig {
  $ecd put "traefik/http/services/redirector/loadBalancer/healthCheck/timeout" "5s"
 */
 impl ToEtcdPairs for ServiceConfig {
-    fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
+    fn to_etcd_pairs(
+        &self,
+        base_key: &str,
+        _resolver: &mut impl TemplateResolver,
+        _context: &TemplateContext,
+    ) -> TraefikResult<Vec<EtcdPair>> {
         // The base_key: `{prefix}/{protocol}`
         let mut pairs = Vec::new();
 
@@ -97,13 +103,17 @@ impl ToEtcdPairs for ServiceConfig {
 }
 
 impl Validate for ServiceConfig {
-    fn validate(&self) -> TraefikResult<()> {
+    fn validate(
+        &self,
+        resolver: &mut impl TemplateResolver,
+        context: &TemplateContext,
+    ) -> TraefikResult<()> {
         if self.name.is_empty() {
             return Err(TraefikError::ServiceConfig("service name is empty".into()));
         }
 
         validate_is_alphanumeric(&self.name)?;
-        self.deployment.validate()?;
+        self.deployment.validate(resolver, context)?;
 
         Ok(())
     }
@@ -111,7 +121,10 @@ impl Validate for ServiceConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_helpers::assert_contains_pair;
+    use crate::{
+        core::templating::TeraResolver,
+        test_helpers::{assert_contains_pair, create_test_resolver, create_test_template_context},
+    };
 
     use super::*;
 
@@ -121,7 +134,9 @@ mod tests {
             name: "".to_string(),
             ..Default::default()
         };
-        let result = service.validate();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let result = service.validate(&mut resolver, &context);
         assert!(result.is_err());
     }
 
@@ -131,14 +146,18 @@ mod tests {
             name: "invalid-name!".to_string(),
             ..Default::default()
         };
-        let result = service.validate();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let result = service.validate(&mut resolver, &context);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_validate_service_config_valid() {
         let service = ServiceConfig::default();
-        let result = service.validate();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let result = service.validate(&mut resolver, &context);
         assert!(result.is_ok());
     }
 
@@ -152,7 +171,9 @@ mod tests {
     #[test]
     fn test_default_service_config_to_etcd_pairs() {
         let service = ServiceConfig::default();
-        let result = service.to_etcd_pairs("traefik/http");
+        let mut resolver = TeraResolver::new().unwrap();
+        let context = TemplateContext::default();
+        let result = service.to_etcd_pairs("traefik/http", &mut resolver, &context);
         assert!(result.is_ok());
         let pairs = result.unwrap();
         assert_eq!(pairs.len(), 3);

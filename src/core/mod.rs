@@ -1,3 +1,5 @@
+use templating::{TemplateContext, TemplateResolver};
+
 use crate::error::TraefikResult;
 
 pub mod client;
@@ -13,7 +15,11 @@ pub mod etcd_trait;
 
 /// Validate the config file
 pub trait Validate {
-    fn validate(&self) -> TraefikResult<()>;
+    fn validate(
+        &self,
+        resolver: &mut impl TemplateResolver,
+        context: &TemplateContext,
+    ) -> TraefikResult<()>;
 }
 
 pub type ClientBuildResult = (String, String);

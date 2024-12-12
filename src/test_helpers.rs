@@ -9,7 +9,11 @@ use crate::{
         middleware::MiddlewareConfig,
         selections::{SelectionConfig, WithCookieConfig},
     },
-    core::etcd_trait::EtcdPair,
+    core::{
+        etcd_trait::EtcdPair,
+        templating::{TemplateContext, TemplateOr, TemplateResolver},
+    },
+    error::TraefikResult,
     tracing::{init_tracing, LogConfig},
     TraefikConfig,
 };
@@ -212,6 +216,7 @@ pub fn create_test_config(host_configs: Option<Vec<HostConfig>>) -> TraefikConfi
     }]);
 
     TraefikConfig {
+        #[cfg(feature = "etcd")]
         etcd: Default::default(),
         middlewares: create_test_middleware(),
         hosts: host_configs,
@@ -240,38 +245,65 @@ pub fn create_test_middleware() -> HashMap<String, MiddlewareConfig> {
                 runtime_headers: None,
                 headers: Some(HeadersConfig {
                     headers: HashMap::from([
-                        ("frameDeny".to_string(), "true".to_string()),
-                        ("browserXssFilter".to_string(), "true".to_string()),
-                        ("contentTypeNosniff".to_string(), "true".to_string()),
-                        ("forceSTSHeader".to_string(), "true".to_string()),
-                        ("stsIncludeSubdomains".to_string(), "true".to_string()),
-                        ("stsPreload".to_string(), "true".to_string()),
-                        ("stsSeconds".to_string(), "31536000".to_string()),
+                        (
+                            "frameDeny".to_string(),
+                            TemplateOr::Static("true".to_string()),
+                        ),
+                        (
+                            "browserXssFilter".to_string(),
+                            TemplateOr::Static("true".to_string()),
+                        ),
+                        (
+                            "contentTypeNosniff".to_string(),
+                            TemplateOr::Static("true".to_string()),
+                        ),
+                        (
+                            "forceSTSHeader".to_string(),
+                            TemplateOr::Static("true".to_string()),
+                        ),
+                        (
+                            "stsIncludeSubdomains".to_string(),
+                            TemplateOr::Static("true".to_string()),
+                        ),
+                        (
+                            "stsPreload".to_string(),
+                            TemplateOr::Static("true".to_string()),
+                        ),
+                        (
+                            "stsSeconds".to_string(),
+                            TemplateOr::Static("31536000".to_string()),
+                        ),
                         (
                             "customFrameOptionsValue".to_string(),
-                            "SAMEORIGIN".to_string(),
+                            TemplateOr::Static("SAMEORIGIN".to_string()),
                         ),
                     ]),
                     custom_request_headers: HashMap::from([
-                        ("X-Forwarded-Proto".to_string(), "https".to_string()),
-                        ("X-Forwarded-Port".to_string(), "443".to_string()),
+                        (
+                            "X-Forwarded-Proto".to_string(),
+                            TemplateOr::Static("https".to_string()),
+                        ),
+                        (
+                            "X-Forwarded-Port".to_string(),
+                            TemplateOr::Static("443".to_string()),
+                        ),
                     ]),
                     custom_response_headers: HashMap::from([(
                         "Location".to_string(),
-                        "".to_string(),
+                        TemplateOr::Static("".to_string()),
                     )]),
                     access_control_allow_methods: vec![
-                        "GET".to_string(),
-                        "POST".to_string(),
-                        "OPTIONS".to_string(),
+                        TemplateOr::Static("GET".to_string()),
+                        TemplateOr::Static("POST".to_string()),
+                        TemplateOr::Static("OPTIONS".to_string()),
                     ],
                     access_control_allow_headers: vec![
-                        "Content-Type".to_string(),
-                        "Authorization".to_string(),
+                        TemplateOr::Static("Content-Type".to_string()),
+                        TemplateOr::Static("Authorization".to_string()),
                     ],
-                    access_control_expose_headers: vec!["Location".to_string()],
+                    access_control_expose_headers: vec![TemplateOr::Static("Location".to_string())],
                     access_control_allow_origin_list: vec![],
-                    add_vary_header: true,
+                    add_vary_header: TemplateOr::Static(true),
                 }),
                 forward_auth: None,
             },
@@ -284,7 +316,7 @@ pub fn create_test_middleware() -> HashMap<String, MiddlewareConfig> {
                 headers: Some(HeadersConfig {
                     custom_request_headers: HashMap::from([(
                         "Location".to_string(),
-                        "".to_string(),
+                        TemplateOr::Static("".to_string()),
                     )]),
                     ..Default::default()
                 }),
@@ -329,4 +361,26 @@ pub fn create_base_middleware_config() -> MiddlewareConfig {
         protocol: "http".to_string(),
         runtime_headers: None,
     }
+}
+
+pub struct TestResolver;
+impl TemplateResolver for TestResolver {
+    fn resolve_template(
+        &mut self,
+        template: &str,
+        _context: &TemplateContext,
+    ) -> TraefikResult<String> {
+        Ok(template.replace("{{env.NAME}}", "test"))
+    }
+}
+
+pub fn create_test_resolver() -> TestResolver {
+    TestResolver
+}
+
+pub fn create_test_template_context() -> TemplateContext {
+    let mut context = TemplateContext::new(Some(TraefikConfig::default()), Vec::<String>::new())
+        .expect("Failed to create template context");
+    context.set_deployment(DeploymentConfig::default());
+    context
 }

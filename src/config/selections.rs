@@ -3,7 +3,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    core::Validate,
+    core::{
+        templating::{TemplateContext, TemplateResolver},
+        Validate,
+    },
     error::{TraefikError, TraefikResult},
 };
 
@@ -19,13 +22,23 @@ pub struct SelectionConfig {
 }
 
 impl Validate for SelectionConfig {
-    fn validate(&self) -> TraefikResult<()> {
+    fn validate(
+        &self,
+        resolver: &mut impl TemplateResolver,
+        context: &TemplateContext,
+    ) -> TraefikResult<()> {
         if self.with_cookie.is_some() {
-            self.with_cookie.as_ref().unwrap().validate()?;
+            self.with_cookie
+                .as_ref()
+                .unwrap()
+                .validate(resolver, context)?;
         }
 
         if self.from_client_ip.is_some() {
-            self.from_client_ip.as_ref().unwrap().validate()?;
+            self.from_client_ip
+                .as_ref()
+                .unwrap()
+                .validate(resolver, context)?;
         }
 
         Ok(())
@@ -56,7 +69,11 @@ impl Default for WithCookieConfig {
 }
 
 impl Validate for WithCookieConfig {
-    fn validate(&self) -> TraefikResult<()> {
+    fn validate(
+        &self,
+        _resolver: &mut impl TemplateResolver,
+        _context: &TemplateContext,
+    ) -> TraefikResult<()> {
         if self.name.is_empty() {
             return Err(TraefikError::SelectionConfig("name is empty".to_string()));
         }
@@ -84,7 +101,11 @@ pub struct FromClientIpConfig {
 }
 
 impl Validate for FromClientIpConfig {
-    fn validate(&self) -> TraefikResult<()> {
+    fn validate(
+        &self,
+        _resolver: &mut impl TemplateResolver,
+        _context: &TemplateContext,
+    ) -> TraefikResult<()> {
         if self.range.is_some() && self.range.as_ref().unwrap().is_empty() {
             return Err(TraefikError::SelectionConfig("range is empty".to_string()));
         }
@@ -99,6 +120,8 @@ impl Validate for FromClientIpConfig {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_helpers::{create_test_resolver, create_test_template_context};
+
     use super::*;
 
     #[test]
@@ -124,34 +147,42 @@ mod tests {
 
     #[test]
     fn test_with_cookie_config_is_invalid_if_name_is_empty() {
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
         let with_cookie = WithCookieConfig {
             name: "".to_string(),
             ..Default::default()
         };
-        assert!(with_cookie.validate().is_err());
+        assert!(with_cookie.validate(&mut resolver, &context).is_err());
     }
 
     #[test]
     fn test_from_client_ip_config_is_invalid_if_range_is_empty() {
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
         let from_client_ip = FromClientIpConfig {
             range: Some("".to_string()),
             ..Default::default()
         };
-        assert!(from_client_ip.validate().is_err());
+        assert!(from_client_ip.validate(&mut resolver, &context).is_err());
     }
 
     #[test]
     fn test_from_client_ip_config_is_invalid_if_ip_is_empty() {
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
         let from_client_ip = FromClientIpConfig {
             ip: Some("".to_string()),
             ..Default::default()
         };
-        assert!(from_client_ip.validate().is_err());
+        assert!(from_client_ip.validate(&mut resolver, &context).is_err());
     }
 
     #[test]
     fn test_selection_config_is_valid() {
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
         let selection = SelectionConfig::default();
-        assert!(selection.validate().is_ok());
+        assert!(selection.validate(&mut resolver, &context).is_ok());
     }
 }
