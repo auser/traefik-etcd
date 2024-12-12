@@ -2,19 +2,22 @@ use std::collections::{HashMap, HashSet};
 
 use export_type::ExportType;
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::{
+    de::{self, Visitor},
+    Deserialize, Deserializer, Serialize,
+};
 
 use crate::{
     core::{
         etcd_trait::{EtcdPair, ToEtcdPairs},
-        templating::{TemplateContext, TemplateOr, TemplateResolver},
+        templating::{is_template, TemplateContext, TemplateOr, TemplateResolver},
         util::format_list_value,
         Validate,
     },
     error::{TraefikError, TraefikResult},
 };
 
-#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, Eq, JsonSchema)]
+#[derive(Debug, Serialize, Default, Clone, PartialEq, Eq, JsonSchema)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
 #[cfg_attr(feature = "codegen", derive(ExportType))]
 #[export_type(rename_all = "camelCase", path = "generated/types")]
@@ -34,7 +37,174 @@ pub struct HeadersConfig {
     #[serde(default)]
     pub access_control_allow_origin_list: Vec<TemplateOr<String>>,
     #[serde(default)]
-    pub add_vary_header: TemplateOr<bool>,
+    pub add_vary_header: bool,
+}
+
+impl<'de> Deserialize<'de> for HeadersConfig {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "snake_case")]
+        enum Field {
+            Headers,
+            CustomRequestHeaders,
+            CustomResponseHeaders,
+            AccessControlAllowMethods,
+            AccessControlAllowHeaders,
+            AccessControlExposeHeaders,
+            AccessControlAllowOriginList,
+            AddVaryHeader,
+        }
+
+        struct HeadersConfigVisitor;
+
+        impl<'de> Visitor<'de> for HeadersConfigVisitor {
+            type Value = HeadersConfig;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("struct HeadersConfig")
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<HeadersConfig, V::Error>
+            where
+                V: de::MapAccess<'de>,
+            {
+                let mut headers = HashMap::new();
+                let mut custom_request_headers = HashMap::new();
+                let mut custom_response_headers = HashMap::new();
+                let mut access_control_allow_methods = Vec::new();
+                let mut access_control_allow_headers = Vec::new();
+                let mut access_control_expose_headers = Vec::new();
+                let mut access_control_allow_origin_list = Vec::new();
+                let mut add_vary_header = false;
+
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::Headers => {
+                            let values: HashMap<String, String> = map.next_value()?;
+                            for (k, v) in values {
+                                headers.insert(
+                                    k,
+                                    if is_template(&v) {
+                                        TemplateOr::Template(v)
+                                    } else {
+                                        TemplateOr::Static(v)
+                                    },
+                                );
+                            }
+                        }
+                        Field::CustomRequestHeaders => {
+                            let values: HashMap<String, String> = map.next_value()?;
+                            for (k, v) in values {
+                                custom_request_headers.insert(
+                                    k,
+                                    if is_template(&v) {
+                                        TemplateOr::Template(v)
+                                    } else {
+                                        TemplateOr::Static(v)
+                                    },
+                                );
+                            }
+                        }
+                        Field::CustomResponseHeaders => {
+                            let values: HashMap<String, String> = map.next_value()?;
+                            for (k, v) in values {
+                                custom_response_headers.insert(
+                                    k,
+                                    if is_template(&v) {
+                                        TemplateOr::Template(v)
+                                    } else {
+                                        TemplateOr::Static(v)
+                                    },
+                                );
+                            }
+                        }
+                        Field::AccessControlAllowMethods => {
+                            let values: Vec<String> = map.next_value()?;
+                            access_control_allow_methods = values
+                                .into_iter()
+                                .map(|v| {
+                                    if is_template(&v) {
+                                        TemplateOr::Template(v)
+                                    } else {
+                                        TemplateOr::Static(v)
+                                    }
+                                })
+                                .collect();
+                        }
+                        Field::AccessControlAllowHeaders => {
+                            let values: Vec<String> = map.next_value()?;
+                            access_control_allow_headers = values
+                                .into_iter()
+                                .map(|v| {
+                                    if is_template(&v) {
+                                        TemplateOr::Template(v)
+                                    } else {
+                                        TemplateOr::Static(v)
+                                    }
+                                })
+                                .collect();
+                        }
+                        Field::AccessControlExposeHeaders => {
+                            let values: Vec<String> = map.next_value()?;
+                            access_control_expose_headers = values
+                                .into_iter()
+                                .map(|v| {
+                                    if is_template(&v) {
+                                        TemplateOr::Template(v)
+                                    } else {
+                                        TemplateOr::Static(v)
+                                    }
+                                })
+                                .collect();
+                        }
+                        Field::AccessControlAllowOriginList => {
+                            let values: Vec<String> = map.next_value()?;
+                            access_control_allow_origin_list = values
+                                .into_iter()
+                                .map(|v| {
+                                    if is_template(&v) {
+                                        TemplateOr::Template(v)
+                                    } else {
+                                        TemplateOr::Static(v)
+                                    }
+                                })
+                                .collect();
+                        }
+                        Field::AddVaryHeader => {
+                            add_vary_header = map.next_value()?;
+                        }
+                    }
+                }
+
+                Ok(HeadersConfig {
+                    headers,
+                    custom_request_headers,
+                    custom_response_headers,
+                    access_control_allow_methods,
+                    access_control_allow_headers,
+                    access_control_expose_headers,
+                    access_control_allow_origin_list,
+                    add_vary_header,
+                })
+            }
+        }
+
+        const FIELDS: &[&str] = &[
+            "headers",
+            "custom_request_headers",
+            "custom_response_headers",
+            "access_control_allow_methods",
+            "access_control_allow_headers",
+            "access_control_expose_headers",
+            "access_control_allow_origin_list",
+            "add_vary_header",
+        ];
+
+        deserializer.deserialize_struct("HeadersConfig", FIELDS, HeadersConfigVisitor)
+    }
 }
 
 impl ToEtcdPairs for HeadersConfig {
@@ -115,10 +285,10 @@ impl ToEtcdPairs for HeadersConfig {
             ));
         }
 
-        if self.add_vary_header.resolve(resolver, context).is_ok() {
+        if self.add_vary_header {
             pairs.push(EtcdPair::new(
                 format!("{}/headers/addVaryHeader", base_key),
-                self.add_vary_header.resolve(resolver, context)?,
+                self.add_vary_header.to_string(),
             ));
         }
 
@@ -188,7 +358,7 @@ pub struct HeadersConfigBuilder {
     pub access_control_allow_origin_list: Vec<TemplateOr<String>>,
     pub auth_response_headers: Vec<TemplateOr<String>>,
     pub auth_response_headers_regex: TemplateOr<String>,
-    pub add_vary_header: TemplateOr<bool>,
+    pub add_vary_header: bool,
     pub headers: HashMap<String, TemplateOr<String>>,
 }
 
@@ -230,7 +400,7 @@ impl HeadersConfigBuilder {
     }
 
     pub fn add_vary_header(&mut self, add_vary_header: bool) -> &mut Self {
-        self.add_vary_header = TemplateOr::Static(add_vary_header);
+        self.add_vary_header = add_vary_header;
         self
     }
 

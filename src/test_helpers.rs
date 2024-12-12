@@ -303,7 +303,7 @@ pub fn create_test_middleware() -> HashMap<String, MiddlewareConfig> {
                     ],
                     access_control_expose_headers: vec![TemplateOr::Static("Location".to_string())],
                     access_control_allow_origin_list: vec![],
-                    add_vary_header: TemplateOr::Static(true),
+                    add_vary_header: true,
                 }),
                 forward_auth: None,
             },

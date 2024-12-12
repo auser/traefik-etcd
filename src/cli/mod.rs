@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use tracing::{debug, instrument};
+use tracing::instrument;
 
 use crate::{
     config::traefik_config::TraefikConfig,
@@ -85,11 +85,11 @@ pub async fn run() -> TraefikResult<()> {
     };
     init_tracing(NAME, &log_config)?;
 
-    debug!("Reading config file: {:?}", &cli.config_file);
     let config_file = cli.config_file.unwrap_or_default();
 
     let config = std::fs::read_to_string(&config_file).unwrap_or_default();
     let mut traefik_config: TraefikConfig = serde_yaml::from_str(&config).unwrap_or_default();
+
     #[cfg(feature = "etcd")]
     let etcd_client = match cli.etcd_config {
         Some(config) => {

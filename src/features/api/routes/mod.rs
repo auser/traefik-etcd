@@ -24,13 +24,6 @@ pub mod extractor;
 pub mod frontend;
 pub mod session;
 
-// use axum_embed::ServeEmbed;
-// use rust_embed::RustEmbed;
-
-// #[derive(RustEmbed, Clone)]
-// #[folder = "frontend/build"]
-// struct Assets;
-
 pub async fn get_routes(config: ServerConfig, db: Pool<MySql>) -> Router {
     let cors = CorsLayer::new()
         .allow_origin(Any)
@@ -43,7 +36,7 @@ pub async fn get_routes(config: ServerConfig, db: Pool<MySql>) -> Router {
         ])
         .allow_headers(Any)
         .expose_headers(Any);
-    
+
     api_router()
         .layer(
             ServiceBuilder::new().layer(AddExtensionLayer::new(ApiContext {

@@ -25,7 +25,7 @@ ALGO_SIZE=${ALGO_SIZE:-"256"}
 
 # Check if cfssl is installed
 if ! command -v cfssl &> /dev/null; then
-    echo -e "${Red}Error: cfssl is not installed ${COLOR_OFF}"
+    echo -e "${RED}Error: cfssl is not installed ${COLOR_OFF}"
     echo "Please install cfssl first:"
     echo "  go install github.com/cloudflare/cfssl/cmd/cfssl@latest"
     exit 1
@@ -33,7 +33,7 @@ fi
 
 # Check if cfssljson is installed 
 if ! command -v cfssljson &> /dev/null; then
-    echo -e "${Red}Error: cfssljson is not installed ${COLOR_OFF}"
+    echo -e "${RED}Error: cfssljson is not installed ${COLOR_OFF}"
     echo "Please install cfssljson first:"
     echo "  go install github.com/cloudflare/cfssl/cmd/cfssljson@latest" 
     exit 1
@@ -197,18 +197,18 @@ function generate_etcd() {
     echo -e "${YELLOW}Generating etcd peer certificate $COLOR_OFF"
     ./scripts/gen-certs.sh \
         -p peer \
-        -c etcd-cluster \
-        -h "localhost,127.0.0.1,0.0.0.0,etcd,traefik,$DOMAIN,*.$DOMAIN,$HOSTS" \
-        -n etcd-peer \
+        -c "${COMMON_NAME}" \
+        -h "${HOSTS}" \
+        -n "${NAME}" \
         -o $CERT_BASE_DIR \
         gen
 
     echo -e "${YELLOW}Generating etcd server certificate ${COLOR_OFF}"
     ./scripts/gen-certs.sh \
         -p server \
-        -c etcd-cluster \
-        -h "localhost,127.0.0.1,0.0.0.0,etcd,traefik,$DOMAIN,*.$DOMAIN,$HOSTS" \
-        -n etcd \
+        -c "${COMMON_NAME}" \
+        -h "${HOSTS}" \
+        -n "${NAME}" \
         -o $CERT_BASE_DIR \
         gen
 }
@@ -218,9 +218,9 @@ function generate_traefik() {
     echo -e "${YELLOW}Generating traefik server certificate ${COLOR_OFF}"
     ./scripts/gen-certs.sh \
         -p server \
-        -c traefik \
-        -h "localhost,127.0.0.1,traefik,$DOMAIN,*.$DOMAIN,$HOSTS" \
-        -n traefik \
+        -c "${COMMON_NAME}" \
+        -h "${HOSTS}" \
+        -n "${NAME}" \
         -o $CERT_BASE_DIR \
         gen
 }
@@ -230,9 +230,9 @@ function generate_asterisk() {
     echo -e "${YELLOW}Generating asterisk certificate ${COLOR_OFF}"
     ./scripts/gen-certs.sh \
         -p server \
-        -c asterisk \
-        -h "localhost,127.0.0.1,traefik,asterisk,$DOMAIN,*.$DOMAIN,$HOSTS" \
-        -n asterisk \
+        -c "${COMMON_NAME}" \
+        -h "${HOSTS}" \
+        -n "${NAME}" \
         -o $CERT_BASE_DIR \
         gen
 }
@@ -242,9 +242,9 @@ function generate_herringbank() {
     echo -e "${YELLOW}Generating herringbank certificate ${COLOR_OFF}"
     ./scripts/gen-certs.sh \
         -p server \
-        -c wildcard_herringbank \
-        -h "localhost,127.0.0.1,traefik,herringbank,$DOMAIN,*.$DOMAIN,$HOSTS" \
-        -n wildcard_herringbank \
+        -c "${COMMON_NAME}" \
+        -h "${HOSTS}" \
+        -n "${NAME}" \
         -o $CERT_BASE_DIR \
         gen
 }
@@ -254,9 +254,9 @@ function generate_etcd_traefik_communication() {
     echo -e "${YELLOW}Generating etcd traefik communication certificate ${COLOR_OFF}"
     ./scripts/gen-certs.sh \
         -p client \
-        -c traefik-etcd-client \
-        -h "etcd,traefik,$DOMAIN,*.$DOMAIN,$HOSTS" \
-        -n traefik-etcd-client \
+        -c "${COMMON_NAME}" \
+        -h "${HOSTS}" \
+        -n "${NAME}" \
         -o $CERT_BASE_DIR \
         gen
 }
@@ -266,9 +266,9 @@ function generate_prometheus() {
     echo -e "${YELLOW}Generating prometheus certificate ${COLOR_OFF}"
     ./scripts/gen-certs.sh \
         -p server \
-        -c prometheus \
-        -h "prometheus,$DOMAIN,*.$DOMAIN,$HOSTS" \
-        -n prometheus \
+        -c "${COMMON_NAME}" \
+        -h "${HOSTS}" \
+        -n "${NAME}" \
         -o $CERT_BASE_DIR \
         gen
 }
@@ -278,9 +278,9 @@ function generate_grafana() {
     echo -e "${YELLOW}Generating grafana certificate ${COLOR_OFF}"
     ./scripts/gen-certs.sh \
         -p server \
-        -c grafana \
-        -h "grafana,$DOMAIN,*.$DOMAIN,$HOSTS" \
-        -n grafana \
+        -c "${COMMON_NAME}" \
+        -h "${HOSTS}" \
+        -n "${NAME}" \
         -o $CERT_BASE_DIR \
         gen
 }

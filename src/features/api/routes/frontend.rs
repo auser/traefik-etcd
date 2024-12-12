@@ -1,14 +1,7 @@
 use axum::Router;
-// use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 use include_dir::include_dir;
-// use axum_embed::ServeEmbed;
-// use rust_embed::RustEmbed;
 use tower_http::services::ServeDir;
-
-// #[derive(RustEmbed, Clone)]
-// #[folder = "$CARGO_MANIFEST_DIR/frontend/build"]
-// struct Assets;
 
 pub fn router() -> Router {
     let assets = include_dir!("frontend/build");
