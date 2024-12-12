@@ -15,6 +15,14 @@ OUTPUT_DIR=${OUTPUT_DIR:-"./config/tls"}
 BASE_DIR=${BASE_DIR:-"./config/tls"}
 DOMAIN=${DOMAIN:-"ari.io"}
 
+CITY=${CITY:-"San Francisco"}
+STATE=${STATE:-"California"}
+COUNTRY=${COUNTRY:-"US"}
+ORGANIZATION=${ORGANIZATION:-"ari.io"}
+ORGANIZATIONAL_UNIT=${ORGANIZATIONAL_UNIT:-"CA"}
+ALGO=${ALGO:-"ecdsa"}
+ALGO_SIZE=${ALGO_SIZE:-"256"}
+
 # Check if cfssl is installed
 if ! command -v cfssl &> /dev/null; then
     echo -e "${Red}Error: cfssl is not installed ${COLOR_OFF}"
@@ -39,17 +47,114 @@ ensure_directory_exists() {
     mkdir -p "${OUTPUT_DIR}"
 }
 
+generate_ca_template() {
+    ensure_directory_exists
+    mkdir -p "${BASE_DIR}"
+
+    # Create CA CSR template
+    cat > "${BASE_DIR}/ca-csr.json" << EOF
+{
+  "CN": "${COMMON_NAME}",
+  "key": {
+    "algo": "${ALGO}", 
+    "size": ${ALGO_SIZE}
+  },
+  "names": [
+    {
+      "C": "${COUNTRY}",
+      "L": "${CITY}", 
+      "O": "${ORGANIZATION}",
+      "OU": "${ORGANIZATIONAL_UNIT}",
+      "ST": "${STATE}"
+    }
+  ]
+}
+EOF
+}
+
+generate_ca_config() {
+  ensure_directory_exists
+  mkdir -p "${BASE_DIR}"
+  cat > "${BASE_DIR}/ca-config.json" << EOF
+{
+  "signing": {
+    "default": {
+      "expiry": "8760h"
+    },
+    "profiles": {
+      "server": {
+        "usages": [
+          "signing",
+          "key encipherment",
+          "server auth",
+          "client auth"
+        ],
+        "expiry": "8760h"
+      },
+      "client": {
+        "usages": [
+          "signing",
+          "key encipherment",
+          "client auth"
+        ],
+        "expiry": "8760h"
+      },
+      "peer": {
+        "usages": [
+          "signing",
+          "key encipherment",
+          "server auth",
+          "client auth"
+        ],
+        "expiry": "8760h"
+      }
+    }
+  }
+}
+EOF
+}
+
 generate_ca() {
     ensure_directory_exists
+    generate_ca_template
+    generate_ca_config
     # Generate CA if it doesn't exist
     if [ ! -f "${BASE_DIR}/ca.pem" ]; then
         cfssl gencert -initca "${BASE_DIR}/ca-csr.json" | cfssljson -bare "${BASE_DIR}/ca"
     fi
 }
 
+generate_cert_template() {
+  ensure_directory_exists
+  NAME=${NAME:-"traefik"}
+  mkdir -p "${OUTPUT_DIR}"
+      # Create CSR template
+    cat > "${BASE_DIR}/${NAME}-template.json" << EOF
+{
+  "CN": "${COMMON_NAME}",
+  "hosts": [
+    "${HOSTS}"
+  ],
+  "key": {
+    "algo": "${ALGO}",
+    "size": ${ALGO_SIZE}
+  },
+  "names": [
+    {
+      "C": "${COUNTRY}",
+      "L": "${CITY}",
+      "O": "${ORGANIZATION}", 
+      "ST": "${STATE}"
+    }
+  ]
+}
+EOF
+}
+
 # ./scripts/gen-certs.sh -p server -c etcd -h localhost,127.0.0.1,etcd -o ./proxy/cert/etcd
 generate_cert() {
     ensure_directory_exists
+    generate_cert_template $NAME
     echo -e "${YELLOW}Generating certificate for ${NAME} with common name ${COMMON_NAME} and hosts ${HOSTS} ${COLOR_OFF}"
 
     JSON_HOSTS=$(echo "$HOSTS" | jq -R 'split(",")')
@@ -57,7 +162,7 @@ generate_cert() {
     echo "${OUTPUT_DIR}/${NAME}-csr.json"
 
     mkdir -p "${OUTPUT_DIR}"
-    jq --arg cn "$COMMON_NAME" --argjson hosts "$JSON_HOSTS" '.CN = $cn | .hosts = $hosts' "${BASE_DIR}/csr-template.json" > "${OUTPUT_DIR}/${NAME}-csr.json"
+    jq --arg cn "$COMMON_NAME" --argjson hosts "$JSON_HOSTS" '.CN = $cn | .hosts = $hosts' "${BASE_DIR}/${NAME}-template.json" > "${OUTPUT_DIR}/${NAME}-csr.json"
 
 
     # sed "s/COMMON_NAME/$COMMON_NAME/g; s/HOSTS/$JSON_HOSTS/g" "${BASE_DIR}/csr-template.json" > "${OUTPUT_DIR}/${NAME}-csr.json"
@@ -88,6 +193,7 @@ generate_cert() {
 
 function generate_etcd() {
     ensure_directory_exists
+    generate_cert_template "etcd-peer"
     echo -e "${YELLOW}Generating etcd peer certificate $COLOR_OFF"
     ./scripts/gen-certs.sh \
         -p peer \

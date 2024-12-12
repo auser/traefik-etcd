@@ -1412,7 +1412,6 @@ mod tests {
         );
         // Global service exists
         assert!(result.is_ok());
-        println!("pairs: {:#?}", pairs);
         assert_contains_pair(
             &pairs,
             "test/http/routers/test-example-com-test-router/service redirector",

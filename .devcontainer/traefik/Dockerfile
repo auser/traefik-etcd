@@ -33,6 +33,10 @@ COPY ./.devcontainer/traefik/dynamic.yml /etc/traefik/dynamic_conf.yaml
 # Nope, but good enough for now
 
 # Server certificates
+COPY $CERT_DIR/ca.pem /etc/traefik/tls/ca.pem
+COPY $CERT_DIR/traefik.pem /etc/traefik/tls/server.pem
+COPY $CERT_DIR/traefik-key.pem /etc/traefik/tls/server-key.pem
+
 COPY $CERT_DIR/etcd.pem /etc/traefik/tls/etcd.pem
 COPY $CERT_DIR/etcd-key.pem /etc/traefik/tls/etcd-key.pem
 COPY $CERT_DIR/ca.pem /etc/traefik/tls/ca.pem

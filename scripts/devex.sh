@@ -6,10 +6,10 @@ source $DIR_PATH/colors.sh
 IMAGE_NAME="auser/traefikctl"
 IMAGE_TAG="latest"
 CONTAINER_NAME="traefikctl_devcontainer-development"
-FORCE_REBUILD_IMAGE=false
-FORCE_RESET_CONTAINER=false
+FORCE_REBUILD_IMAGE="false"
+FORCE_RESET_CONTAINER="false"
 DOCKER_DIR=".devcontainer"
-RUN_PRIVILEGED=false
+RUN_PRIVILEGED="false"
 VERBOSE="false"
 ADDITIONAL_ARGS=""
 declare -a MOUNTS=("$(pwd):/workspace")
@@ -17,7 +17,7 @@ declare -a MOUNTS=("$(pwd):/workspace")
 # Check if devcontainer binary exists
 DEVCONTAINER_BIN=$(which devcontainer 2>/dev/null)
 if [[ -z "$DEVCONTAINER_BIN" ]]; then
-    printf "${Red}Error: devcontainer CLI not found. Please install it first.${COLOR_OFF}\n"
+    printf "${RED}Error: devcontainer CLI not found. Please install it first.${COLOR_OFF}\n"
     exit 1
 fi
 
@@ -42,16 +42,16 @@ build_image() {
     cmd+=($DOCKER_DIR)
 
     if [[ "$VERBOSE" == "true" ]]; then
-        printf "${BBlack}%s" echo -e "${BBlack}-------- Docker command --------${COLOR_OFF}"
-        printf "${BBlack}%s" echo -e "${Green}${cmd[@}${COLOR_OFF}"
+        printf "${BBLACK}%s" echo -e "${BBLACK}-------- Docker command --------${COLOR_OFF}"
+        printf "${BBLACK}%s" echo -e "${GREEN}${cmd[@}${COLOR_OFF}"
     fi
 
     "${cmd[@}"
 
     if [[ $? -eq 0 ]]; then
-        printf "${BBlack}${Green}%s${COLOR_OFF}" "Image $IMAGE_NAME:$IMAGE_TAG built successfully"
+        printf "${BBLACK}${GREEN}%s${COLOR_OFF}" "Image $IMAGE_NAME:$IMAGE_TAG built successfully"
     else
-        printf "${BBlack}${Red}%s${COLOR_OFF}" "Failed to build image $IMAGE_NAME:$IMAGE_TAG"
+        printf "${BBLACK}${RED}%s${COLOR_OFF}" "Failed to build image $IMAGE_NAME:$IMAGE_TAG"
         exit 1
     fi
 
@@ -59,7 +59,11 @@ build_image() {
 }
 
 reset_container() {
-    echo -e "${BBlack}Resetting container...${COLOR_OFF}"
+    echo -e "${BBLACK}${YELLOW}Resetting container...${COLOR_OFF}"
+    ARGS=""
+
+    echo "FORCE_REBUILD_IMAGE: $FORCE_REBUILD_IMAGE"
+    echo "FORCE_RESET_CONTAINER: $FORCE_RESET_CONTAINER"
     if [[ "$FORCE_REBUILD_IMAGE" == "true" ]]; then
         ARGS="--build-no-cache"
     fi
@@ -68,6 +72,7 @@ reset_container() {
         ARGS="$ARGS --remove-existing-container"
     fi
 
+    echo "$DEVCONTAINER_BIN up $ARGS"
     $DEVCONTAINER_BIN up $ARGS
 }
 
@@ -91,8 +96,8 @@ start_container() {
         cmd+=(-d "$IMAGE_NAME" /sbin/init)
 
         if [[ "$VERBOSE" == "true" ]]; then
-            echo_color "BBlack" "-------- Docker command --------"
-            echo_color "Green" "${cmd[@}"
+            echo_color "BBLACK" "-------- Docker command --------"
+            echo_color "GREEN" "${cmd[@}"
         fi
 
         # Execute the command

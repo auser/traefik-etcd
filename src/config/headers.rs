@@ -373,7 +373,6 @@ mod tests {
             .build();
         let pairs = headers.to_etcd_pairs("test").unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
-        println!("pair_strs: {:?}", pair_strs);
         assert!(pair_strs.contains(
             &"headers/accessControlAllowHeaders Content-Type, Content-Length".to_string()
         ));

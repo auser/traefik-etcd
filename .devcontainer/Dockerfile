@@ -134,7 +134,11 @@ RUN curl -fsSL https://github.com/cloudflare/cfssl/releases/download/v1.6.4/cfss
     && curl -fsSL https://github.com/cloudflare/cfssl/releases/download/v1.6.4/cfssljson_1.6.4_linux_arm64 -o /usr/local/bin/cfssljson \
     && chmod +x /usr/local/bin/cfssl /usr/local/bin/cfssljson
 
-RUN mkdir -p /workspace && chown -R $USERNAME:$USERNAME /workspace && chown -R $USERNAME:$USERNAME /usr/local
+RUN mkdir -p /workspace \
+    && mkdir -p /workspace/target \
+    && chown -R $USERNAME:$USERNAME /workspace \
+    && chown -R $USERNAME:$USERNAME /workspace/target \
+    && chown -R $USERNAME:$USERNAME /usr/local
 
 USER $USERNAME
 
