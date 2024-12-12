@@ -57,6 +57,17 @@ pub fn validate_hostname(hostname: &str) -> TraefikResult<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
+pub fn validate_protocol(protocol: &str) -> TraefikResult<()> {
+    if protocol != "http" && protocol != "https" {
+        return Err(TraefikError::DeploymentConfig(format!(
+            "Invalid protocol '{}' in deployment",
+            protocol
+        )));
+    }
+    Ok(())
+}
+
 pub fn validate_port(port: u16) -> TraefikResult<()> {
     if !(1..=65535).contains(&port) {
         return Err(TraefikError::DeploymentConfig(format!(
