@@ -2,6 +2,7 @@ use crate::error::TraefikResult;
 
 pub mod client;
 pub mod rules;
+pub mod templating;
 pub mod util;
 
 pub static TCP_BASE_KEY: &str = "traefik/tcp";

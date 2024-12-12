@@ -40,6 +40,7 @@ pub fn create_test_deployment() -> DeploymentConfig {
         selection: None,
         protocol: DeploymentProtocol::Http,
         middlewares: None,
+        middleware_templates: None,
     }
 }
 
@@ -66,6 +67,7 @@ pub fn create_test_host() -> HostConfig {
             selection: None,
             protocol: DeploymentProtocol::Http,
             middlewares: None,
+            middleware_templates: None,
         },
     );
 
@@ -86,6 +88,7 @@ pub fn create_test_host() -> HostConfig {
                     selection: None,
                     protocol: DeploymentProtocol::Http,
                     middlewares: None,
+                    middleware_templates: None,
                 },
             );
             map
@@ -196,6 +199,7 @@ pub fn create_test_config(host_configs: Option<Vec<HostConfig>>) -> TraefikConfi
                     selection: None,
                     protocol: DeploymentProtocol::Http,
                     middlewares: None,
+                    middleware_templates: None,
                 },
             )]),
             middlewares: vec!["enable-headers".to_string()],
@@ -233,6 +237,7 @@ pub fn create_test_middleware() -> HashMap<String, MiddlewareConfig> {
                 circuit_breaker: None,
                 redirect_regex: None,
                 redirect_scheme: None,
+                runtime_headers: None,
                 headers: Some(HeadersConfig {
                     headers: HashMap::from([
                         ("frameDeny".to_string(), "true".to_string()),
@@ -291,6 +296,7 @@ pub fn create_test_middleware() -> HashMap<String, MiddlewareConfig> {
                 circuit_breaker: None,
                 redirect_regex: None,
                 redirect_scheme: None,
+                runtime_headers: None,
             },
         ),
     ])
@@ -321,5 +327,6 @@ pub fn create_base_middleware_config() -> MiddlewareConfig {
         circuit_breaker: None,
         name: "test-middleware".to_string(),
         protocol: "http".to_string(),
+        runtime_headers: None,
     }
 }

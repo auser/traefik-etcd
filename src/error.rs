@@ -80,6 +80,9 @@ pub enum TraefikError {
     #[cfg(feature = "api")]
     #[error("Migration error: {0}")]
     MigrationError(String),
+
+    #[error("Middleware template error: {0}")]
+    MiddlewareTemplateError(String),
 }
 
 impl From<Box<dyn std::error::Error>> for TraefikError {

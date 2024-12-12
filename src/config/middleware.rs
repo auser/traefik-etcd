@@ -10,7 +10,7 @@ use export_type::ExportType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::headers::HeadersConfig;
+use super::headers::{HeadersConfig, RuntimeHeadersConfig};
 
 #[derive(Debug, Serialize, Deserialize, Clone, JsonSchema, Default)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
@@ -133,6 +133,9 @@ pub struct MiddlewareConfig {
     /// The circuit breaker configuration
     #[serde(skip_serializing_if = "Option::is_none")]
     pub circuit_breaker: Option<CircuitBreakerConfig>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub runtime_headers: Option<RuntimeHeadersConfig>,
 }
 
 // Add configuration structs for each middleware type
@@ -311,6 +314,7 @@ impl Default for MiddlewareConfig {
             circuit_breaker: None,
             redirect_regex: None,
             redirect_scheme: None,
+            runtime_headers: None,
         }
     }
 }
@@ -336,14 +340,24 @@ impl MiddlewareConfig {
 
 impl ToEtcdPairs for MiddlewareConfig {
     fn to_etcd_pairs(&self, root_base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
+        println!(
+            "MiddlewareConfig::to_etcd_pairs root_base_key: {}",
+            root_base_key
+        );
         let mut pairs = Vec::new();
 
         // let base_key = format!("{}/{}", base_key, self.name);
         let base_key = self.name.clone();
+        // let base_key = "".to_string();
+        println!("MiddlewareConfig::to_etcd_pairs base_key: {}", base_key);
 
         // All middleware configurations should be under the protocol path
         if let Some(headers) = &self.headers {
             pairs.extend(headers.to_etcd_pairs(&base_key)?);
+        }
+
+        if let Some(runtime_headers) = &self.runtime_headers {
+            pairs.extend(runtime_headers.to_etcd_pairs(&base_key)?);
         }
 
         if let Some(forward_auth) = &self.forward_auth {
@@ -381,10 +395,15 @@ impl ToEtcdPairs for MiddlewareConfig {
         let prefixed_pairs = pairs
             .iter()
             .map(|pair| {
-                EtcdPair::new(
-                    format!("{}/{}/{}", root_base_key, base_key, pair.key()),
-                    pair.value(),
-                )
+                let prefixed_key = format!("{}/{}/{}", root_base_key, base_key, pair.key());
+                println!(
+                    "prefixed_pairs key: {root_base_key}|{base_key}|{pair_key} ->{prefixed_key}",
+                    root_base_key = root_base_key,
+                    base_key = base_key,
+                    pair_key = pair.key(),
+                    prefixed_key = prefixed_key,
+                );
+                EtcdPair::new(prefixed_key, pair.value())
             })
             .collect();
 
@@ -413,10 +432,6 @@ impl Validate for MiddlewareConfig {
 impl MiddlewareConfig {
     pub fn get_safe_key(&self) -> String {
         get_safe_key(&self.name)
-    }
-
-    pub fn get_path(&self, base_key: &str) -> String {
-        format!("{}/{}/middlewares", base_key, self.protocol,)
     }
 }
 
@@ -504,7 +519,7 @@ mod tests {
         let middleware = create_test_middleware();
         let mut result_pairs = vec![];
         for (_name, middleware) in middleware {
-            let base_key = middleware.get_path("test");
+            let base_key = "test/http/middlewares";
             let pairs = middleware.to_etcd_pairs(&base_key).unwrap();
             result_pairs.extend(pairs);
         }

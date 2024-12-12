@@ -145,7 +145,7 @@ impl ToEtcdPairs for TraefikConfig {
         // Start with middleware rules
         for (name, middleware) in self.middlewares.clone().iter_mut() {
             middleware.set_name(name);
-            let middleware_base_key = middleware.get_path(base_key);
+            let middleware_base_key = format!("{}/http/middlewares", base_key);
             let new_rules = middleware.to_etcd_pairs(&middleware_base_key)?;
             debug!("New rules middleware rules: {:?}", new_rules);
             for new_rule in new_rules.iter().cloned() {

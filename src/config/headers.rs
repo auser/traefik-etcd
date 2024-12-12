@@ -304,6 +304,22 @@ impl HeadersConfig {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, JsonSchema)]
+#[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
+#[cfg_attr(feature = "codegen", derive(ExportType))]
+#[export_type(rename_all = "camelCase", path = "generated/types")]
+pub struct RuntimeHeadersConfig {
+    #[serde(default)]
+    pub template_headers: HashMap<String, String>,
+}
+
+impl ToEtcdPairs for RuntimeHeadersConfig {
+    fn to_etcd_pairs(&self, _base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
+        // This should never be called directly - template processing happens in InternalDeploymentConfig
+        Ok(Vec::new())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

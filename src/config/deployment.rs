@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display};
 
 use crate::{
     core::{
@@ -11,7 +11,7 @@ use export_type::ExportType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::selections::SelectionConfig;
+use super::{middleware::MiddlewareConfig, selections::SelectionConfig};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default, JsonSchema)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::Type))]
@@ -172,6 +172,8 @@ pub struct DeploymentConfig {
     /// The middlewares of the deployment
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub middlewares: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub middleware_templates: Option<HashMap<String, MiddlewareConfig>>,
 }
 
 impl Default for DeploymentConfig {
@@ -183,6 +185,7 @@ impl Default for DeploymentConfig {
             selection: None,
             protocol: default_protocol(),
             middlewares: None,
+            middleware_templates: None,
         }
     }
 }
@@ -228,6 +231,7 @@ pub struct DeploymentConfigBuilder {
     selection: Option<SelectionConfig>,
     protocol: Option<DeploymentProtocol>,
     middlewares: Option<Vec<String>>,
+    middleware_templates: Option<HashMap<String, MiddlewareConfig>>,
 }
 
 impl DeploymentConfigBuilder {
@@ -266,6 +270,14 @@ impl DeploymentConfigBuilder {
         self
     }
 
+    pub fn middleware_templates(
+        mut self,
+        middleware_templates: HashMap<String, MiddlewareConfig>,
+    ) -> Self {
+        self.middleware_templates = Some(middleware_templates);
+        self
+    }
+
     pub fn build(self) -> DeploymentConfig {
         let target = self.target.unwrap_or(DeploymentTarget::default());
         DeploymentConfig {
@@ -274,6 +286,7 @@ impl DeploymentConfigBuilder {
             selection: self.selection,
             protocol: self.protocol.unwrap_or(default_protocol()),
             middlewares: self.middlewares,
+            middleware_templates: self.middleware_templates,
             name: self.name.unwrap_or("deployment".to_string()),
         }
     }

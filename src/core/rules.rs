@@ -2,9 +2,13 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
+use serde_json::json;
+use tera::{Context, Tera};
 use tracing::{debug, error};
 
 use crate::config::deployment::{DeploymentProtocol, DeploymentTarget};
+use crate::config::headers::HeadersConfig;
+use crate::config::middleware::MiddlewareConfig;
 use crate::config::services::ServiceConfig;
 use crate::core::util::get_safe_key;
 use crate::error::TraefikError;
@@ -296,14 +300,31 @@ fn default_weight() -> usize {
 impl ToEtcdPairs for InternalDeploymentConfig {
     fn to_etcd_pairs(&self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
         let mut internal_deployment = self.clone();
-        internal_deployment.init();
+        let internal_deployment = internal_deployment.init();
         let mut pairs = Vec::new();
+
         let mut rules = internal_deployment.rules.clone();
+
+        // Process middleware templates and add them to pairs
+        let processed_middlewares = self.process_middleware_templates()?;
+        debug!("Processed middlewares: {:#?}", processed_middlewares);
+        let mut traefik_config = internal_deployment.traefik_config.clone();
+
+        for (name, middleware) in processed_middlewares {
+            debug!(
+                "Adding middleware In InternalDeploymentConfig: {} => {:#?}",
+                name, middleware
+            );
+            println!("base_key: {}", base_key);
+
+            traefik_config.middlewares.insert(name, middleware.clone());
+            // pairs.extend(middleware.to_etcd_pairs(&base_key)?);
+        }
 
         add_deployment_rules(
             &self.host_config,
-            &[internal_deployment],
-            self.traefik_config.services.as_ref(),
+            &[internal_deployment.clone()],
+            traefik_config.services.as_ref(),
             &mut pairs,
             base_key,
             &mut rules,
@@ -315,6 +336,8 @@ impl ToEtcdPairs for InternalDeploymentConfig {
 impl InternalDeploymentConfig {
     pub fn init(&mut self) -> &mut Self {
         let mut rules = self.rules.clone();
+        debug!("Initializing deployment config for {}", self.name);
+
         match self.deployment.protocol {
             DeploymentProtocol::Http => {
                 rules.add_host_rule(&self.host_config.domain);
@@ -336,7 +359,103 @@ impl InternalDeploymentConfig {
         self.rules = rules;
         // Add the weight of the rules to the weight of the deployment
         self.weight += 1000 + self.rules.get_weight();
+
         self
+    }
+
+    fn process_middleware_templates(&self) -> TraefikResult<Vec<(String, MiddlewareConfig)>> {
+        let mut processed = Vec::new();
+        let mut tera = Tera::default();
+        debug!("Processing middleware templates for {}", self.name);
+
+        if let Some(templates) = &self.deployment.middleware_templates {
+            let context = self.create_template_context()?;
+
+            for (name, template) in templates {
+                debug!(
+                    "Processing middleware templates for {} (or name: {})",
+                    self.name, name
+                );
+                let mut middleware = template.clone();
+                middleware.set_name(&format!("{}-{}-templated", self.name, name));
+
+                if let Some(runtime_headers) = middleware.runtime_headers.take() {
+                    // Note the take()
+                    let mut rendered_headers = HashMap::new();
+
+                    for (header_name, template_value) in &runtime_headers.template_headers {
+                        let rendered = tera
+                            .render_str(template_value, &context)
+                            .map_err(|e| TraefikError::MiddlewareTemplateError(e.to_string()))?;
+
+                        rendered_headers.insert(header_name.clone(), rendered);
+                    }
+
+                    // Set the rendered headers in the headers field
+                    middleware.headers = Some(HeadersConfig {
+                        custom_request_headers: rendered_headers,
+                        ..Default::default()
+                    });
+                }
+
+                processed.push((middleware.name.clone(), middleware));
+            }
+        }
+
+        Ok(processed)
+    }
+
+    fn create_template_context(&self) -> TraefikResult<Context> {
+        debug!("Creating template context for {}", self.name);
+        let mut context = Context::new();
+
+        let service_context = match &self.deployment.target {
+            DeploymentTarget::IpAndPort { ip, port } => {
+                json!({
+                    "service": {
+                        "ip": ip,
+                        "port": port,
+                    }
+                })
+            }
+            DeploymentTarget::Service { service_name } => {
+                if let Some(services) = &self.traefik_config.services {
+                    if let Some(service) = services.get(service_name) {
+                        match &service.deployment.target {
+                            DeploymentTarget::IpAndPort { ip, port } => {
+                                json!({
+                                    "service": {
+                                        "ip": ip,
+                                        "port": port,
+                                    }
+                                })
+                            }
+                            _ => {
+                                return Err(TraefikError::ServiceConfig(format!(
+                                    "Service {} has invalid target type",
+                                    service_name
+                                )))
+                            }
+                        }
+                    } else {
+                        return Err(TraefikError::ServiceConfig(format!(
+                            "Service {} not found",
+                            service_name
+                        )));
+                    }
+                } else {
+                    return Err(TraefikError::ServiceConfig("No services defined".into()));
+                }
+            }
+        };
+
+        context.insert("deployment", &service_context);
+        context.insert("host", &self.host_config);
+        if let Some(path) = &self.path_config {
+            context.insert("path", &path);
+        }
+        context.insert("traefik_config", &self.traefik_config);
+        Ok(context)
     }
 }
 
@@ -397,13 +516,11 @@ fn collect_all_deployments(
     // This is done to ensure that the weights are unique and to make
     // the rule complexity more predictable as well as give an edge to
     // the first deployments added
-    // let total_number_of_deployments = internal_deployments.len();
     let mut internal_deployments_result = Vec::new();
     for internal_deployment in internal_deployments.iter_mut() {
         // Add the host rule
         internal_deployments_result.push(internal_deployment.init().clone());
     }
-
     Ok(internal_deployments_result)
 }
 
@@ -472,14 +589,45 @@ pub fn add_deployment_rules(
             additional_middlewares.push(strip_prefix_middleware_name);
         }
 
+        let mut deployment_traefik_config = deployment.traefik_config.clone();
+        set_all_middleware_names(&mut deployment_traefik_config)?;
+
         let service_name = format!("{}-service", router_name);
+        debug!("Adding deployment rules for {}", router_name);
+        let (calculated_service_name, processed_middlewares) =
+            add_base_service_configuration(pairs, &base_key, &service_name, &deployment, services)?;
+
+        let service_name = calculated_service_name;
+
+        let mut traefik_config = deployment_traefik_config.clone();
+        if !processed_middlewares.is_empty() {
+            let mut processed_middleware_names = Vec::new();
+            for (middleware_name, middleware) in processed_middlewares.iter() {
+                processed_middleware_names.push(middleware_name.clone());
+                let middleware_key = format!("{}/middlewares", base_key);
+                println!(
+                    "from templated middleware middleware_key: {}",
+                    middleware_key
+                );
+                println!("middleware_name: {}", middleware_name);
+                traefik_config
+                    .middlewares
+                    .insert(middleware_name.clone(), middleware.clone());
+                println!(
+                    "traefik_config.middlewares: {:#?}",
+                    traefik_config.middlewares
+                );
+            }
+
+            additional_middlewares.extend(processed_middleware_names);
+        }
 
         debug!(
             "Additional middlewares pre-adding: {:?}",
             additional_middlewares
         );
         let middleware_names = add_middlewares(
-            &deployment.traefik_config,
+            &traefik_config,
             pairs,
             &base_key,
             &router_name,
@@ -489,9 +637,6 @@ pub fn add_deployment_rules(
         )?;
 
         attach_middlewares(pairs, &base_key, &router_name, &middleware_names)?;
-
-        let service_name =
-            add_base_service_configuration(pairs, &base_key, &service_name, deployment, services)?;
 
         // Link router to the correct service based on rule
         pairs.push(EtcdPair::new(
@@ -503,6 +648,13 @@ pub fn add_deployment_rules(
         add_root_router(pairs, &base_key, &router_name, &rule)?;
     }
 
+    Ok(())
+}
+
+fn set_all_middleware_names(traefik_config: &mut TraefikConfig) -> TraefikResult<()> {
+    for (name, middleware) in traefik_config.middlewares.iter_mut() {
+        middleware.set_name(name);
+    }
     Ok(())
 }
 
@@ -562,7 +714,7 @@ fn add_base_service_configuration(
     service_name: &str,
     internal_deployment_config: &InternalDeploymentConfig,
     services: Option<&HashMap<String, ServiceConfig>>,
-) -> TraefikResult<String> {
+) -> TraefikResult<(String, Vec<(String, MiddlewareConfig)>)> {
     let deployment = internal_deployment_config.deployment.clone();
     // let deployment_protocol = deployment.protocol;
 
@@ -597,8 +749,10 @@ fn add_base_service_configuration(
                     let mut service = service.clone();
                     actual_service_name = service_name.as_str();
                     service.set_name(service_name);
-                    // let service_pairs = service.to_etcd_pairs(base_key)?;
-                    // pairs.extend(service_pairs);
+                    println!("2> service_name: {}", service_name);
+                    println!("2> base_key: {}", base_key);
+                    let service_pairs = service.to_etcd_pairs(base_key)?;
+                    pairs.extend(service_pairs);
                 } else {
                     return Err(TraefikError::ServiceConfig(format!(
                         "Service {} not found",
@@ -613,7 +767,9 @@ fn add_base_service_configuration(
         }
     };
 
-    Ok(actual_service_name.to_string())
+    let processed_middlewares = internal_deployment_config.process_middleware_templates()?;
+
+    Ok((actual_service_name.to_string(), processed_middlewares))
 }
 
 pub fn add_middlewares(
@@ -672,17 +828,24 @@ pub fn add_middlewares(
         middleware_names.push(format!("{}-headers", router_name));
     }
 
+    println!(
+        "traefik_config.middlewares: {:#?}",
+        traefik_config.middlewares
+    );
+
     // Add additional middlewares
-    for middleware in additional_middlewares {
-        match traefik_config.middlewares.get(middleware) {
-            Some(middleware_config) => {
-                let middleware_custom_name = format!("{}-{}", router_name, middleware);
-                let mw_base_key = format!("{}/middlewares/{}", base_key, middleware_custom_name);
+    for middleware_name in additional_middlewares {
+        println!("additional_middlewares: {:?}", additional_middlewares);
+        match traefik_config.middlewares.get(middleware_name) {
+            Some(middleware) => {
+                let mut middleware = middleware.clone();
+                middleware.set_name(&middleware_name);
+                let mw_base_key = format!("{}/middlewares", base_key);
                 debug!(
                     "Adding additional middleware: {} => base_key: {}",
-                    middleware_custom_name, mw_base_key
+                    middleware_name, mw_base_key
                 );
-                let mw_pairs = middleware_config.to_etcd_pairs(&mw_base_key)?;
+                let mw_pairs = middleware.to_etcd_pairs(&mw_base_key)?;
                 debug!("mw_pairs: {:?}", mw_pairs);
                 pairs.extend(mw_pairs);
 
@@ -691,17 +854,17 @@ pub fn add_middlewares(
                         "{}/routers/{}/middlewares/{}",
                         base_key, router_name, middleware_idx
                     ),
-                    middleware.clone(),
+                    middleware_name.clone(),
                 ));
                 middleware_idx += 1;
-                middleware_names.push(middleware_custom_name);
+                middleware_names.push(middleware_name.clone());
             }
             None => {
                 // Strip prefix middleware is handled separately
-                if !middleware.ends_with("-strip") {
+                if !middleware_name.ends_with("-strip") {
                     return Err(TraefikError::MiddlewareConfig(format!(
                         "middleware {} not found",
-                        middleware
+                        middleware_name
                     )));
                 }
             }
@@ -763,7 +926,9 @@ pub fn add_pass_through_middleware(
 mod tests {
 
     use crate::{
-        config::{middleware::MiddlewareConfig, services::ServiceConfig},
+        config::{
+            headers::RuntimeHeadersConfig, middleware::MiddlewareConfig, services::ServiceConfig,
+        },
         test_helpers::{
             assert_contains_pair, assert_does_not_contain_pair, create_complex_test_config,
             create_test_config, create_test_deployment, create_test_host, read_test_config,
@@ -1247,6 +1412,7 @@ mod tests {
         );
         // Global service exists
         assert!(result.is_ok());
+        println!("pairs: {:#?}", pairs);
         assert_contains_pair(
             &pairs,
             "test/http/routers/test-example-com-test-router/service redirector",
@@ -1344,5 +1510,95 @@ mod tests {
             &pairs,
             "test/http/routers/test-example-com-test-router/service test-example-com-test-router-service",
         );
+    }
+
+    #[test]
+    fn test_middleware_template_processing_with_service_context() {
+        let deployment = InternalDeploymentConfig {
+            name: "test".to_string(),
+            deployment: DeploymentConfig {
+                target: DeploymentTarget::IpAndPort {
+                    ip: "10.0.0.1".to_string(),
+                    port: 8080,
+                },
+                middleware_templates: Some(HashMap::from([(
+                    "headers".to_string(),
+                    MiddlewareConfig {
+                        runtime_headers: Some(RuntimeHeadersConfig {
+                            template_headers: HashMap::from([(
+                                "X-ServiceUrl".to_string(),
+                                "http://{{ deployment.service.ip }}:{{ deployment.service.port }}"
+                                    .to_string(),
+                            )]),
+                        }),
+                        ..Default::default()
+                    },
+                )])),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let processed = deployment.process_middleware_templates().unwrap();
+        assert_eq!(processed.len(), 1);
+
+        let (name, middleware) = &processed[0];
+        assert_eq!(name, "test-headers-templated");
+
+        // Check the processed headers instead of runtime_headers
+        if let Some(headers) = &middleware.headers {
+            assert_eq!(
+                headers.custom_request_headers.get("X-ServiceUrl").unwrap(),
+                "http://10.0.0.1:8080"
+            );
+        } else {
+            panic!("Headers not found in processed middleware");
+        }
+    }
+    #[test]
+    fn test_middleware_template_processing_with_traefik_context() {
+        let deployment = InternalDeploymentConfig {
+            name: "test".to_string(),
+            traefik_config: TraefikConfig {
+                name: Some("test".to_string()),
+                ..Default::default()
+            },
+            deployment: DeploymentConfig {
+                target: DeploymentTarget::IpAndPort {
+                    ip: "10.0.0.1".to_string(),
+                    port: 8080,
+                },
+                middleware_templates: Some(HashMap::from([(
+                    "headers".to_string(),
+                    MiddlewareConfig {
+                        runtime_headers: Some(RuntimeHeadersConfig {
+                            template_headers: HashMap::from([(
+                                "X-ServiceName".to_string(),
+                                "{{ traefik_config.name }}".to_string(),
+                            )]),
+                        }),
+                        ..Default::default()
+                    },
+                )])),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let processed = deployment.process_middleware_templates().unwrap();
+        assert_eq!(processed.len(), 1);
+
+        let (name, middleware) = &processed[0];
+        assert_eq!(name, "test-headers-templated");
+
+        // Check the processed headers instead of runtime_headers
+        if let Some(headers) = &middleware.headers {
+            assert_eq!(
+                headers.custom_request_headers.get("X-ServiceName").unwrap(),
+                "test"
+            );
+        } else {
+            panic!("Headers not found in processed middleware");
+        }
     }
 }
