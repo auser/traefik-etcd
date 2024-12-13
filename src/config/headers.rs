@@ -217,23 +217,28 @@ impl ToEtcdPairs for HeadersConfig {
     ) -> TraefikResult<Vec<EtcdPair>> {
         let mut pairs = vec![];
 
+        let base_headers_key = match base_key.is_empty() {
+            true => base_key.to_string(),
+            false => format!("{}/headers", base_key),
+        };
+
         for (key, value) in &self.headers {
             pairs.push(EtcdPair::new(
-                format!("{}/headers/{}", base_key, key),
+                format!("{}/{}", base_headers_key, key),
                 value.resolve(resolver, context)?,
             ));
         }
 
         for (key, value) in &self.custom_request_headers {
             pairs.push(EtcdPair::new(
-                format!("{}/headers/customRequestHeaders/{}", base_key, key),
+                format!("{}/customRequestHeaders/{}", base_headers_key, key),
                 value.resolve(resolver, context)?,
             ));
         }
 
         for (key, value) in &self.custom_response_headers {
             pairs.push(EtcdPair::new(
-                format!("{}/headers/customResponseHeaders/{}", base_key, key),
+                format!("{}/customResponseHeaders/{}", base_headers_key, key),
                 value.resolve(resolver, context)?,
             ));
         }
@@ -245,7 +250,7 @@ impl ToEtcdPairs for HeadersConfig {
                 .map(|m| m.resolve(resolver, context))
                 .collect();
             pairs.push(EtcdPair::new(
-                format!("{}/headers/accessControlAllowMethods", base_key),
+                format!("{}/accessControlAllowMethods", base_headers_key),
                 format_list_value(&resolved_methods?),
             ));
         }
@@ -257,7 +262,7 @@ impl ToEtcdPairs for HeadersConfig {
                 .map(|h| h.resolve(resolver, context))
                 .collect();
             pairs.push(EtcdPair::new(
-                format!("{}/headers/accessControlAllowHeaders", base_key),
+                format!("{}/accessControlAllowHeaders", base_headers_key),
                 format_list_value(&resolved_headers?),
             ));
         }
@@ -269,7 +274,7 @@ impl ToEtcdPairs for HeadersConfig {
                 .map(|h| h.resolve(resolver, context))
                 .collect();
             pairs.push(EtcdPair::new(
-                format!("{}/headers/accessControlExposeHeaders", base_key),
+                format!("{}/accessControlExposeHeaders", base_headers_key),
                 format_list_value(&resolved_headers?),
             ));
         }
@@ -281,14 +286,14 @@ impl ToEtcdPairs for HeadersConfig {
                 .map(|o| o.resolve(resolver, context))
                 .collect();
             pairs.push(EtcdPair::new(
-                format!("{}/headers/accessControlAllowOriginList", base_key),
+                format!("{}/accessControlAllowOriginList", base_headers_key),
                 format_list_value(&resolved_origins?),
             ));
         }
 
         if self.add_vary_header {
             pairs.push(EtcdPair::new(
-                format!("{}/headers/addVaryHeader", base_key),
+                format!("{}/addVaryHeader", base_headers_key),
                 self.add_vary_header.to_string(),
             ));
         }

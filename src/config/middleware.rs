@@ -471,7 +471,11 @@ impl ToEtcdPairs for MiddlewareConfig {
             let header_pairs = headers.to_etcd_pairs("headers", resolver, context)?;
             for pair in header_pairs {
                 // Remove the first 'headers/' from the path
-                let new_key = pair.key().replace("headers/headers/", "headers/");
+                let new_key = pair
+                    .key()
+                    .replace("headers/headers/", "headers/")
+                    .replace("headers/", "");
+                println!("HEADERS NEW KEY new_key: {}", new_key);
                 pairs.push(EtcdPair::new(new_key, pair.value()));
             }
 
