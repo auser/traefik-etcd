@@ -379,8 +379,11 @@ pub fn create_test_resolver() -> TestResolver {
 }
 
 pub fn create_test_template_context() -> TemplateContext {
-    let mut context = TemplateContext::new(Some(TraefikConfig::default()), Vec::<String>::new())
-        .expect("Failed to create template context");
+    let mut context = TemplateContext::new(
+        TraefikConfig::default(),
+        vec!["SERVICE_HOST", "SERVICE_PORT"],
+    )
+    .expect("Failed to create template context");
     context.set_deployment(DeploymentConfig::default());
     context
 }

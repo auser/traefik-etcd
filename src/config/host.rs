@@ -48,6 +48,8 @@ impl Validate for HostConfig {
         resolver: &mut impl TemplateResolver,
         context: &TemplateContext,
     ) -> TraefikResult<()> {
+        let mut host_context = context.clone();
+        host_context.set_host(self.clone());
         // validate domain is not empty
         if self.domain.is_empty() {
             return Err(TraefikError::HostConfig("domain is empty".to_string()));
@@ -55,22 +57,24 @@ impl Validate for HostConfig {
 
         // validate paths if they exist
         for path in self.paths.iter() {
-            path.validate(resolver, &context)?;
+            host_context.set_path_config(path.clone());
+            path.validate(resolver, &host_context)?;
         }
 
         // validate deployments if they exist
         for deployment in self.deployments.values() {
-            deployment.validate(resolver, &context)?;
+            host_context.set_deployment(deployment.clone());
+            deployment.validate(resolver, &host_context)?;
         }
 
         if self.selection.is_some() {
             self.selection
                 .as_ref()
                 .unwrap()
-                .validate(resolver, &context)?;
+                .validate(resolver, &host_context)?;
         }
 
-        self.validate_paths(resolver, &context)?;
+        self.validate_paths(resolver, &host_context)?;
 
         Ok(())
     }

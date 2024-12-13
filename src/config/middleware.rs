@@ -13,6 +13,7 @@ use crate::{
 use export_type::ExportType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use tracing::debug;
 
 use super::headers::{HeadersConfig, RuntimeHeadersConfig};
 
@@ -534,17 +535,22 @@ impl Validate for MiddlewareConfig {
         resolver: &mut impl TemplateResolver,
         context: &TemplateContext,
     ) -> TraefikResult<()> {
+        println!("validate for middleware config context: {:#?}", context);
         if self.name.is_empty() {
             return Err(TraefikError::MiddlewareConfig(
                 "middleware name is empty".into(),
             ));
         }
 
+        debug!("Validating middleware name: {}", self.name);
         validate_is_alphanumeric(&self.name)?;
 
         if let Some(headers) = &self.headers {
+            debug!("Validating headers");
             headers.validate(resolver, context)?;
         }
+
+        debug!("Validated middleware: {}", self.name);
         Ok(())
     }
 }
@@ -964,13 +970,14 @@ mod tests {
 
     #[cfg(test)]
     mod tests {
-        use std::sync::Arc;
 
-        use serde_json::json;
+        use std::collections::HashMap;
 
         use super::*;
-        use crate::config::deployment::{DeploymentConfig, DeploymentTarget};
+        use crate::config::deployment::DeploymentConfig;
+        use crate::config::services::ServiceConfig;
         use crate::core::templating::{TemplateContext, TeraResolver};
+        use crate::TraefikConfig;
 
         #[test]
         fn test_forward_auth_config_templates() -> TraefikResult<()> {
@@ -980,13 +987,13 @@ mod tests {
             auth_response_headers:
                 - "X-Real-Ip"
                 - "ServiceAddr"
-                - "{{ deployment.service.ip }}:{{ deployment.service.port }}"
+                - "{{ deployment.ip }}:{{ deployment.port }}"
                 - "X-Forwarded-*"
             auth_request_headers:
                 - "ServiceURL"
-                - "{{ deployment.service.ip }}:{{ deployment.service.port }}"
+                - "{{ deployment.ip }}:{{ deployment.port }}"
                 - "RequestAddr"
-                - "ServiceURL: http://{{ deployment.service.ip }}:{{ deployment.service.port }}"
+                - "ServiceURL: http://{{ deployment.ip }}:{{ deployment.port }}"
             auth_response_headers_regex: "^X-"
             "#;
 
@@ -996,34 +1003,31 @@ mod tests {
             let deployment = DeploymentConfig::builder()
                 .name("test".to_string())
                 .ip_and_port("10.0.0.1".to_string(), 8080)
+                .service_name("test".to_string())
                 .build();
 
-            // Create service context from deployment
-            let service_json = match &deployment.target {
-                DeploymentTarget::IpAndPort { ip, port } => {
-                    json!({
-                        "ip": ip,
-                        "port": port,
-                    })
-                }
-                _ => unreachable!(),
-            };
+            let test_service = ServiceConfig::builder()
+                .ip_and_port("10.0.0.1".to_string(), 8080)
+                .name("test".to_string())
+                .build();
+
+            let test_traefik_config = TraefikConfig::builder()
+                .services(Some(HashMap::from([(
+                    "test".to_string(),
+                    test_service.clone(),
+                )])))
+                .build()
+                .unwrap();
 
             // Set up resolver and context
             let mut resolver = TeraResolver::new()?;
-            let mut context = TemplateContext::new(None, Vec::<String>::new())?;
-
-            // Add both deployment and service to context
-            if let Some(ctx) = Arc::get_mut(&mut context.context) {
-                ctx.insert(
-                    "deployment",
-                    &json!({
-                        "service": service_json
-                    }),
-                );
-            }
+            let env_vars = vec!["SERVICE_HOST", "SERVICE_PORT"];
+            let mut context = TemplateContext::new(test_traefik_config, env_vars)?;
+            context.set_deployment(deployment);
+            context.set_service(test_service.clone());
 
             // Test template resolution
+            println!("context: {:#?}", context.get_tera_context());
             let pairs = config.to_etcd_pairs("test", &mut resolver, &context)?;
 
             // Verify the templated values

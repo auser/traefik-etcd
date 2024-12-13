@@ -6,6 +6,7 @@ use serde::{
     de::{self, Visitor},
     Deserialize, Deserializer, Serialize,
 };
+use tracing::debug;
 
 use crate::{
     core::{
@@ -310,10 +311,12 @@ impl Validate for HeadersConfig {
         .collect();
 
         for method in &self.access_control_allow_methods {
-            if !valid_methods.contains(method.resolve(resolver, context)?.as_str()) {
+            let method_str = method.resolve(resolver, context)?;
+            debug!("Validating method: {}", method_str);
+            if !valid_methods.contains(method_str.as_str()) {
                 return Err(TraefikError::MiddlewareConfig(format!(
                     "Invalid HTTP method: {}",
-                    method.resolve(resolver, context)?
+                    method_str
                 )));
             }
         }
@@ -337,9 +340,11 @@ impl Validate for HeadersConfig {
         )?;
 
         // Validate header values
+        debug!("Validating custom request headers");
         for (name, value) in &self.custom_request_headers {
             self.validate_header_value(name, value, resolver, context)?;
         }
+        debug!("Validating custom response headers");
         for (name, value) in &self.custom_response_headers {
             self.validate_header_value(name, value, resolver, context)?;
         }
@@ -436,6 +441,7 @@ impl HeadersConfig {
         _context: &TemplateContext,
     ) -> TraefikResult<()> {
         for name in headers.keys() {
+            debug!("Validating header name: {}", name);
             if name.is_empty() {
                 return Err(TraefikError::MiddlewareConfig(
                     "Header name cannot be empty".into(),
@@ -446,11 +452,14 @@ impl HeadersConfig {
                 .chars()
                 .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.' || c == '/')
             {
+                debug!("Invalid header name: {}", name);
                 return Err(TraefikError::MiddlewareConfig(format!(
-                "Invalid header name '{}': must contain only alphanumeric characters, hyphens, underscores, dots, or forward slashes",
-                name
-            )));
+                    "Invalid header name '{}': must contain only alphanumeric characters, hyphens, underscores, dots, or forward slashes",
+                    name
+                )));
             }
+
+            debug!("Validated header name: {}", name);
         }
         Ok(())
     }
@@ -462,9 +471,11 @@ impl HeadersConfig {
         resolver: &mut impl TemplateResolver,
         context: &TemplateContext,
     ) -> TraefikResult<()> {
+        debug!("Validating header list: {}", ctx);
         let mut seen = HashSet::new();
         for header in headers {
             let header_lower = header.resolve(resolver, context)?.to_lowercase();
+            debug!("Validating header: {}", header_lower);
             if !seen.insert(header_lower) {
                 return Err(TraefikError::MiddlewareConfig(format!(
                     "Duplicate header in {}: {}",
@@ -473,7 +484,9 @@ impl HeadersConfig {
                 )));
             }
 
-            if header.resolve(resolver, context)?.is_empty() {
+            let resolved_header = header.resolve(resolver, context)?;
+            debug!("Validating header: {}", resolved_header);
+            if resolved_header.is_empty() {
                 return Err(TraefikError::MiddlewareConfig(format!(
                     "Empty header name in {}",
                     ctx
@@ -490,11 +503,22 @@ impl HeadersConfig {
         resolver: &mut impl TemplateResolver,
         context: &TemplateContext,
     ) -> TraefikResult<()> {
-        if value
-            .resolve(resolver, context)?
-            .chars()
-            .any(|c| c.is_control() && c != '\t')
-        {
+        println!("value: {:#?}", value);
+        match value {
+            TemplateOr::Static(v) => {
+                debug!("Validating static header value: {}", v);
+            }
+            TemplateOr::Template(v) => {
+                debug!("Validating template header value: {}", v);
+            }
+        }
+        println!("context: {:#?}", context);
+        debug!(
+            "Validating header value: {}",
+            value.resolve(resolver, context).unwrap_or_default()
+        );
+        let resolved_value = value.resolve(resolver, context)?;
+        if resolved_value.chars().any(|c| c.is_control() && c != '\t') {
             return Err(TraefikError::MiddlewareConfig(format!(
                 "Invalid value for header '{}': contains control characters",
                 name

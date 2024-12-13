@@ -374,40 +374,32 @@ impl InternalDeploymentConfig {
 
     fn process_middleware_templates(&self) -> TraefikResult<Vec<(String, MiddlewareConfig)>> {
         let mut processed = Vec::new();
-        let mut tera = Tera::default();
         debug!("Processing middleware templates for {}", self.name);
 
         if let Some(templates) = &self.deployment.middleware_templates {
             let context = self.create_template_context()?;
+            let mut tera = Tera::default();
 
             for (name, template) in templates {
-                debug!(
-                    "Processing middleware templates for {} (or name: {})",
-                    self.name, name
-                );
                 let mut middleware = template.clone();
                 middleware.set_name(&format!("{}-{}-templated", self.name, name));
 
-                if let Some(runtime_headers) = middleware.runtime_headers.take() {
-                    // Note the take()
+                // Convert runtime_headers to headers
+                if let Some(runtime_headers) = &template.runtime_headers {
                     let mut rendered_headers = HashMap::new();
 
                     for (header_name, template_value) in &runtime_headers.template_headers {
                         let rendered = tera
                             .render_str(template_value, &context)
                             .map_err(|e| TraefikError::MiddlewareTemplateError(e.to_string()))?;
-
-                        rendered_headers.insert(header_name.clone(), rendered);
+                        rendered_headers.insert(header_name.clone(), TemplateOr::Static(rendered));
                     }
 
-                    // Set the rendered headers in the headers field
                     middleware.headers = Some(HeadersConfig {
-                        custom_request_headers: rendered_headers
-                            .into_iter()
-                            .map(|(k, v)| (k, TemplateOr::Static(v)))
-                            .collect(),
+                        custom_request_headers: rendered_headers,
                         ..Default::default()
                     });
+                    middleware.runtime_headers = None;
                 }
 
                 processed.push((middleware.name.clone(), middleware));
@@ -578,17 +570,29 @@ pub fn add_deployment_rules(
     resolver: &mut impl TemplateResolver,
     context: &TemplateContext,
 ) -> TraefikResult<()> {
-    for deployment in sorted_deployments.iter() {
+    for internal_deployment in sorted_deployments.iter() {
+        let mut deployment_context = context.clone();
+
+        println!("internal_deployment: {:#?}", internal_deployment.deployment);
+        println!("Adding deployment rules for {}", internal_deployment.name);
+        deployment_context.set_deployment(internal_deployment.deployment.clone());
+        println!("deployment_context: {:#?}", deployment_context);
+        deployment_context.set_host(host.clone());
+
+        if let Some(path) = &internal_deployment.path_config {
+            deployment_context.set_path_config(path.clone());
+        }
+
         let router_name = match host.domain.as_str() {
-            "" => format!("{}-router", get_safe_key(&deployment.name)),
+            "" => format!("{}-router", get_safe_key(&internal_deployment.name)),
             domain => format!(
                 "{}-{}-router",
                 get_safe_key(domain),
-                get_safe_key(&deployment.name)
+                get_safe_key(&internal_deployment.name)
             ),
         };
         let rule = rules.clone();
-        let deployment_protocol = &deployment.deployment.protocol;
+        let deployment_protocol = &internal_deployment.deployment.protocol;
         let base_key = format!("{}/{}", base_key, deployment_protocol);
 
         debug!("Adding deployment middlewares for {}", router_name);
@@ -597,13 +601,13 @@ pub fn add_deployment_rules(
             pairs,
             &base_key,
             &router_name,
-            deployment.path_config.clone(),
+            internal_deployment.path_config.clone(),
         )?;
         if let Some(strip_prefix_middleware_name) = strip_prefix_name.clone() {
             additional_middlewares.push(strip_prefix_middleware_name);
         }
 
-        let mut deployment_traefik_config = deployment.traefik_config.clone();
+        let mut deployment_traefik_config = internal_deployment.traefik_config.clone();
         set_all_middleware_names(&mut deployment_traefik_config)?;
 
         let service_name = format!("{}-service", router_name);
@@ -612,10 +616,10 @@ pub fn add_deployment_rules(
             pairs,
             &base_key,
             &service_name,
-            &deployment,
+            &internal_deployment,
             services,
             resolver,
-            context,
+            &deployment_context,
         )?;
 
         let service_name = calculated_service_name;
@@ -647,7 +651,7 @@ pub fn add_deployment_rules(
             strip_prefix_name.as_deref(),
             host,
             resolver,
-            context,
+            &deployment_context,
         )?;
 
         attach_middlewares(pairs, &base_key, &router_name, &middleware_names)?;
@@ -839,9 +843,11 @@ pub fn add_middlewares(
 
     // First add any templated header middlewares
     for middleware_name in additional_middlewares {
+        debug!("Checking middleware: {}", middleware_name);
         if middleware_name.ends_with("-templated") {
             match traefik_config.middlewares.get(middleware_name) {
                 Some(middleware) => {
+                    debug!("Adding templated middleware: {}", middleware_name);
                     let mut middleware = middleware.clone();
                     middleware.set_name(middleware_name);
                     let mw_base_key = format!("{}/middlewares", base_key);
@@ -878,7 +884,7 @@ pub fn add_middlewares(
                         middleware_name, mw_base_key
                     );
                     let mw_pairs = middleware.to_etcd_pairs(&mw_base_key, resolver, context)?;
-                    debug!("non-templated mw_pairs: {:?}", mw_pairs);
+                    debug!("non-templated mw_pairs: {:#?}", mw_pairs);
                     pairs.extend(mw_pairs);
                     middleware_names.push(middleware_name.clone());
                 }

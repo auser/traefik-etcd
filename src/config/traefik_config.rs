@@ -4,14 +4,14 @@ use chrono::{DateTime, Utc};
 use export_type::ExportType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, error};
+use tracing::{debug, error, trace};
 
 use crate::{
     core::{
         client::StoreClient,
         etcd_trait::{EtcdPair, ToEtcdPairs},
         rules::{add_deployment_rules, get_sorted_deployments, RouterRule},
-        templating::{create_template_context, TemplateContext, TemplateResolver, TeraResolver},
+        templating::{TemplateContext, TemplateResolver, TeraResolver},
         Validate,
     },
     error::{TraefikError, TraefikResult},
@@ -119,8 +119,17 @@ impl TraefikConfig {
     }
 
     pub fn context(&self) -> TraefikResult<TemplateContext> {
-        let context = create_template_context(&self, None, None, None)?;
+        let env_vars = vec!["SERVICE_HOST", "SERVICE_PORT"];
+        let context = TemplateContext::new(self.clone(), env_vars)?;
         Ok(context)
+    }
+}
+
+impl TraefikConfig {
+    pub fn get_service(&self, service_name: &str) -> Option<&ServiceConfig> {
+        self.services
+            .as_ref()
+            .and_then(|services| services.get(service_name))
     }
 }
 
@@ -147,6 +156,7 @@ impl ToEtcdPairs for TraefikConfig {
         // rule_set.insert(EtcdPair::new(format!("{}/http", base_key), "true"));
 
         // Add services
+        debug!("Adding global services");
         if let Some(services) = &self.services {
             for (service_name, service) in services.iter() {
                 let mut service = service.clone();
@@ -161,18 +171,22 @@ impl ToEtcdPairs for TraefikConfig {
 
         // self.add_defaults(&mut pairs, base_key)?;
         // Start with middleware rules
-        for (name, middleware) in self.middlewares.clone().iter_mut() {
-            middleware.set_name(name);
-            let middleware_base_key = format!("{}/http/middlewares", base_key);
-            let new_rules = middleware.to_etcd_pairs(&middleware_base_key, resolver, context)?;
-            debug!("New rules middleware rules: {:?}", new_rules);
-            for new_rule in new_rules.iter().cloned() {
-                // pairs.push(new_rule.clone());
-                rule_set.insert(new_rule);
-            }
-        }
+        debug!("Adding middleware rules");
+        // TODO: add middleware before deployment rules, within the scope of a deployment
+        // for (name, middleware) in self.middlewares.clone().iter_mut() {
+        //     middleware.set_name(name);
+        //     let middleware_base_key = format!("{}/http/middlewares", base_key);
+        //     let new_rules = middleware.to_etcd_pairs(&middleware_base_key, resolver, context)?;
+        //     debug!("New rules middleware rules: {:?}", new_rules);
+        //     for new_rule in new_rules.iter().cloned() {
+        //         // pairs.push(new_rule.clone());
+        //         rule_set.insert(new_rule);
+        //     }
+        // }
 
+        debug!("Adding deployment rules");
         let mut pairs = rule_set.into_iter().collect();
+        debug!("Adding deployment rules");
         let sorted_hosts = get_sorted_deployments(self)?;
         for deployment_config in sorted_hosts.iter() {
             let mut rules = deployment_config.rules.clone();
@@ -207,23 +221,28 @@ impl Validate for TraefikConfig {
         resolver: &mut impl TemplateResolver,
         context: &TemplateContext,
     ) -> TraefikResult<()> {
+        let mut validation_context = context.clone();
         // Validate services
+        debug!("Validating services");
         if let Some(services) = &self.services {
             let mut services = services.clone();
             for (name, service) in services.iter_mut() {
                 service.set_name(name);
-                service.validate(resolver, context)?;
+                service.validate(resolver, &mut validation_context)?;
             }
         }
 
         // Validate middlewares
-        let mut middlewares = self.middlewares.clone();
-        for (name, middleware) in middlewares.iter_mut() {
-            middleware.set_name(name);
-            middleware.validate(resolver, context)?;
-        }
+        // Because middleware validation is done in the deployment validation, we don't need to validate them here
+        // debug!("Validating middlewares");
+        // let mut middlewares = self.middlewares.clone();
+        // for (name, middleware) in middlewares.iter_mut() {
+        //     middleware.set_name(name);
+        //     middleware.validate(resolver, &mut validation_context)?;
+        // }
 
         // Validate hosts
+        debug!("Validating hosts");
         let mut domain_set: HashSet<String> = HashSet::new();
         for host in self.hosts.iter() {
             if !domain_set.insert(host.domain.clone()) {
@@ -234,7 +253,8 @@ impl Validate for TraefikConfig {
             }
 
             // Validate host
-            host.validate(resolver, context)?;
+            validation_context.set_host(host.clone());
+            host.validate(resolver, &mut validation_context)?;
 
             // Validate host middleware references
             self.validate_middleware_references(host)?;
@@ -277,11 +297,16 @@ impl TraefikConfig {
         show_rules: bool,
         should_clean: bool,
     ) -> TraefikResult<()> {
-        debug!("applying to etcd: {:#?}", self);
+        trace!("applying to etcd: {:#?}", self);
         let mut resolver = self.resolver()?;
+        debug!("Resolved template");
         let context = self.context()?;
+        debug!("Created context");
+        println!("PRE VALIDATE CONTEXT: {:#?}", context);
         self.validate(&mut resolver, &context)?;
+        debug!("Validated config");
         let pairs = self.to_etcd_pairs(&self.rule_prefix, &mut resolver, &context)?;
+        debug!("Generated pairs");
         let rules = RouterRule::from_pairs(&pairs);
 
         let mut rule_to_priority: HashMap<String, i32> = HashMap::new();
@@ -474,6 +499,7 @@ pub struct TraefikConfigBuilder {
     pub rule_prefix: String,
     pub hosts: Vec<HostConfig>,
     pub middlewares: HashMap<String, MiddlewareConfig>,
+    pub services: Option<HashMap<String, ServiceConfig>>,
 }
 
 impl TraefikConfigBuilder {
@@ -492,8 +518,18 @@ impl TraefikConfigBuilder {
         self
     }
 
+    pub fn services(mut self, services: Option<HashMap<String, ServiceConfig>>) -> Self {
+        self.services = services;
+        self
+    }
+
     pub fn build(&self) -> TraefikResult<TraefikConfig> {
-        Ok(TraefikConfig::default())
+        Ok(TraefikConfig {
+            hosts: self.hosts.clone(),
+            middlewares: self.middlewares.clone(),
+            services: self.services.clone(),
+            ..Default::default()
+        })
     }
 }
 

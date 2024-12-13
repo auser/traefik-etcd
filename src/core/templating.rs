@@ -1,20 +1,21 @@
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use tera::{Context, Tera};
 
 use crate::{
     config::{
         deployment::{DeploymentConfig, DeploymentTarget},
         host::{HostConfig, PathConfig},
+        services::ServiceConfig,
     },
     error::{TraefikError, TraefikResult},
     TraefikConfig,
 };
-
-const FORBIDDEN_KEYS: [&str; 3] = ["deployment", "host", "path"];
 
 #[derive(Debug, Serialize, Deserialize, Clone, JsonSchema, PartialEq, Eq)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
@@ -51,139 +52,164 @@ impl<T: ToString> TemplateOr<T> {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
-pub struct ServiceContext {
-    ip: String,
-    port: u16,
-    name: String,
-}
+// #[derive(Debug, Serialize, Deserialize, Clone, JsonSchema, Default)]
+// pub struct ServiceContext {
+//     service: ServiceConfig,
+//     deployment: DeploymentConfig,
+// }
 
-impl ServiceContext {
-    pub fn new(ip: String, port: u16, name: String) -> Self {
-        Self { ip, port, name }
-    }
-}
+// impl ServiceContext {
+//     pub fn new(service: ServiceConfig, deployment: DeploymentConfig) -> Self {
+//         Self {
+//             service,
+//             deployment,
+//         }
+//     }
+// }
 
-#[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, Clone, JsonSchema, Default)]
 pub struct DeploymentContext {
-    service: ServiceContext,
+    service: ServiceConfig,
     name: String,
 }
 
 impl DeploymentContext {
-    pub fn new(service: ServiceContext, name: String) -> Self {
+    pub fn new(service: ServiceConfig, name: String) -> Self {
         Self { service, name }
     }
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct TemplateContext {
-    pub context: Arc<Context>,
+#[derive(Debug, Default)]
+pub struct DeploymentContextBuilder {
+    service: ServiceConfig,
+    name: String,
 }
 
+impl DeploymentContextBuilder {
+    pub fn service(mut self, service: ServiceConfig) -> Self {
+        self.service = service;
+        self
+    }
+
+    pub fn name(mut self, name: String) -> Self {
+        self.name = name;
+        self
+    }
+
+    pub fn build(self) -> DeploymentContext {
+        DeploymentContext {
+            service: self.service,
+            name: self.name,
+        }
+    }
+}
+
+impl DeploymentContext {
+    pub fn builder() -> DeploymentContextBuilder {
+        DeploymentContextBuilder::default()
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+struct InnerTemplateContext {
+    deployment: DeploymentConfig,
+    host: HostConfig,
+    path: PathConfig,
+    env: HashMap<String, String>,
+    config: TraefikConfig,
+    variables: HashMap<String, serde_json::Value>,
+    service: ServiceConfig,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct TemplateContext {
+    inner: Arc<Mutex<InnerTemplateContext>>,
+}
+
+const FORBIDDEN_KEYS: [&str; 6] = [
+    "deployment",
+    "host",
+    "path",
+    "config",
+    "variables",
+    "service",
+];
 impl TemplateContext {
+    /// Create a new template context
+    ///
+    /// This function initializes the template context with the provided environment variables and Traefik configuration.
+    /// It also sets up the context with the provided environment variables and Traefik configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `traefik_config` - An optional `TraefikConfig` object.
+    /// * `env_vars` - A vector of strings representing environment variables.
+    ///
+    /// # Returns
+    ///
+    /// A `TraefikResult` containing the newly created `TemplateContext` or an error if the context cannot be created.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use traefik_config::{config::traefik_config::TraefikConfig, core::templating::TemplateContext};
+    /// let env_vars = vec!["SERVICE_HOST", "SERVICE_PORT"];
+    /// let traefik_config = TraefikConfig::default();
+    /// let context = TemplateContext::new(traefik_config, env_vars)?;
+    /// ```
     pub fn new<T: ToString>(
-        traefik_config: Option<TraefikConfig>,
+        traefik_config: TraefikConfig,
         env_vars: Vec<T>,
     ) -> TraefikResult<Self> {
-        let mut context = Context::new();
+        let mut inner = InnerTemplateContext::default();
 
         // Initialize with environment variables
-        let mut env_json = json!({});
         for env_var in env_vars {
             let key = env_var.to_string();
             let value = std::env::var(&key).unwrap_or_else(|_| "".to_string());
-            env_json[key] = json!(value);
+            inner.env.insert(key, value);
         }
-        context.insert("env", &env_json);
 
-        if let Some(config) = traefik_config {
-            context.insert("config", &json!(config));
-        }
+        inner.config = traefik_config;
 
         Ok(Self {
-            context: Arc::new(context),
+            inner: Arc::new(Mutex::new(inner)),
         })
     }
 
-    pub fn with_env_vars<T: ToString>(
-        traefik_config: Option<TraefikConfig>,
-        env_vars: Vec<T>,
-    ) -> TraefikResult<Self> {
-        Self::new(traefik_config, env_vars)
-    }
-
-    pub fn get_env_vars(&self) -> Vec<(String, String)> {
-        let mut env_vars = Vec::new();
-        if let Some(env) = self.context.get("env") {
-            if let Some(env_obj) = env.as_object() {
-                for (key, value) in env_obj {
-                    if let Some(value_str) = value.as_str() {
-                        env_vars.push((key.clone(), value_str.to_string()));
-                    }
-                }
-            }
-        }
-        env_vars
-    }
-
+    /// Insert a variable into the template context
+    ///
+    /// This function inserts a variable into the template context.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - A string representing the key of the variable.
+    /// * `value` - A value implementing the `Serialize` trait.
     pub fn insert_variable(&mut self, key: &str, value: impl Serialize) {
-        if let Some(context) = Arc::get_mut(&mut self.context) {
-            context.insert(key, &value);
-        }
-    }
-
-    pub fn get_variable(&self, key: &str) -> Option<serde_json::Value> {
-        self.context.get(key).cloned()
-    }
-
-    pub fn get_variables(&self) -> Vec<(String, serde_json::Value)> {
-        let mut variables = Vec::new();
-        let context_json = self.context.as_ref().clone().into_json();
-        if let Some(obj) = context_json.as_object() {
-            for (key, value) in obj {
-                if !FORBIDDEN_KEYS.contains(&key.as_str()) {
-                    variables.push((key.clone(), value.clone()));
-                }
-            }
-        }
-        variables
+        let mut inner = self.inner.lock().unwrap();
+        inner
+            .variables
+            .insert(key.to_string(), serde_json::to_value(value).unwrap());
     }
 
     pub fn set_deployment(&mut self, deployment: DeploymentConfig) {
-        if let Some(context) = Arc::get_mut(&mut self.context) {
-            context.insert("deployment", &deployment);
-        }
-    }
-
-    pub fn get_deployment(&self) -> Option<DeploymentConfig> {
-        self.context
-            .get("deployment")
-            .and_then(|value| serde_json::from_value::<DeploymentConfig>(value.clone()).ok())
+        let mut inner = self.inner.lock().unwrap();
+        inner.deployment = deployment;
     }
 
     pub fn set_host(&mut self, host: HostConfig) {
-        if let Some(context) = Arc::get_mut(&mut self.context) {
-            context.insert("host", &host);
-        }
+        let mut inner = self.inner.lock().unwrap();
+        inner.host = host;
     }
 
-    pub fn get_host(&self) -> Option<HostConfig> {
-        self.context
-            .get("host")
-            .and_then(|value| serde_json::from_value::<HostConfig>(value.clone()).ok())
+    pub fn set_service(&mut self, service: ServiceConfig) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.service = service;
     }
 
-    pub fn set_path(&mut self, path: PathConfig) {
-        if let Some(context) = Arc::get_mut(&mut self.context) {
-            context.insert("path", &path);
-        }
-    }
-
-    pub fn get_path(&self) -> Option<PathConfig> {
-        self.context
-            .get("path")
-            .and_then(|value| serde_json::from_value::<PathConfig>(value.clone()).ok())
+    pub fn set_path_config(&mut self, path: PathConfig) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.path = path;
     }
 
     pub fn add_variable<T: serde::Serialize>(&mut self, key: &str, value: T) -> TraefikResult<()> {
@@ -193,21 +219,60 @@ impl TemplateContext {
         let value = serde_json::to_value(value)
             .map_err(|e| TraefikError::Template(format!("Failed to serialize value: {}", e)))?;
 
-        if let Some(context) = Arc::get_mut(&mut self.context) {
-            context.insert(key, &value);
-        }
+        let mut inner = self.inner.lock().unwrap();
+        inner.variables.insert(key.to_string(), value);
+
         Ok(())
     }
 
     pub fn add_env_var(&mut self, key: &str, value: &str) {
-        if let Some(context) = Arc::get_mut(&mut self.context) {
-            let mut env = context
-                .get("env")
-                .and_then(|v| v.as_object().cloned())
-                .unwrap_or_default();
-            env.insert(key.to_string(), json!(value));
-            context.insert("env", &env);
+        let mut inner = self.inner.lock().unwrap();
+        inner.env.insert(key.to_string(), value.to_string());
+    }
+}
+
+impl TemplateContext {
+    pub fn get_tera_context(&self) -> Arc<Context> {
+        let inner = self.inner.lock().unwrap();
+        let mut context = Context::new();
+        for (key, value) in &inner.variables {
+            context.insert(key, value);
         }
+        for (key, value) in &inner.env {
+            context.insert(key, value);
+        }
+        let traefik_config = inner.config.clone();
+        let deployment = inner.deployment.clone();
+        let mut deployment_json = serde_json::to_value(deployment.clone()).unwrap();
+        match &deployment.target {
+            DeploymentTarget::IpAndPort { ip, port } => {
+                deployment_json["ip"] = serde_json::to_value(ip).unwrap();
+                deployment_json["port"] = serde_json::to_value(port).unwrap();
+            }
+            DeploymentTarget::Service { service_name } => {
+                let service_name = service_name.clone();
+                match traefik_config.get_service(&service_name) {
+                    Some(service) => match &service.deployment.target {
+                        DeploymentTarget::IpAndPort { ip, port } => {
+                            deployment_json["ip"] = serde_json::to_value(ip).unwrap();
+                            deployment_json["port"] = serde_json::to_value(port).unwrap();
+                        }
+                        DeploymentTarget::Service { service_name } => {
+                            deployment_json["service_name"] =
+                                serde_json::to_value(service_name).unwrap();
+                        }
+                    },
+                    None => {}
+                }
+            }
+        }
+        context.insert("deployment", &deployment_json);
+        context.insert("host", &inner.host);
+        context.insert("path", &inner.path);
+        context.insert("config", &inner.config);
+        context.insert("service", &inner.service);
+        context.insert("traefik", &inner.config);
+        Arc::new(context)
     }
 }
 
@@ -238,83 +303,15 @@ impl TemplateResolver for TeraResolver {
         tera.add_raw_template(&template_name, template)
             .map_err(|e| TraefikError::Template(format!("Failed to add template: {}", e)))?;
 
+        let tera_context = template_context.get_tera_context();
+
         let result = self
             .tera
-            .render(&template_name, &template_context.context)
+            .render(&template_name, &tera_context)
             .map_err(|e| TraefikError::Template(format!("Failed to render template: {}", e)))?;
 
         Ok(result)
     }
-}
-
-pub fn create_template_context(
-    traefik_config: &TraefikConfig,
-    deployment: Option<DeploymentConfig>,
-    host_config: Option<HostConfig>,
-    path_config: Option<PathConfig>,
-) -> TraefikResult<TemplateContext> {
-    let mut context = Context::new();
-
-    // Initialize with empty environment variables
-    context.insert("env", &json!({}));
-
-    if let Some(deployment) = deployment {
-        let service_context = match &deployment.target {
-            DeploymentTarget::IpAndPort { ip, port } => {
-                json!({
-                    "service": {
-                        "ip": ip,
-                        "port": port,
-                    }
-                })
-            }
-            DeploymentTarget::Service { service_name } => {
-                if let Some(services) = &traefik_config.services {
-                    if let Some(service) = services.get(service_name) {
-                        match &service.deployment.target {
-                            DeploymentTarget::IpAndPort { ip, port } => {
-                                json!({
-                                    "service": {
-                                        "ip": ip,
-                                        "port": port,
-                                    }
-                                })
-                            }
-                            _ => {
-                                return Err(TraefikError::ServiceConfig(format!(
-                                    "Service {} has invalid target type",
-                                    service_name
-                                )))
-                            }
-                        }
-                    } else {
-                        return Err(TraefikError::ServiceConfig(format!(
-                            "Service {} not found",
-                            service_name
-                        )));
-                    }
-                } else {
-                    return Err(TraefikError::ServiceConfig("No services defined".into()));
-                }
-            }
-        };
-
-        context.insert("service", &service_context);
-        context.insert("deployment", &deployment);
-    }
-
-    if let Some(host_config) = host_config {
-        context.insert("host", &host_config);
-    }
-    if let Some(path_config) = path_config {
-        context.insert("path", &path_config);
-    }
-
-    context.insert("traefik", &traefik_config);
-
-    Ok(TemplateContext {
-        context: Arc::new(context),
-    })
 }
 
 pub fn is_template(s: &str) -> bool {
@@ -391,14 +388,12 @@ mod tests {
     #[test]
     fn test_basic_template() -> TraefikResult<()> {
         let mut resolver = TeraResolver::new()?;
-        let mut context = TemplateContext::new(None, Vec::<String>::new())?;
+        let mut context = TemplateContext::new(TraefikConfig::default(), Vec::<String>::new())?;
         context.add_env_var("SERVICE_HOST", "example.com");
         context.add_env_var("SERVICE_PORT", "8080");
 
-        let result = resolver.resolve_template(
-            "http://{{ env.SERVICE_HOST }}:{{ env.SERVICE_PORT }}",
-            &context,
-        )?;
+        let result =
+            resolver.resolve_template("http://{{ SERVICE_HOST }}:{{ SERVICE_PORT }}", &context)?;
 
         assert_eq!(result, "http://example.com:8080");
         Ok(())
@@ -407,7 +402,7 @@ mod tests {
     #[test]
     fn test_complex_template() -> TraefikResult<()> {
         let mut resolver = TeraResolver::new()?;
-        let mut context = TemplateContext::new(None, Vec::<String>::new())?;
+        let mut context = TemplateContext::new(TraefikConfig::default(), Vec::<String>::new())?;
 
         context.add_variable("max_retries", 3)?;
         context.add_variable("enabled", true)?;
@@ -431,27 +426,31 @@ mod tests {
         std::env::set_var("TEST_HOST", "testhost.com");
 
         let mut resolver = TeraResolver::new().unwrap();
-        let context = TemplateContext::new(None, vec!["TEST_HOST"]).unwrap();
+        let context = TemplateContext::new(TraefikConfig::default(), vec!["TEST_HOST"]).unwrap();
 
         let result = resolver
-            .resolve_template("{{ env.TEST_HOST }}", &context)
+            .resolve_template("{{ TEST_HOST }}", &context)
             .unwrap();
         assert_eq!(result, "testhost.com");
     }
 
     #[test]
-    fn test_get_deployment() {
-        let mut context = TemplateContext::new(None, Vec::<String>::new()).unwrap();
+    fn test_set_deployment_to_context_and_get_deployment_from_context() {
+        let mut context =
+            TemplateContext::new(TraefikConfig::default(), Vec::<String>::new()).unwrap();
         context.set_deployment(DeploymentConfig::default());
-        let deployment = context.get_deployment();
+        let tera_context = context.get_tera_context();
+        let deployment = tera_context.get("deployment");
         assert!(deployment.is_some());
     }
 
     #[test]
     fn test_get_host() {
-        let mut context = TemplateContext::new(None, Vec::<String>::new()).unwrap();
+        let mut context =
+            TemplateContext::new(TraefikConfig::default(), Vec::<String>::new()).unwrap();
         context.set_host(HostConfig::default());
-        let host = context.get_host();
+        let tera_context = context.get_tera_context();
+        let host = tera_context.get("host");
         assert!(host.is_some());
     }
 }

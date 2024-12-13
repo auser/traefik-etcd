@@ -48,6 +48,49 @@ impl ServiceConfig {
     }
 }
 
+impl ServiceConfig {
+    pub fn builder() -> ServiceConfigBuilder {
+        ServiceConfigBuilder::default()
+    }
+}
+
+#[derive(Default)]
+pub struct ServiceConfigBuilder {
+    name: String,
+    deployment: DeploymentConfig,
+    pass_host_header: bool,
+}
+
+impl ServiceConfigBuilder {
+    pub fn name(mut self, name: String) -> Self {
+        self.name = name;
+        self
+    }
+
+    pub fn deployment(mut self, deployment: DeploymentConfig) -> Self {
+        self.deployment = deployment;
+        self
+    }
+
+    pub fn ip_and_port(mut self, ip: String, port: u16) -> Self {
+        self.deployment = DeploymentConfig::builder().ip_and_port(ip, port).build();
+        self
+    }
+
+    pub fn pass_host_header(mut self, pass_host_header: bool) -> Self {
+        self.pass_host_header = pass_host_header;
+        self
+    }
+
+    pub fn build(self) -> ServiceConfig {
+        ServiceConfig {
+            name: self.name,
+            deployment: self.deployment,
+            pass_host_header: self.pass_host_header,
+        }
+    }
+}
+
 /*
  $ecd put "traefik/http/services/redirector/loadBalancer/servers/0/url" "http://redirector:3000"
  $ecd put "traefik/http/services/redirector/loadBalancer/responseForwarding/flushInterval" "100ms"
