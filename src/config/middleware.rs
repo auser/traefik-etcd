@@ -543,7 +543,6 @@ impl Validate for MiddlewareConfig {
         resolver: &mut impl TemplateResolver,
         context: &TemplateContext,
     ) -> TraefikResult<()> {
-        println!("validate for middleware config context: {:#?}", context);
         if self.name.is_empty() {
             return Err(TraefikError::MiddlewareConfig(
                 "middleware name is empty".into(),
@@ -807,7 +806,7 @@ mod tests {
         };
 
         let yaml_str = serde_yaml::to_string(&middleware).unwrap();
-        println!("yaml_str: {}", yaml_str);
+        debug!("yaml_str: {}", yaml_str);
 
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();

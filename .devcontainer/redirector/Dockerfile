@@ -1,4 +1,4 @@
-ARG PLATFORM=linux/amd64
+ARG PLATFORM=linux/arm64
 
 FROM --platform=${PLATFORM} auser/redirector:latest
 

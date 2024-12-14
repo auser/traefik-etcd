@@ -972,12 +972,7 @@ pub fn add_pass_through_middleware(
 mod tests {
 
     use crate::{
-        config::{
-            headers::RuntimeHeadersConfig, middleware::MiddlewareConfig, services::ServiceConfig,
-            traefik_config,
-        },
-        core::{client::StoreClient, templating::TemplateOr},
-        features::etcd::Etcd,
+        config::{middleware::MiddlewareConfig, services::ServiceConfig},
         test_helpers::{
             assert_contains_pair, assert_does_not_contain_pair, create_complex_test_config,
             create_test_config, create_test_deployment, create_test_host, create_test_resolver,

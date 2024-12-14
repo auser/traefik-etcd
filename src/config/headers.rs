@@ -508,7 +508,6 @@ impl HeadersConfig {
         resolver: &mut impl TemplateResolver,
         context: &TemplateContext,
     ) -> TraefikResult<()> {
-        println!("value: {:#?}", value);
         match value {
             TemplateOr::Static(v) => {
                 debug!("Validating static header value: {}", v);
