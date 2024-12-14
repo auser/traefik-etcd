@@ -10,6 +10,7 @@
   function addRequestHeader() {
     if (!middleware.headers) {
       middleware.headers = {
+        additional_headers: {},
         custom_request_headers: {},
         custom_response_headers: {},
         access_control_allow_methods: [],

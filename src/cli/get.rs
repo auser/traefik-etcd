@@ -1,5 +1,4 @@
 use clap::Args;
-use tracing::debug;
 
 use crate::{core::client::StoreClient, error::TraefikResult, features::etcd::Etcd, TraefikConfig};
 
@@ -23,8 +22,6 @@ pub async fn run(
     } else {
         client.get_with_prefix(key).await?
     };
-
-    debug!("values: {:?}", values);
 
     let values = values
         .iter()

@@ -8,6 +8,22 @@ etcd:
     ca: "./config/tls/ca.pem"
     domain: ari.io
 
+middlewares:
+  headers:
+    additional_headers:
+      frameDeny: true
+
+  templated_headers:
+    headers:
+      custom_request_headers:
+        ServiceAddr: "{{ deployment.ip }}:{{ deployment.port }}"
+        ServiceUrl: "http://{{ deployment.ip }}:{{ deployment.port }}"
+
+services:
+  direct:
+    ip: 10.0.0.1
+    port: 8080
+
 hosts:
   - domain: "example.com"
     www_redirect: true
@@ -15,8 +31,7 @@ hosts:
       - path: "/test"
         deployments:
           blue:
-            ip: 10.0.0.1
-            port: 8080
+            service_name: redirector
             weight: 50
           green:
             ip: 10.0.0.2

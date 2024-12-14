@@ -15,7 +15,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 
-use super::headers::{HeadersConfig, RuntimeHeadersConfig};
+use super::headers::HeadersConfig;
 
 #[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema, sqlx::FromRow))]
@@ -169,9 +169,6 @@ pub struct MiddlewareConfig {
     /// The circuit breaker configuration
     #[serde(skip_serializing_if = "Option::is_none")]
     pub circuit_breaker: Option<CircuitBreakerConfig>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub runtime_headers: Option<RuntimeHeadersConfig>,
 }
 
 // Add configuration structs for each middleware type
@@ -429,7 +426,6 @@ impl Default for MiddlewareConfig {
             circuit_breaker: None,
             redirect_regex: None,
             redirect_scheme: None,
-            runtime_headers: None,
         }
     }
 }
@@ -451,19 +447,21 @@ impl MiddlewareConfig {
 /// Convert the middleware configuration to etcd pairs
 ///
 /// The middleware configuration is stored in etcd under the following path:
-/// `{base_key}/{protocol}/middlewares`
+/// `{base_key}/{protocol}/middlewares/{middleware_name}`
 
 impl ToEtcdPairs for MiddlewareConfig {
     fn to_etcd_pairs(
         &self,
-        root_base_key: &str,
+        base_key: &str,
         resolver: &mut impl TemplateResolver,
         context: &TemplateContext,
     ) -> TraefikResult<Vec<EtcdPair>> {
         let mut pairs = Vec::new();
 
+        debug!("adding middleware pairs for: {}", base_key);
+
         // let base_key = format!("{}/{}", base_key, self.name);
-        let base_key = self.name.clone();
+        // let base_key = self.name.clone();
         // let base_key = "".to_string();
 
         // All middleware configurations should be under the protocol path
@@ -471,50 +469,52 @@ impl ToEtcdPairs for MiddlewareConfig {
             let header_pairs = headers.to_etcd_pairs("headers", resolver, context)?;
             for pair in header_pairs {
                 // Remove the first 'headers/' from the path
-                let new_key = pair
-                    .key()
-                    .replace("headers/headers/", "headers/")
-                    .replace("headers/", "");
-                println!("HEADERS NEW KEY new_key: {}", new_key);
+                let new_key = pair.key().replace("headers/headers/", "headers/");
                 pairs.push(EtcdPair::new(new_key, pair.value()));
+                // pairs.push(pair);
             }
 
-            pairs.extend(headers.to_etcd_pairs("headers", resolver, context)?);
-        }
-
-        if let Some(runtime_headers) = &self.runtime_headers {
-            pairs.extend(runtime_headers.to_etcd_pairs(&base_key, resolver, context)?);
+            // debug!("adding headers pairs for: {}", base_key);
+            // pairs.extend(headers.to_etcd_pairs("headers", resolver, context)?);
         }
 
         if let Some(forward_auth) = &self.forward_auth {
+            debug!("adding forward auth pairs for: {}", base_key);
             pairs.extend(forward_auth.to_etcd_pairs(&base_key, resolver, context)?);
         }
 
         if let Some(redirect_regex) = &self.redirect_regex {
+            debug!("adding redirect regex pairs for: {}", base_key);
             pairs.extend(redirect_regex.to_etcd_pairs(&base_key, resolver, context)?);
         }
 
         if let Some(redirect_scheme) = &self.redirect_scheme {
+            debug!("adding redirect scheme pairs for: {}", base_key);
             pairs.extend(redirect_scheme.to_etcd_pairs(&base_key, resolver, context)?);
         }
 
         if let Some(strip_prefix) = &self.strip_prefix {
+            debug!("adding strip prefix pairs for: {}", base_key);
             pairs.extend(strip_prefix.to_etcd_pairs(&base_key, resolver, context)?);
         }
 
         if let Some(rate_limit) = &self.rate_limit {
+            debug!("adding rate limit pairs for: {}", base_key);
             pairs.extend(rate_limit.to_etcd_pairs(&base_key, resolver, context)?);
         }
 
         if let Some(basic_auth) = &self.basic_auth {
+            debug!("adding basic auth pairs for: {}", base_key);
             pairs.extend(basic_auth.to_etcd_pairs(&base_key, resolver, context)?);
         }
 
         if self.compress {
+            debug!("adding compress pairs for: {}", base_key);
             pairs.push(EtcdPair::new("compress", "true".to_string()));
         }
 
         if let Some(circuit_breaker) = &self.circuit_breaker {
+            debug!("adding circuit breaker pairs for: {}", base_key);
             pairs.extend(circuit_breaker.to_etcd_pairs(&base_key, resolver, context)?);
         }
 
@@ -522,7 +522,11 @@ impl ToEtcdPairs for MiddlewareConfig {
             .iter()
             .map(|pair| {
                 // let prefixed_key = format!("{}/{}/{}", root_base_key, base_key, pair.key());
-                let prefixed_key = format!("{}/{}/{}", root_base_key, self.name, pair.key());
+                let prefixed_key = format!("{}/{}", base_key, pair.key());
+                // TODO: discover why this is not working
+                // and change it to the correct path
+                // let prefixed_key = prefixed_key.replace("headers/headers/", "headers/");
+                debug!("PREFIXED KEY: {}", prefixed_key);
 
                 EtcdPair::new(prefixed_key, pair.value())
             })
@@ -627,7 +631,7 @@ mod tests {
         let mut result_pairs = vec![];
         for (_name, middleware) in middleware {
             let pairs = middleware
-                .to_etcd_pairs("test/middlewares", &mut resolver, &context)
+                .to_etcd_pairs("test/middlewares/enable-headers", &mut resolver, &context)
                 .unwrap();
             result_pairs.extend(pairs);
         }
@@ -662,7 +666,7 @@ mod tests {
         let middleware = create_test_middleware();
         let mut result_pairs = vec![];
         for (_name, middleware) in middleware {
-            let base_key = "test/http/middlewares";
+            let base_key = "test/http/middlewares/enable-headers";
             let mut resolver = create_test_resolver();
             let context = create_test_template_context();
             let pairs = middleware
@@ -713,7 +717,7 @@ mod tests {
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
         let pairs = forward_auth
-            .to_etcd_pairs("test", &mut resolver, &context)
+            .to_etcd_pairs("test/test-middleware", &mut resolver, &context)
             .unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
         assert!(pair_strs.contains(&"forwardAuth/address http://localhost:8080".to_string()));
@@ -736,7 +740,7 @@ mod tests {
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
         let pairs = forward_auth
-            .to_etcd_pairs("test", &mut resolver, &context)
+            .to_etcd_pairs("test/test-middleware", &mut resolver, &context)
             .unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
         assert!(pair_strs.contains(&"forwardAuth/trustForwardHeader true".to_string()));
@@ -758,7 +762,7 @@ mod tests {
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
         let pairs = forward_auth
-            .to_etcd_pairs("test", &mut resolver, &context)
+            .to_etcd_pairs("test/test-middleware", &mut resolver, &context)
             .unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
         assert!(pair_strs.contains(
@@ -779,7 +783,7 @@ mod tests {
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
         let pairs = forward_auth
-            .to_etcd_pairs("test", &mut resolver, &context)
+            .to_etcd_pairs("test/test-middleware", &mut resolver, &context)
             .unwrap();
         let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
         assert!(pair_strs.contains(&"forwardAuth/authResponseHeadersRegex ^X-.*".to_string()));
@@ -788,6 +792,10 @@ mod tests {
     #[test]
     fn test_middleware_headers() {
         let mut headers = HeadersConfig::default();
+        headers.additional_headers.insert(
+            "X-Forwarded-Proto".to_string(),
+            TemplateOr::Static("https".to_string()),
+        );
         headers.custom_request_headers.insert(
             "X-Forwarded-Proto".to_string(),
             TemplateOr::Static("https".to_string()),
@@ -798,10 +806,13 @@ mod tests {
             ..create_base_middleware_config()
         };
 
+        let yaml_str = serde_yaml::to_string(&middleware).unwrap();
+        println!("yaml_str: {}", yaml_str);
+
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
         let pairs = middleware
-            .to_etcd_pairs("test", &mut resolver, &context)
+            .to_etcd_pairs("test/test-middleware", &mut resolver, &context)
             .unwrap();
         assert_contains_pair(
             &pairs,
@@ -825,7 +836,7 @@ mod tests {
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
         let pairs = middleware
-            .to_etcd_pairs("test", &mut resolver, &context)
+            .to_etcd_pairs("test/test-middleware", &mut resolver, &context)
             .unwrap();
         assert_contains_pair(&pairs, "test/test-middleware/redirectRegex/permanent true");
         assert_contains_pair(
@@ -854,7 +865,7 @@ mod tests {
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
         let pairs = middleware
-            .to_etcd_pairs("test", &mut resolver, &context)
+            .to_etcd_pairs("test/test-middleware", &mut resolver, &context)
             .unwrap();
         assert_contains_pair(&pairs, "test/test-middleware/redirectScheme/scheme https");
         assert_contains_pair(&pairs, "test/test-middleware/redirectScheme/permanent true");
@@ -879,7 +890,7 @@ mod tests {
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
         let pairs = middleware
-            .to_etcd_pairs("test", &mut resolver, &context)
+            .to_etcd_pairs("test/test-middleware", &mut resolver, &context)
             .unwrap();
         assert_contains_pair(&pairs, "test/test-middleware/stripPrefix/prefixes/0 /api");
         assert_contains_pair(&pairs, "test/test-middleware/stripPrefix/prefixes/1 /v1");
@@ -902,7 +913,7 @@ mod tests {
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
         let pairs = middleware
-            .to_etcd_pairs("test", &mut resolver, &context)
+            .to_etcd_pairs("test/test-middleware", &mut resolver, &context)
             .unwrap();
         assert_contains_pair(&pairs, "test/test-middleware/rateLimit/average 100");
         assert_contains_pair(&pairs, "test/test-middleware/rateLimit/burst 200");
@@ -925,11 +936,12 @@ mod tests {
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
         let pairs = middleware
-            .to_etcd_pairs("test", &mut resolver, &context)
+            .to_etcd_pairs("test/test-middleware", &mut resolver, &context)
             .unwrap();
-        assert_contains_pair(
-            &pairs,
-            "test/test-middleware/basicAuth/users/0 user:password",
+
+        let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
+        assert!(
+            pair_strs.contains(&"test/test-middleware/basicAuth/users/0 user:password".to_string())
         );
         assert_contains_pair(&pairs, "test/test-middleware/basicAuth/realm My Realm");
         assert_contains_pair(&pairs, "test/test-middleware/basicAuth/headerField X-Auth");
@@ -945,7 +957,7 @@ mod tests {
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
         let pairs = middleware
-            .to_etcd_pairs("test", &mut resolver, &context)
+            .to_etcd_pairs("test/test-middleware", &mut resolver, &context)
             .unwrap();
         assert_contains_pair(&pairs, "test/test-middleware/compress true");
     }
@@ -964,7 +976,7 @@ mod tests {
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
         let pairs = middleware
-            .to_etcd_pairs("test", &mut resolver, &context)
+            .to_etcd_pairs("test/test-middleware", &mut resolver, &context)
             .unwrap();
         assert_contains_pair(
             &pairs,
@@ -1031,7 +1043,6 @@ mod tests {
             context.set_service(test_service.clone());
 
             // Test template resolution
-            println!("context: {:#?}", context.get_tera_context());
             let pairs = config.to_etcd_pairs("test", &mut resolver, &context)?;
 
             // Verify the templated values

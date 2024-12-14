@@ -173,20 +173,18 @@ impl ToEtcdPairs for TraefikConfig {
         // Start with middleware rules
         debug!("Adding middleware rules");
         // TODO: add middleware before deployment rules, within the scope of a deployment
-        // for (name, middleware) in self.middlewares.clone().iter_mut() {
-        //     middleware.set_name(name);
-        //     let middleware_base_key = format!("{}/http/middlewares", base_key);
-        //     let new_rules = middleware.to_etcd_pairs(&middleware_base_key, resolver, context)?;
-        //     debug!("New rules middleware rules: {:?}", new_rules);
-        //     for new_rule in new_rules.iter().cloned() {
-        //         // pairs.push(new_rule.clone());
-        //         rule_set.insert(new_rule);
-        //     }
-        // }
+        for (name, middleware) in self.middlewares.clone().iter_mut() {
+            middleware.set_name(name);
+            let middleware_base_key = format!("{}/http/middlewares/{}", base_key, name);
+            let new_rules = middleware.to_etcd_pairs(&middleware_base_key, resolver, context)?;
+            debug!("New rules middleware rules: {:?}", new_rules);
+            for new_rule in new_rules.iter().cloned() {
+                // pairs.push(new_rule.clone());
+                rule_set.insert(new_rule);
+            }
+        }
 
-        debug!("Adding deployment rules");
         let mut pairs = rule_set.into_iter().collect();
-        debug!("Adding deployment rules");
         let sorted_hosts = get_sorted_deployments(self)?;
         for deployment_config in sorted_hosts.iter() {
             let mut rules = deployment_config.rules.clone();
@@ -285,7 +283,7 @@ impl TraefikConfig {
 }
 
 impl TraefikConfig {
-    pub async fn clean_etcd(&self, client: &StoreClient<Etcd>, _all: bool) -> TraefikResult<()> {
+    pub async fn clean_etcd(&self, client: &StoreClient<Etcd>) -> TraefikResult<()> {
         client.delete_with_prefix(self.rule_prefix.as_str()).await?;
         Ok(())
     }
@@ -334,7 +332,7 @@ impl TraefikConfig {
         }
 
         if should_clean {
-            self.clean_etcd(client, false).await?;
+            self.clean_etcd(client).await?;
         }
 
         let mut client = client.actor.client.clone();
@@ -627,7 +625,15 @@ mod tests {
                 domain: herringbank.com
         middlewares:
         enable-headers:
-            headers:
+            additional_headers:
+                frameDeny: true
+                browserXssFilter: true
+                contentTypeNosniff: true
+                forceSTSHeader: true
+                stsIncludeSubdomains: true
+                stsPreload: true
+                stsSeconds: 31536000
+                customFrameOptionsValue: "SAMEORIGIN"
             custom_request_headers:
                 X-Forwarded-Proto: "https"
                 X-Forwarded-Port: "443"

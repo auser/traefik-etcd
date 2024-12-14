@@ -11,9 +11,6 @@ pub struct ApplyCommand {
     clean: bool,
 
     #[arg(short, long, default_value_t = false)]
-    all: bool,
-
-    #[arg(short, long, default_value_t = false)]
     rules: bool,
 }
 
@@ -23,7 +20,7 @@ pub async fn run(
     traefik_config: &mut TraefikConfig,
 ) -> TraefikResult<()> {
     if command.clean && !command.dry_run {
-        traefik_config.clean_etcd(client, command.all).await?;
+        traefik_config.clean_etcd(client).await?;
     }
     traefik_config
         .apply_to_etcd(client, command.dry_run, command.rules, command.clean)

@@ -242,9 +242,8 @@ pub fn create_test_middleware() -> HashMap<String, MiddlewareConfig> {
                 circuit_breaker: None,
                 redirect_regex: None,
                 redirect_scheme: None,
-                runtime_headers: None,
                 headers: Some(HeadersConfig {
-                    headers: HashMap::from([
+                    additional_headers: HashMap::from([
                         (
                             "frameDeny".to_string(),
                             TemplateOr::Static("true".to_string()),
@@ -328,7 +327,6 @@ pub fn create_test_middleware() -> HashMap<String, MiddlewareConfig> {
                 circuit_breaker: None,
                 redirect_regex: None,
                 redirect_scheme: None,
-                runtime_headers: None,
             },
         ),
     ])
@@ -359,7 +357,6 @@ pub fn create_base_middleware_config() -> MiddlewareConfig {
         circuit_breaker: None,
         name: "test-middleware".to_string(),
         protocol: "http".to_string(),
-        runtime_headers: None,
     }
 }
 

@@ -1,12 +1,13 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use tracing::instrument;
+use color_eyre::eyre::eyre;
+use tracing::{error, instrument};
 
 use crate::{
     config::traefik_config::TraefikConfig,
     core::client::StoreClient,
-    error::TraefikResult,
+    error::{TraefikError, TraefikResult},
     features::etcd::{Etcd, EtcdConfig, PartialEtcdConfig},
     tracing::{init_tracing, LogConfig},
     NAME,
@@ -88,7 +89,14 @@ pub async fn run() -> TraefikResult<()> {
     let config_file = cli.config_file.unwrap_or_default();
 
     let config = std::fs::read_to_string(&config_file).unwrap_or_default();
-    let mut traefik_config: TraefikConfig = serde_yaml::from_str(&config).unwrap_or_default();
+    let mut traefik_config: TraefikConfig = match serde_yaml::from_str(&config) {
+        Ok(config) => config,
+        Err(e) => {
+            let err = eyre!("etcd put failed: {e}");
+            error!("{err}");
+            return Err(TraefikError::ConfigReadError(e));
+        }
+    };
 
     #[cfg(feature = "etcd")]
     let etcd_client = match cli.etcd_config {

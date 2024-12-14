@@ -24,7 +24,7 @@ use crate::{
 #[export_type(rename_all = "camelCase", path = "generated/types")]
 pub struct HeadersConfig {
     #[serde(default)]
-    pub headers: HashMap<String, TemplateOr<String>>,
+    pub additional_headers: HashMap<String, TemplateOr<String>>,
     #[serde(default)]
     pub custom_request_headers: HashMap<String, TemplateOr<String>>,
     #[serde(default)]
@@ -72,7 +72,7 @@ impl<'de> Deserialize<'de> for HeadersConfig {
             where
                 V: de::MapAccess<'de>,
             {
-                let mut headers = HashMap::new();
+                let mut additional_headers = HashMap::new();
                 let mut custom_request_headers = HashMap::new();
                 let mut custom_response_headers = HashMap::new();
                 let mut access_control_allow_methods = Vec::new();
@@ -86,7 +86,7 @@ impl<'de> Deserialize<'de> for HeadersConfig {
                         Field::Headers => {
                             let values: HashMap<String, String> = map.next_value()?;
                             for (k, v) in values {
-                                headers.insert(
+                                additional_headers.insert(
                                     k,
                                     if is_template(&v) {
                                         TemplateOr::Template(v)
@@ -181,7 +181,7 @@ impl<'de> Deserialize<'de> for HeadersConfig {
                 }
 
                 Ok(HeadersConfig {
-                    headers,
+                    additional_headers,
                     custom_request_headers,
                     custom_response_headers,
                     access_control_allow_methods,
@@ -194,7 +194,7 @@ impl<'de> Deserialize<'de> for HeadersConfig {
         }
 
         const FIELDS: &[&str] = &[
-            "headers",
+            "additional_headers",
             "custom_request_headers",
             "custom_response_headers",
             "access_control_allow_methods",
@@ -222,7 +222,7 @@ impl ToEtcdPairs for HeadersConfig {
             false => format!("{}/headers", base_key),
         };
 
-        for (key, value) in &self.headers {
+        for (key, value) in &self.additional_headers {
             pairs.push(EtcdPair::new(
                 format!("{}/{}", base_headers_key, key),
                 value.resolve(resolver, context)?,
@@ -369,7 +369,7 @@ pub struct HeadersConfigBuilder {
     pub auth_response_headers: Vec<TemplateOr<String>>,
     pub auth_response_headers_regex: TemplateOr<String>,
     pub add_vary_header: bool,
-    pub headers: HashMap<String, TemplateOr<String>>,
+    pub additional_headers: HashMap<String, TemplateOr<String>>,
 }
 
 impl HeadersConfigBuilder {
@@ -415,14 +415,14 @@ impl HeadersConfigBuilder {
     }
 
     pub fn add_header(&mut self, name: &str, value: &str) -> &mut Self {
-        self.headers
+        self.additional_headers
             .insert(name.to_string(), TemplateOr::Static(value.to_string()));
         self
     }
 
     pub fn build(&self) -> HeadersConfig {
         HeadersConfig {
-            headers: self.headers.clone(),
+            additional_headers: self.additional_headers.clone(),
             custom_request_headers: self.custom_request_headers.clone(),
             custom_response_headers: self.custom_response_headers.clone(),
             access_control_allow_methods: self.access_control_allow_methods.clone(),
@@ -517,7 +517,6 @@ impl HeadersConfig {
                 debug!("Validating template header value: {}", v);
             }
         }
-        println!("context: {:#?}", context);
         debug!(
             "Validating header value: {}",
             value.resolve(resolver, context).unwrap_or_default()
@@ -601,6 +600,36 @@ mod tests {
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
         assert!(headers.validate(&mut resolver, &context).is_ok());
+    }
+
+    #[test]
+    fn test_to_etcd_pairs_with_additional_headers() {
+        let headers = HeadersConfig::builder()
+            .add_header("X-Forwarded-Port", "80")
+            .build();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let pairs = headers
+            .to_etcd_pairs("test", &mut resolver, &context)
+            .unwrap();
+        let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
+        assert!(pair_strs.contains(&"test/headers/X-Forwarded-Port 80".to_string()));
+    }
+
+    #[test]
+    fn test_to_etcd_pairs_with_additional_headers_and_template_headers_does_add_multiple_nested_headers(
+    ) {
+        let headers = HeadersConfig::builder()
+            .add_header("X-Forwarded-Port", "80")
+            .build();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        let pairs = headers
+            .to_etcd_pairs("test", &mut resolver, &context)
+            .unwrap();
+        let pair_strs: Vec<String> = pairs.iter().map(|p| p.to_string()).collect();
+        assert!(pair_strs.contains(&"test/headers/X-Forwarded-Port 80".to_string()));
+        assert!(!pair_strs.contains(&"test/headers/headers/X-Forwarded-Port 80".to_string()));
     }
 
     #[test]
