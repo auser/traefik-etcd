@@ -46,9 +46,6 @@ pub enum TraefikError {
     #[error("Parsing error: {0}")]
     ParsingError(#[from] color_eyre::Report),
 
-    #[error("Parse error: {0}")]
-    ParseError(String),
-
     #[error("Tracing error: {0}")]
     TracingError(#[from] TryInitError),
 

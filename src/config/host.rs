@@ -12,6 +12,7 @@ use crate::{
     error::{TraefikError, TraefikResult},
     features::etcd::Etcd,
 };
+use color_eyre::eyre::eyre;
 use export_type::ExportType;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -114,14 +115,14 @@ impl HostConfig {
 
     fn validate_path(&self, path: &PathConfig) -> TraefikResult<()> {
         if path.path.contains("//") {
-            return Err(TraefikError::ParseError(format!(
+            return Err(TraefikError::HostConfig(format!(
                 "Path cannot contain //: {}",
                 path.path
             )));
         }
 
         if !path.path.starts_with('/') {
-            return Err(TraefikError::ParseError(format!(
+            return Err(TraefikError::HostConfig(format!(
                 "Path must start with /: {}",
                 path.path
             )));
@@ -144,10 +145,8 @@ impl HostConfig {
     fn validate_has_valid_middlewares(&self) -> TraefikResult<()> {
         for middleware in &self.middlewares {
             if middleware.is_empty() {
-                return Err(TraefikError::ParseError(format!(
-                    "Middleware cannot be empty: {}",
-                    middleware
-                )));
+                let err = eyre!(format!("Middleware cannot be empty: {}", middleware));
+                return Err(TraefikError::MiddlewareConfig(err.to_string()));
             }
         }
 

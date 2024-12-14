@@ -1,4 +1,5 @@
 use crate::error::{TraefikError, TraefikResult};
+use color_eyre::eyre::eyre;
 use config::Case;
 use convert_case::Casing;
 
@@ -7,10 +8,10 @@ pub fn validate_is_alphanumeric(path: &str) -> TraefikResult<()> {
         .chars()
         .all(|c| c.is_ascii_alphanumeric() || c == '/' || c == '-' || c == '_' || c == '.')
     {
-        return Err(TraefikError::ParseError(format!(
+        return Err(TraefikError::ParsingError(eyre!(format!(
             "Invalid characters in path: {}",
             path
-        )));
+        ))));
     }
 
     Ok(())
