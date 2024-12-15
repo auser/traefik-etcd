@@ -300,7 +300,6 @@ impl TraefikConfig {
         debug!("Resolved template");
         let context = self.context()?;
         debug!("Created context");
-        println!("PRE VALIDATE CONTEXT: {:#?}", context);
         self.validate(&mut resolver, &context)?;
         debug!("Validated config");
         let pairs = self.to_etcd_pairs(&self.rule_prefix, &mut resolver, &context)?;

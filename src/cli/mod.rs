@@ -92,9 +92,9 @@ pub async fn run() -> TraefikResult<()> {
     let mut traefik_config: TraefikConfig = match serde_yaml::from_str(&config) {
         Ok(config) => config,
         Err(e) => {
-            let err = eyre!("etcd put failed: {e}");
+            let err = eyre!("Parse error: {e}");
             error!("{err}");
-            return Err(TraefikError::ConfigReadError(e));
+            return Err(TraefikError::ParsingError(err));
         }
     };
 

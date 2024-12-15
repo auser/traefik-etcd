@@ -43,7 +43,7 @@ pub enum TraefikError {
     #[error("Health check config error: {0}")]
     HealthCheckConfig(String),
 
-    #[error("Parsing error: {0}")]
+    #[error("Parse error: {0}")]
     ParsingError(#[from] color_eyre::Report),
 
     #[error("Tracing error: {0}")]
