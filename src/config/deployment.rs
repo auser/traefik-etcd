@@ -175,6 +175,8 @@ pub struct DeploymentConfig {
     /// The selection of the deployment
     #[serde(default, flatten)]
     pub selection: Option<SelectionConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub variables: Option<HashMap<String, String>>,
     /// The protocol of the deployment
     #[serde(default = "default_protocol")]
     pub protocol: DeploymentProtocol,
@@ -195,6 +197,7 @@ impl Default for DeploymentConfig {
             protocol: default_protocol(),
             middlewares: None,
             middleware_templates: None,
+            variables: None,
         }
     }
 }
@@ -239,6 +242,7 @@ pub struct DeploymentConfigBuilder {
     weight: Option<usize>,
     selection: Option<SelectionConfig>,
     protocol: Option<DeploymentProtocol>,
+    variables: Option<HashMap<String, String>>,
     middlewares: Option<Vec<String>>,
     middleware_templates: Option<HashMap<String, MiddlewareConfig>>,
 }
@@ -287,6 +291,11 @@ impl DeploymentConfigBuilder {
         self
     }
 
+    pub fn variables(mut self, variables: HashMap<String, String>) -> Self {
+        self.variables = Some(variables);
+        self
+    }
+
     pub fn build(self) -> DeploymentConfig {
         let target = self.target.unwrap_or(DeploymentTarget::default());
         DeploymentConfig {
@@ -297,6 +306,7 @@ impl DeploymentConfigBuilder {
             middlewares: self.middlewares,
             middleware_templates: self.middleware_templates,
             name: self.name.unwrap_or("deployment".to_string()),
+            variables: self.variables,
         }
     }
 }
@@ -495,5 +505,21 @@ mod tests {
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
         assert!(deployment.validate(&mut resolver, &context).is_err());
+    }
+
+    #[test]
+    fn test_deployment_config_accepts_variables() {
+        let deployment_config = r#"
+        ip: redirector
+        port: 3000
+        weight: 100
+        protocol: http
+        variables:
+          ip: 127.0.0.1
+        "#;
+        let deployment: DeploymentConfig = serde_yaml::from_str(deployment_config).unwrap();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        assert!(deployment.validate(&mut resolver, &context).is_ok());
     }
 }

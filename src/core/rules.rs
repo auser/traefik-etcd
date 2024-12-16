@@ -600,6 +600,13 @@ pub fn add_deployment_rules(
             deployment_context.set_path_config(path.clone());
         }
 
+        if let Some(variables) = &internal_deployment.deployment.variables {
+            for (key, value) in variables.iter() {
+                println!("adding variable: key: {}, value: {}", key, value);
+                deployment_context.insert_variable(key, value);
+            }
+        }
+
         let router_name = match host.domain.as_str() {
             "" => format!("{}-router", get_safe_key(&internal_deployment.name)),
             domain => format!(
@@ -627,7 +634,10 @@ pub fn add_deployment_rules(
         let mut deployment_traefik_config = internal_deployment.traefik_config.clone();
         set_all_middleware_names(&mut deployment_traefik_config)?;
 
-        let service_name = format!("{}-service", router_name);
+        println!("deployment_context: {:#?}", deployment_context);
+        // TODO: switch this to use variables using TemplateOr
+        // let service_name = format!("{}-service", router_name);
+        let service_name = "resolver";
         debug!("Adding deployment rules for {}", router_name);
         let calculated_service_name = add_base_service_configuration(
             pairs,
@@ -659,6 +669,7 @@ pub fn add_deployment_rules(
             "Additional middlewares pre-adding: {:?}",
             additional_middlewares
         );
+        println!("context: {:#?}", context);
         let middleware_names = add_middlewares(
             &traefik_config,
             pairs,

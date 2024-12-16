@@ -45,6 +45,7 @@ pub fn create_test_deployment() -> DeploymentConfig {
         protocol: DeploymentProtocol::Http,
         middlewares: None,
         middleware_templates: None,
+        variables: None,
     }
 }
 
@@ -72,6 +73,7 @@ pub fn create_test_host() -> HostConfig {
             protocol: DeploymentProtocol::Http,
             middlewares: None,
             middleware_templates: None,
+            variables: None,
         },
     );
 
@@ -93,6 +95,7 @@ pub fn create_test_host() -> HostConfig {
                     protocol: DeploymentProtocol::Http,
                     middlewares: None,
                     middleware_templates: None,
+                    variables: None,
                 },
             );
             map
@@ -204,6 +207,7 @@ pub fn create_test_config(host_configs: Option<Vec<HostConfig>>) -> TraefikConfi
                     protocol: DeploymentProtocol::Http,
                     middlewares: None,
                     middleware_templates: None,
+                    variables: None,
                 },
             )]),
             middlewares: vec!["enable-headers".to_string()],
@@ -225,6 +229,7 @@ pub fn create_test_config(host_configs: Option<Vec<HostConfig>>) -> TraefikConfi
         description: Some("test".to_string()),
         services: None,
         entry_points: None,
+        variables: None,
     }
 }
 

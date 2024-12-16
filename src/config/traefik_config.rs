@@ -88,6 +88,8 @@ pub struct TraefikConfig {
     pub etcd: etcd::EtcdConfig,
     #[serde(default)]
     pub hosts: Vec<HostConfig>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub variables: Option<HashMap<String, String>>,
     #[serde(default)]
     pub middlewares: HashMap<String, MiddlewareConfig>,
     #[serde(default)]
@@ -120,7 +122,12 @@ impl TraefikConfig {
 
     pub fn context(&self) -> TraefikResult<TemplateContext> {
         let env_vars = vec!["SERVICE_HOST", "SERVICE_PORT"];
-        let context = TemplateContext::new(self.clone(), env_vars)?;
+        let mut context = TemplateContext::new(self.clone(), env_vars)?;
+        if let Some(variables) = &self.variables {
+            for (key, value) in variables.iter() {
+                context.insert_variable(key, value);
+            }
+        }
         Ok(context)
     }
 }
@@ -481,6 +488,7 @@ impl TraefikConfig {
             rule_prefix: "test".to_string(),
             services: None,
             entry_points: None,
+            variables: None,
         }
     }
 }
@@ -703,6 +711,7 @@ mod tests {
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
         let validation_result = config.validate(&mut resolver, &context);
+        println!("validation_result: {:?}", validation_result);
         assert!(validation_result.is_ok());
     }
 

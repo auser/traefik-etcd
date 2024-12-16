@@ -31,12 +31,14 @@ hosts:
       - path: "/test"
         deployments:
           blue:
-            service_name: redirector
+            service_name: "resolver"
             weight: 50
           green:
             ip: 10.0.0.2
-            port: 8080
+            port: 30
             weight: 50
+            variables:
+              name: 9999
         middlewares:
           - enable-headers
           - forward-server
