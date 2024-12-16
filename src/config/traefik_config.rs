@@ -11,7 +11,7 @@ use crate::{
         client::StoreClient,
         etcd_trait::{EtcdPair, ToEtcdPairs},
         rules::{add_deployment_rules, get_sorted_deployments, RouterRule},
-        templating::{TemplateContext, TemplateResolver, TeraResolver},
+        templating::{TemplateContext, TemplateOr, TemplateResolver, TeraResolver},
         Validate,
     },
     error::{TraefikError, TraefikResult},
@@ -89,7 +89,7 @@ pub struct TraefikConfig {
     #[serde(default)]
     pub hosts: Vec<HostConfig>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub variables: Option<HashMap<String, String>>,
+    pub variables: Option<HashMap<String, TemplateOr<String>>>,
     #[serde(default)]
     pub middlewares: HashMap<String, MiddlewareConfig>,
     #[serde(default)]
@@ -161,6 +161,7 @@ impl ToEtcdPairs for TraefikConfig {
         // rule_set.insert(EtcdPair::new(base_key, "true"));
         // pairs.push(EtcdPair::new(format!("{}/http", base_key), "true"));
         // rule_set.insert(EtcdPair::new(format!("{}/http", base_key), "true"));
+        let mut context = context.clone();
 
         // Add services
         debug!("Adding global services");
@@ -170,9 +171,25 @@ impl ToEtcdPairs for TraefikConfig {
                 service.set_name(service_name);
                 debug!("Adding global service: {}", service_name);
                 let service_base_key = format!("{}/http", base_key);
-                let service_pairs = service.to_etcd_pairs(&service_base_key, resolver, context)?;
+                let service_pairs = service.to_etcd_pairs(&service_base_key, resolver, &context)?;
                 // pairs.extend(service_pairs.clone());
                 rule_set.extend(service_pairs.iter().cloned());
+            }
+        }
+
+        let mut rule_set: HashSet<EtcdPair> = rule_set.clone();
+        let rule_set_cloned = rule_set.clone();
+        let mut pairs = rule_set_cloned.into_iter().collect();
+        let sorted_hosts = get_sorted_deployments(self)?;
+
+        // Run through all deployments and set the variables globally
+        for deployment in sorted_hosts.iter() {
+            if let Some(variables) = &deployment.variables {
+                for (key, value) in variables.iter() {
+                    let resolved_value = value.resolve(resolver, &context)?;
+                    println!("Inserting variable: {} = {}", key, resolved_value);
+                    context.insert_variable(key, resolved_value);
+                }
             }
         }
 
@@ -183,7 +200,7 @@ impl ToEtcdPairs for TraefikConfig {
         for (name, middleware) in self.middlewares.clone().iter_mut() {
             middleware.set_name(name);
             let middleware_base_key = format!("{}/http/middlewares/{}", base_key, name);
-            let new_rules = middleware.to_etcd_pairs(&middleware_base_key, resolver, context)?;
+            let new_rules = middleware.to_etcd_pairs(&middleware_base_key, resolver, &context)?;
             debug!("New rules middleware rules: {:?}", new_rules);
             for new_rule in new_rules.iter().cloned() {
                 // pairs.push(new_rule.clone());
@@ -191,8 +208,6 @@ impl ToEtcdPairs for TraefikConfig {
             }
         }
 
-        let mut pairs = rule_set.into_iter().collect();
-        let sorted_hosts = get_sorted_deployments(self)?;
         for deployment_config in sorted_hosts.iter() {
             let mut rules = deployment_config.rules.clone();
             let host = deployment_config.host_config.clone();
@@ -204,7 +219,7 @@ impl ToEtcdPairs for TraefikConfig {
                 base_key,
                 &mut rules,
                 resolver,
-                context,
+                &mut context,
             )?;
         }
 
@@ -412,6 +427,7 @@ impl TraefikConfig {
                     middlewares: Vec::new(),
                     selection: None,
                     forward_host: true,
+                    variables: None,
                 });
 
             // Parse deployment if this is a URL entry
@@ -545,6 +561,7 @@ mod tests {
             deployment::{DeploymentProtocol, DeploymentTarget},
             host::HostConfigBuilder,
         },
+        core::templating::TemplateOr,
         test_helpers::{create_test_resolver, create_test_template_context},
     };
 
@@ -707,11 +724,18 @@ mod tests {
     #[test]
     fn test_validate_middleware_references_www_redirect() {
         let config_str = include_str!("../../config/config.yml");
-        let config: TraefikConfig = serde_yaml::from_str(config_str).unwrap();
+        let mut config: TraefikConfig = serde_yaml::from_str(config_str).unwrap();
+        let blue_deployment = config.hosts[0].paths[0]
+            .deployments
+            .get_mut("blue")
+            .unwrap();
+        blue_deployment.variables = Some(HashMap::from([(
+            "name".to_string(),
+            TemplateOr::Static("9999".to_string()),
+        )]));
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
         let validation_result = config.validate(&mut resolver, &context);
-        println!("validation_result: {:?}", validation_result);
         assert!(validation_result.is_ok());
     }
 

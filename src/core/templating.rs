@@ -17,7 +17,7 @@ use crate::{
     TraefikConfig,
 };
 
-#[derive(Debug, Serialize, Deserialize, Clone, JsonSchema, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, JsonSchema, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
 #[serde(untagged)]
 pub enum TemplateOr<T> {
@@ -381,6 +381,33 @@ where
     }))
 }
 
+// Custom deserializer for TemplateOr<bool>
+pub fn deserialize_template_or_u16<'de, D>(
+    deserializer: D,
+) -> Result<Option<TemplateOr<u16>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum U16OrString {
+        U16(u16),
+        String(String),
+    }
+
+    let value: Option<U16OrString> = Option::deserialize(deserializer)?;
+    Ok(value.map(|v| match v {
+        U16OrString::U16(u) => TemplateOr::Static(u),
+        U16OrString::String(s) => {
+            if is_template(&s) {
+                TemplateOr::Template(s)
+            } else {
+                TemplateOr::Static(s.parse().unwrap_or(0))
+            }
+        }
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -418,6 +445,36 @@ mod tests {
         let result = resolver.resolve_template(template, &context)?;
         assert_eq!(result, "retries=3");
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_u16() -> TraefikResult<()> {
+        let mut resolver = TeraResolver::new()?;
+        let mut context = TemplateContext::new(TraefikConfig::default(), Vec::<String>::new())?;
+        context.add_variable("port", 8080)?;
+        let result = resolver.resolve_template("{{ port }}", &context)?;
+        assert_eq!(result, "8080");
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_bool() -> TraefikResult<()> {
+        let mut resolver = TeraResolver::new()?;
+        let mut context = TemplateContext::new(TraefikConfig::default(), Vec::<String>::new())?;
+        context.add_variable("enabled", true)?;
+        let result = resolver.resolve_template("{{ enabled }}", &context)?;
+        assert_eq!(result, "true");
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_string() -> TraefikResult<()> {
+        let mut resolver = TeraResolver::new()?;
+        let mut context = TemplateContext::new(TraefikConfig::default(), Vec::<String>::new())?;
+        context.add_variable("enabled", "true")?;
+        let result = resolver.resolve_template("{{ enabled }}", &context)?;
+        assert_eq!(result, "true");
         Ok(())
     }
 

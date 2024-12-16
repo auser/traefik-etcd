@@ -37,8 +37,6 @@ hosts:
             ip: 10.0.0.2
             port: 30
             weight: 50
-            variables:
-              name: 9999
         middlewares:
           - enable-headers
           - forward-server

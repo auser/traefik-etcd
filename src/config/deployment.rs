@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt::Display};
 
 use crate::{
     core::{
-        templating::{TemplateContext, TemplateResolver},
+        templating::{TemplateContext, TemplateOr, TemplateResolver},
         util::{validate_hostname, validate_ip, validate_is_alphanumeric, validate_port},
         Validate,
     },
@@ -176,7 +176,7 @@ pub struct DeploymentConfig {
     #[serde(default, flatten)]
     pub selection: Option<SelectionConfig>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub variables: Option<HashMap<String, String>>,
+    pub variables: Option<HashMap<String, TemplateOr<String>>>,
     /// The protocol of the deployment
     #[serde(default = "default_protocol")]
     pub protocol: DeploymentProtocol,
@@ -242,7 +242,7 @@ pub struct DeploymentConfigBuilder {
     weight: Option<usize>,
     selection: Option<SelectionConfig>,
     protocol: Option<DeploymentProtocol>,
-    variables: Option<HashMap<String, String>>,
+    variables: Option<HashMap<String, TemplateOr<String>>>,
     middlewares: Option<Vec<String>>,
     middleware_templates: Option<HashMap<String, MiddlewareConfig>>,
 }
@@ -291,7 +291,7 @@ impl DeploymentConfigBuilder {
         self
     }
 
-    pub fn variables(mut self, variables: HashMap<String, String>) -> Self {
+    pub fn variables(mut self, variables: HashMap<String, TemplateOr<String>>) -> Self {
         self.variables = Some(variables);
         self
     }

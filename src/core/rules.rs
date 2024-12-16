@@ -22,7 +22,7 @@ use crate::{
 };
 
 use super::etcd_trait::{EtcdPair, ToEtcdPairs};
-use super::templating::{TemplateContext, TemplateResolver};
+use super::templating::{TemplateContext, TemplateOr, TemplateResolver};
 
 lazy_static::lazy_static! {
     static ref GLOBAL_SERVICES: Arc<Mutex<HashMap<String, ServiceConfig>>> =
@@ -298,6 +298,9 @@ pub struct InternalDeploymentConfig {
     pub host_config: HostConfig,
     /// The rules of the deployment
     pub rules: RuleConfig,
+    /// The variables of the deployment
+    #[serde(default)]
+    pub variables: Option<HashMap<String, TemplateOr<String>>>,
 }
 
 fn default_weight() -> usize {
@@ -312,7 +315,7 @@ impl ToEtcdPairs for InternalDeploymentConfig {
         context: &TemplateContext,
     ) -> TraefikResult<Vec<EtcdPair>> {
         let mut internal_deployment = self.clone();
-        let internal_deployment = internal_deployment.init();
+        let internal_deployment = internal_deployment.init(resolver, context);
         let mut pairs = Vec::new();
 
         let mut rules = internal_deployment.rules.clone();
@@ -326,10 +329,6 @@ impl ToEtcdPairs for InternalDeploymentConfig {
             debug!(
                 "Adding middleware In InternalDeploymentConfig: {} => {:#?}",
                 name, middleware
-            );
-            println!(
-                "middleware in list of global middlewares: {:#?} base_key: {}",
-                middleware, base_key
             );
             pairs.extend(middleware.to_etcd_pairs(&base_key, resolver, context)?);
         }
@@ -363,7 +362,11 @@ impl ToEtcdPairs for InternalDeploymentConfig {
 }
 
 impl InternalDeploymentConfig {
-    pub fn init(&mut self) -> &mut Self {
+    pub fn init(
+        &mut self,
+        _resolver: &mut impl TemplateResolver,
+        _context: &TemplateContext,
+    ) -> &mut Self {
         let mut rules = self.rules.clone();
         debug!("Initializing deployment config for {}", self.name);
 
@@ -385,102 +388,20 @@ impl InternalDeploymentConfig {
         rules.add_default_rule_from_optional_path("PathPrefix", self.path_config.as_ref());
         // Add the selection rules
         add_selection_rules(&self.deployment, &mut rules);
+        // Add the variables
+        if let Some(variables) = &self.variables {
+            let mut new_variables = HashMap::new();
+            for (key, value) in variables.iter() {
+                new_variables.insert(key.clone(), value.clone());
+            }
+            self.variables = Some(new_variables);
+        }
         self.rules = rules;
         // Add the weight of the rules to the weight of the deployment
         self.weight += 1000 + self.rules.get_weight();
 
         self
     }
-
-    // fn process_middleware_templates(&self) -> TraefikResult<Vec<(String, MiddlewareConfig)>> {
-    //     let mut processed = Vec::new();
-    //     debug!("Processing middleware templates for {}", self.name);
-
-    //     if let Some(templates) = &self.deployment.middleware_templates {
-    //         let context = self.create_template_context()?;
-    //         let tera = Tera::default();
-
-    //         for (name, template) in templates {
-    //             let mut middleware = template.clone();
-    //             middleware.set_name(&format!("{}-{}-templated", self.name, name));
-
-    //             // Convert runtime_headers to headers
-    //             // if let Some(headers) = &template.headers {
-    //             //     let mut rendered_headers = HashMap::new();
-
-    //             //     for (header_name, template_value) in &headers.custom_request_headers {
-    //             //         let rendered = tera
-    //             //             .render_str(template_value, &context)
-    //             //             .map_err(|e| TraefikError::MiddlewareTemplateError(e.to_string()))?;
-    //             //         rendered_headers.insert(header_name.clone(), TemplateOr::Static(rendered));
-    //             //     }
-
-    //             //     middleware.headers = Some(HeadersConfig {
-    //             //         custom_request_headers: rendered_headers,
-    //             //         ..Default::default()
-    //             //     });
-    //             // }
-
-    //             processed.push((middleware.name.clone(), middleware));
-    //         }
-    //     }
-
-    //     Ok(processed)
-    // }
-
-    // fn create_template_context(&self) -> TraefikResult<Context> {
-
-    // debug!("Creating template context for {}", self.name);
-    // let mut context = Context::new();
-
-    // let service_context = match &self.deployment.target {
-    //     DeploymentTarget::IpAndPort { ip, port } => {
-    //         json!({
-    //             "service": {
-    //                 "ip": ip,
-    //                 "port": port,
-    //             }
-    //         })
-    //     }
-    //     DeploymentTarget::Service { service_name } => {
-    //         if let Some(services) = &self.traefik_config.services {
-    //             if let Some(service) = services.get(service_name) {
-    //                 match &service.deployment.target {
-    //                     DeploymentTarget::IpAndPort { ip, port } => {
-    //                         json!({
-    //                             "service": {
-    //                                 "ip": ip,
-    //                                 "port": port,
-    //                             }
-    //                         })
-    //                     }
-    //                     _ => {
-    //                         return Err(TraefikError::ServiceConfig(format!(
-    //                             "Service {} has invalid target type",
-    //                             service_name
-    //                         )))
-    //                     }
-    //                 }
-    //             } else {
-    //                 return Err(TraefikError::ServiceConfig(format!(
-    //                     "Service {} not found",
-    //                     service_name
-    //                 )));
-    //             }
-    //         } else {
-    //             return Err(TraefikError::ServiceConfig("No services defined".into()));
-    //         }
-    //     }
-    // };
-
-    // context.insert("deployment", &service_context);
-    // context.insert("host", &self.host_config);
-    // if let Some(path) = &self.path_config {
-    //     context.insert("path", &path);
-    // }
-    // context.insert("traefik_config", &self.traefik_config);
-    // Ok(context)
-    // }
 }
 
 pub fn get_sorted_deployments(
@@ -540,10 +461,13 @@ fn collect_all_deployments(
     // This is done to ensure that the weights are unique and to make
     // the rule complexity more predictable as well as give an edge to
     // the first deployments added
+    let mut resolver = traefik_config.resolver()?;
+    let context = traefik_config.context()?;
+
     let mut internal_deployments_result = Vec::new();
     for internal_deployment in internal_deployments.iter_mut() {
         // Add the host rule
-        internal_deployments_result.push(internal_deployment.init().clone());
+        internal_deployments_result.push(internal_deployment.init(&mut resolver, &context).clone());
     }
     Ok(internal_deployments_result)
 }
@@ -574,22 +498,26 @@ fn get_all_internal_deployments(
                 path_config: path.cloned(),
                 rules: RuleConfig::default(),
                 traefik_config: traefik_config.clone(),
+                variables: deployment.variables.clone(),
             });
         }
     }
     Ok(internal_deployments)
 }
 
-pub fn add_deployment_rules(
+pub fn add_deployment_rules<R>(
     host: &HostConfig,
     sorted_deployments: &[InternalDeploymentConfig],
     services: Option<&HashMap<String, ServiceConfig>>,
     pairs: &mut Vec<EtcdPair>,
     base_key: &str,
     rules: &mut RuleConfig,
-    resolver: &mut impl TemplateResolver,
+    resolver: &mut R,
     context: &TemplateContext,
-) -> TraefikResult<()> {
+) -> TraefikResult<()>
+where
+    R: TemplateResolver,
+{
     for internal_deployment in sorted_deployments.iter() {
         let mut deployment_context = context.clone();
 
@@ -600,10 +528,17 @@ pub fn add_deployment_rules(
             deployment_context.set_path_config(path.clone());
         }
 
+        if let Some(variables) = &host.variables {
+            for (key, value) in variables.iter() {
+                let real_value = value.resolve(resolver, &deployment_context)?;
+                deployment_context.insert_variable(key, real_value);
+            }
+        }
+
         if let Some(variables) = &internal_deployment.deployment.variables {
             for (key, value) in variables.iter() {
-                println!("adding variable: key: {}, value: {}", key, value);
-                deployment_context.insert_variable(key, value);
+                let real_value = value.resolve(resolver, &deployment_context)?;
+                deployment_context.insert_variable(key, real_value);
             }
         }
 
@@ -634,10 +569,9 @@ pub fn add_deployment_rules(
         let mut deployment_traefik_config = internal_deployment.traefik_config.clone();
         set_all_middleware_names(&mut deployment_traefik_config)?;
 
-        println!("deployment_context: {:#?}", deployment_context);
         // TODO: switch this to use variables using TemplateOr
-        // let service_name = format!("{}-service", router_name);
-        let service_name = "resolver";
+        let service_name = format!("{}-service", router_name);
+        // let service_name = "resolver";
         debug!("Adding deployment rules for {}", router_name);
         let calculated_service_name = add_base_service_configuration(
             pairs,
@@ -669,7 +603,6 @@ pub fn add_deployment_rules(
             "Additional middlewares pre-adding: {:?}",
             additional_middlewares
         );
-        println!("context: {:#?}", context);
         let middleware_names = add_middlewares(
             &traefik_config,
             pairs,
@@ -1173,6 +1106,9 @@ mod tests {
         let mut pairs = Vec::new();
         let mut rules = RuleConfig::default();
 
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+
         // Create test deployments
         let mut deployment1 = InternalDeploymentConfig {
             name: "test1".to_string(),
@@ -1185,7 +1121,7 @@ mod tests {
             }),
             ..Default::default()
         };
-        deployment1.init();
+        deployment1.init(&mut resolver, &context);
 
         let mut deployment2 = InternalDeploymentConfig {
             name: "test2".to_string(),
@@ -1194,7 +1130,7 @@ mod tests {
             path_config: None,
             ..Default::default()
         };
-        deployment2.init();
+        deployment2.init(&mut resolver, &context);
 
         let deployments = vec![deployment1, deployment2];
 
@@ -1239,6 +1175,9 @@ mod tests {
         let mut pairs = Vec::new();
         let mut rules = RuleConfig::default();
 
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+
         // Create test deployments
         let mut deployment1 = InternalDeploymentConfig {
             name: "test1".to_string(),
@@ -1251,7 +1190,7 @@ mod tests {
             }),
             ..Default::default()
         };
-        deployment1.init();
+        deployment1.init(&mut resolver, &context);
 
         let deployments = vec![deployment1];
         let mut resolver = create_test_resolver();
@@ -1334,6 +1273,9 @@ mod tests {
         let mut rules = RuleConfig::default();
         host.forward_host = true;
 
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+
         // Create test deployments
         let mut deployment1 = InternalDeploymentConfig {
             name: "test1".to_string(),
@@ -1341,7 +1283,7 @@ mod tests {
             host_config: host.clone(),
             ..Default::default()
         };
-        deployment1.init();
+        deployment1.init(&mut resolver, &context);
 
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
@@ -1410,13 +1352,13 @@ mod tests {
             traefik_config: test_traefik_config,
             ..Default::default()
         };
-        deployment.init();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        deployment.init(&mut resolver, &context);
 
         let mut pairs = Vec::new();
         let mut rules = RuleConfig::default();
 
-        let mut resolver = create_test_resolver();
-        let context = create_test_template_context();
         add_deployment_rules(
             &host,
             &[deployment],
@@ -1445,6 +1387,8 @@ mod tests {
         services.insert("another-service".to_string(), ServiceConfig::default());
         test_traefik_config.services = Some(services.clone());
         test_traefik_config.hosts.push(host.clone());
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
 
         let mut deployment = InternalDeploymentConfig {
             name: "test".to_string(),
@@ -1459,13 +1403,11 @@ mod tests {
             traefik_config: test_traefik_config,
             ..Default::default()
         };
-        deployment.init();
+        deployment.init(&mut resolver, &context);
 
         let mut pairs = Vec::new();
         let mut rules = RuleConfig::default();
 
-        let mut resolver = create_test_resolver();
-        let context = create_test_template_context();
         let result = add_deployment_rules(
             &host,
             &[deployment],
@@ -1494,6 +1436,9 @@ mod tests {
         test_traefik_config.services = Some(services.clone());
         test_traefik_config.hosts.push(host.clone());
 
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+
         let mut deployment = InternalDeploymentConfig {
             name: "test".to_string(),
             deployment: DeploymentConfig {
@@ -1507,7 +1452,7 @@ mod tests {
             traefik_config: test_traefik_config,
             ..Default::default()
         };
-        deployment.init();
+        deployment.init(&mut resolver, &context);
 
         let mut pairs = Vec::new();
         let mut rules = RuleConfig::default();
@@ -1563,13 +1508,16 @@ mod tests {
         let mut rules = RuleConfig::default();
         rules.add_host_rule(&host.domain);
 
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+
         let mut deployment = InternalDeploymentConfig {
             name: "test".to_string(),
             deployment: create_test_deployment(),
             host_config: host.clone(),
             ..Default::default()
         };
-        deployment.init();
+        deployment.init(&mut resolver, &context);
 
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
@@ -1618,10 +1566,10 @@ mod tests {
             rules: rule_config,
             ..Default::default()
         };
-        deployment.init();
-
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
+        deployment.init(&mut resolver, &context);
+
         let pairs = deployment
             .to_etcd_pairs(base_key, &mut resolver, &context)
             .unwrap();

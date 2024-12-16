@@ -5,7 +5,7 @@ use crate::{
     core::{
         client::StoreClient,
         rules::{add_selection_rules, RuleConfig},
-        templating::{TemplateContext, TemplateResolver},
+        templating::{TemplateContext, TemplateOr, TemplateResolver},
         util::{get_safe_key, validate_is_alphanumeric},
         Validate,
     },
@@ -41,6 +41,8 @@ pub struct HostConfig {
     /// Whether to forward the host to the backend
     #[serde(default)]
     pub forward_host: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub variables: Option<HashMap<String, TemplateOr<String>>>,
 }
 
 impl Validate for HostConfig {
@@ -300,6 +302,7 @@ impl HostConfigBuilder {
             middlewares: self.middlewares,
             forward_host: self.forward_host,
             selection: None,
+            variables: None,
         };
         Ok(host_config)
     }
