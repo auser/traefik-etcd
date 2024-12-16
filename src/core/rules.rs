@@ -927,14 +927,18 @@ pub fn add_strip_prefix_middleware(
     path_config: Option<PathConfig>,
 ) -> TraefikResult<Option<String>> {
     let strip_prefix_name = if let Some(path_config) = path_config {
-        let key = format!(
-            "{}/middlewares/{}-strip/stripPrefix/prefixes/0",
-            base_key, path_safe_name
-        );
-        let value = path_config.path.clone();
-        debug!("Adding strip prefix middleware: {} => {}", key, value);
-        pairs.push(EtcdPair::new(key, value));
-        Some(format!("{}-strip", path_safe_name))
+        if path_config.strip_prefix {
+            let key = format!(
+                "{}/middlewares/{}-strip/stripPrefix/prefixes/0",
+                base_key, path_safe_name
+            );
+            let value = path_config.path.clone();
+            debug!("Adding strip prefix middleware: {} => {}", key, value);
+            pairs.push(EtcdPair::new(key, value));
+            Some(format!("{}-strip", path_safe_name))
+        } else {
+            None
+        }
     } else {
         None
     };

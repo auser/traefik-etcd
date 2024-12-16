@@ -1,6 +1,6 @@
-use clap::Args;
-
 use crate::{core::client::StoreClient, error::TraefikResult, features::etcd::Etcd, TraefikConfig};
+use clap::Args;
+use tracing::{error, info};
 
 #[derive(Args, Debug)]
 pub struct ApplyCommand {
@@ -20,11 +20,21 @@ pub async fn run(
     traefik_config: &mut TraefikConfig,
 ) -> TraefikResult<()> {
     if command.clean && !command.dry_run {
-        traefik_config.clean_etcd(client).await?;
+        match traefik_config.clean_etcd(client).await {
+            Ok(_) => {
+                info!("Cleaned etcd");
+            }
+            Err(e) => {
+                error!("Failed to clean etcd: {e}");
+            }
+        }
     }
-    traefik_config
-        .apply_to_etcd(client, command.dry_run, command.rules, command.clean)
-        .await?;
+
+    if !command.dry_run {
+        traefik_config
+            .apply_to_etcd(client, command.dry_run, command.rules, command.clean)
+            .await?;
+    }
 
     Ok(())
 }
