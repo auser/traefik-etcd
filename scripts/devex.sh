@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 DIR_PATH=$(realpath $(dirname "$0"))
-source $DIR_PATH/colors.sh
+# source $DIR_PATH/colors.sh
 
 IMAGE_NAME="auser/traefikctl"
 IMAGE_TAG="latest"
