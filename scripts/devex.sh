@@ -6,8 +6,8 @@ source $DIR_PATH/colors.sh
 IMAGE_NAME="auser/traefikctl"
 IMAGE_TAG="latest"
 CONTAINER_NAME="traefikctl_devcontainer-development"
-FORCE_REBUILD_IMAGE="false"
-FORCE_RESET_CONTAINER="false"
+FORCE_REBUILD_IMAGE="true"
+FORCE_RESET_CONTAINER="true"
 DOCKER_DIR=".devcontainer"
 RUN_PRIVILEGED="false"
 VERBOSE="false"
@@ -122,8 +122,8 @@ parse_opts() {
     while getopts "n:vfr" opt; do
         case ${opt} in
             v ) VERBOSE="true" ;;
-            f ) FORCE_REBUILD_IMAGE="true" ;;
-            r ) FORCE_RESET_CONTAINER="true" ;;
+            f ) FORCE_REBUILD_IMAGE="false" ;;
+            r ) FORCE_RESET_CONTAINER="false" ;;
             \? ) echo "Invalid option: $OPTARG" 1>&2; exit 1 ;;
         esac
     done
@@ -133,8 +133,8 @@ help() {
     echo -e "${BGREEN}Usage: $(basename "$0") [options] <command>${COLOR_OFF}
 Options:
   -v  Verbose mode
-  -f  Force rebuild the Docker image
-  -r  Force reset the container
+  -f  Disable rebuilding the Docker image
+  -r  Disable resetting the container
 
 Commands:
   ${BGREEN}build${COLOR_OFF}             Build the Docker image
