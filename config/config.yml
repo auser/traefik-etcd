@@ -9,7 +9,7 @@ etcd:
     domain: ari.io
 
 middlewares:
-  headers:
+  default-headers:
     additional_headers:
       frameDeny: true
 
@@ -38,8 +38,8 @@ hosts:
             port: 30
             weight: 50
         middlewares:
-          - enable-headers
-          - forward-server
+          - default-headers
+          - templated_headers
 
     # Root path (catch-all)
     deployments:

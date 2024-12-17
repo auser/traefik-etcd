@@ -278,6 +278,24 @@ where
     }
 }
 
+pub fn add_deployment_rules<R>(
+    sorted_deployments: &mut [InternalDeploymentConfig],
+    base_key: &str,
+    resolver: &mut R,
+    context: &TemplateContext,
+) -> TraefikResult<Vec<EtcdPair>>
+where
+    R: TemplateResolver,
+{
+    let mut pairs = Vec::new();
+    for internal_deployment in sorted_deployments.iter_mut() {
+        let deployment_pairs =
+            internal_deployment.process_deployment(base_key, resolver, context)?;
+        pairs.extend(deployment_pairs);
+    }
+    Ok(pairs)
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct InternalDeploymentConfig {
     /// The traefik configuration
@@ -301,6 +319,9 @@ pub struct InternalDeploymentConfig {
     /// The variables of the deployment
     #[serde(default)]
     pub variables: Option<HashMap<String, TemplateOr<String>>>,
+    /// The headers of the deployment
+    #[serde(skip)]
+    _middlewares: HashMap<String, Option<MiddlewareConfig>>,
 }
 
 fn default_weight() -> usize {
@@ -318,46 +339,526 @@ impl ToEtcdPairs for InternalDeploymentConfig {
         let internal_deployment = internal_deployment.init(resolver, context);
         let mut pairs = Vec::new();
 
-        let mut rules = internal_deployment.rules.clone();
-
         // Process middleware templates and add them to pairs
-        // let processed_middlewares = self.process_middleware_templates()?;
-        // debug!("Processed middlewares: {:#?}", processed_middlewares);
         let traefik_config = internal_deployment.traefik_config.clone();
 
+        let root_middleware_key = format!("{}/{}", base_key, "middlewares");
         for (name, middleware) in traefik_config.middlewares.iter() {
+            let base_middleware_key = format!("{}/{}", root_middleware_key, name);
             debug!(
                 "Adding middleware In InternalDeploymentConfig: {} => {:#?}",
                 name, middleware
             );
-            pairs.extend(middleware.to_etcd_pairs(&base_key, resolver, context)?);
+            pairs.extend(middleware.to_etcd_pairs(&base_middleware_key, resolver, context)?);
         }
 
-        // for (name, middleware) in processed_middlewares {
-        //     debug!(
-        //         "Adding middleware In InternalDeploymentConfig: {} => {:#?}",
-        //         name, middleware
-        //     );
-
-        //     traefik_config.middlewares.insert(name, middleware.clone());
-        //     pairs.extend(middleware.to_etcd_pairs(&base_key, resolver, context)?);
-        // }
-
-        add_deployment_rules(
-            &self.host_config,
-            &[internal_deployment.clone()],
-            traefik_config.services.as_ref(),
-            &mut pairs,
-            base_key,
-            &mut rules,
-            resolver,
-            context,
-        )?;
+        // for internal_deployment in sorted_deployments.iter() {
+        let deployment_context = context.clone();
+        let deployment_pairs =
+            internal_deployment.process_deployment(base_key, resolver, &deployment_context)?;
+        pairs.extend(deployment_pairs);
 
         // Remove duplicate EtcdPairs by converting to HashSet and back to Vec
         // let unique_pairs: HashSet<_> = pairs.into_iter().collect();
         // pairs = unique_pairs.into_iter().collect();
         Ok(pairs)
+    }
+}
+
+impl InternalDeploymentConfig {
+    pub fn process_deployment(
+        &mut self,
+        base_key: &str,
+        resolver: &mut impl TemplateResolver,
+        context: &TemplateContext,
+    ) -> TraefikResult<Vec<EtcdPair>> {
+        // Initialize the pairs
+        self.init(resolver, context);
+        let rule = self.rules.clone();
+
+        let mut collected_pairs: Vec<EtcdPair> = Vec::new();
+        let base_key = format!("{}/{}", base_key, self.get_deployment_protocol());
+
+        let context = self.create_deployment_context(context);
+
+        let pairs = self.handle_middlewares(&base_key, resolver, &context)?;
+        collected_pairs.extend(pairs);
+
+        // Add service
+        let service_pairs = self.add_service_configuration(&base_key)?;
+        collected_pairs.extend(service_pairs);
+
+        // Add root router
+        let root_router_pairs = self.add_root_router(&base_key, &rule)?;
+        collected_pairs.extend(root_router_pairs);
+
+        Ok(collected_pairs)
+    }
+
+    fn handle_middlewares(
+        &mut self,
+        base_key: &str,
+        resolver: &mut impl TemplateResolver,
+        context: &TemplateContext,
+    ) -> TraefikResult<Vec<EtcdPair>> {
+        let mut pairs = Vec::new();
+        let mut collected_middlewares = self.collect_middlewares();
+
+        // Deployment for path if it exists
+        let mut internal_deployment = self.clone();
+        if let Some(path_config) = &self.path_config {
+            let pass_through_pairs = internal_deployment.add_pass_through_middleware(
+                &base_key,
+                &mut collected_middlewares,
+                path_config,
+            )?;
+            pairs.extend(pass_through_pairs);
+        }
+
+        // Add deployment target base
+        let base_service_pairs =
+            self.create_base_service_configuration(&base_key, resolver, &context)?;
+        pairs.extend(base_service_pairs);
+
+        // Add deployment middlewares
+        let deployment_middleware_pairs = self.add_deployment_middlewares(
+            &base_key,
+            &mut collected_middlewares,
+            resolver,
+            &context,
+        )?;
+        pairs.extend(deployment_middleware_pairs);
+
+        // Add the middleware pairs
+        let middleware_pairs =
+            self.add_middleware_pairs(&base_key, &mut collected_middlewares, resolver, &context)?;
+        pairs.extend(middleware_pairs);
+
+        // Add the deployment rules
+        let middleware_pairs: Vec<EtcdPair> =
+            self.attach_middleware_names(&base_key, &collected_middlewares)?;
+        pairs.extend(middleware_pairs);
+
+        Ok(pairs)
+    }
+
+    fn add_service_configuration(&mut self, base_key: &str) -> TraefikResult<Vec<EtcdPair>> {
+        let mut pairs = Vec::new();
+        match &self.deployment.target {
+            DeploymentTarget::IpAndPort { .. } => {
+                pairs.push(EtcdPair::new(
+                    format!("{}/routers/{}/service", base_key, self.get_router_name()),
+                    self.get_service_name().clone(),
+                ));
+            }
+            DeploymentTarget::Service { service_name } => {
+                pairs.push(EtcdPair::new(
+                    format!("{}/routers/{}/service", base_key, self.get_router_name()),
+                    service_name.clone(),
+                ));
+            }
+        }
+        Ok(pairs)
+    }
+
+    fn add_root_router(
+        &mut self,
+        base_key: &str,
+        rule: &RuleConfig,
+    ) -> TraefikResult<Vec<EtcdPair>> {
+        let mut pairs = Vec::new();
+        let router_name = self.get_router_name();
+        debug!("Adding root router for {}", router_name);
+
+        let router_key = format!("{}/routers/{}", base_key, router_name);
+        pairs.push(EtcdPair::new(
+            format!("{}/rule", router_key),
+            rule.rule_str(),
+        ));
+        debug!(
+            "Added rule router {}: {} (weight: {})",
+            router_name,
+            rule.rule_str(),
+            rule.get_weight()
+        );
+        pairs.push(EtcdPair::new(
+            format!("{}/entryPoints/0", router_key),
+            "websecure",
+        ));
+        debug!("Added entrypoint: websecure");
+        pairs.push(EtcdPair::new(format!("{}/tls", router_key), "true"));
+        debug!("Added tls: true");
+
+        // Set priority based on rule complexity
+        pairs.push(EtcdPair::new(
+            format!("{}/priority", router_key),
+            (1000 + rule.get_weight() * 10).to_string(),
+        ));
+        Ok(pairs)
+    }
+
+    fn get_router_name(&self) -> String {
+        if self.path_config.is_some() {
+            return format!(
+                "{}-{}-path-router",
+                get_safe_key(&self.host_config.domain),
+                get_safe_key(&self.name)
+            );
+        }
+        format!(
+            "{}-{}-router",
+            get_safe_key(&self.host_config.domain),
+            get_safe_key(&self.name)
+        )
+    }
+
+    fn get_service_name(&self) -> String {
+        if self.path_config.is_some() {
+            return format!(
+                "{}-{}-path-service",
+                get_safe_key(&self.host_config.domain),
+                get_safe_key(&self.name)
+            );
+        }
+        format!(
+            "{}-{}-service",
+            get_safe_key(&self.host_config.domain),
+            get_safe_key(&self.name)
+        )
+    }
+
+    fn get_deployment_protocol(&self) -> DeploymentProtocol {
+        self.deployment.protocol.clone()
+    }
+
+    fn get_safe_middleware_name(&self, middleware_name: &str) -> String {
+        format!("{}-{}", self.get_router_name(), middleware_name)
+    }
+
+    fn add_pass_through_middleware(
+        &mut self,
+        base_key: &str,
+        additional_middlewares: &mut Vec<String>,
+        path_config: &PathConfig,
+    ) -> TraefikResult<Vec<EtcdPair>> {
+        let mut pairs = Vec::new();
+        if path_config.strip_prefix {
+            let key = format!(
+                "{}/middlewares/{}-strip/stripPrefix/prefixes/0",
+                base_key,
+                self.get_router_name()
+            );
+            let value = path_config.path.clone();
+            debug!("Adding strip prefix middleware: {} => {}", key, value);
+            let new_pair = EtcdPair::new(key, value);
+            self._middlewares
+                .insert(format!("{}-strip", self.get_router_name()), None);
+            pairs.push(new_pair);
+            additional_middlewares.push(format!("{}-strip", self.get_router_name()));
+        }
+
+        if path_config.pass_through {
+            let key = format!(
+                "{}/middlewares/{}-headers/headers/customRequestHeaders/X-Pass-Through",
+                base_key,
+                self.get_router_name()
+            );
+            let value = "true".to_string();
+            debug!("Adding pass through middleware: {} => {}", key, value);
+            let new_pair = EtcdPair::new(key, value);
+            self._middlewares
+                .insert(format!("{}-headers", self.get_router_name()), None);
+            pairs.push(new_pair);
+            additional_middlewares.push(format!("{}-headers", self.get_router_name()));
+        }
+        Ok(pairs)
+    }
+
+    fn add_deployment_middlewares(
+        &mut self,
+        base_key: &str,
+        collected_middlewares: &mut Vec<String>,
+        _resolver: &mut impl TemplateResolver,
+        _context: &TemplateContext,
+    ) -> TraefikResult<Vec<EtcdPair>> {
+        let mut pairs = Vec::new();
+        if self.host_config.forward_host {
+            let forward_host_pairs =
+                self.add_forward_host_middleware(collected_middlewares, base_key)?;
+            pairs.extend(forward_host_pairs);
+        }
+
+        Ok(pairs)
+    }
+
+    fn add_middleware_pairs(
+        &mut self,
+        base_key: &str,
+        collected_middlewares: &mut Vec<String>,
+        resolver: &mut impl TemplateResolver,
+        context: &TemplateContext,
+    ) -> TraefikResult<Vec<EtcdPair>> {
+        let mut pairs = Vec::new();
+        let additional_middlewares = collected_middlewares.clone();
+        let middleware_names_clone = additional_middlewares.clone();
+        let mut middleware_names_set = HashSet::new();
+
+        for original_middleware_name in middleware_names_clone.iter() {
+            let middleware_name = original_middleware_name;
+            debug!(
+                "Looking for middleware: {} => {}",
+                original_middleware_name, middleware_name
+            );
+
+            // if let Some(middleware_name) = self.find_in_already_collected_middlewares(
+            //     original_middleware_name,
+            //     collected_middlewares,
+            // ) {
+            //     let new_middleware_name = self.get_safe_middleware_name(&middleware_name);
+            //     pairs.push(EtcdPair::new(
+            //         format!("{}/middlewares/{}", base_key, new_middleware_name),
+            //         "true".to_string(),
+            //     ));
+            // } else
+            if self._middlewares.contains_key(original_middleware_name) {
+                debug!("Middleware {} already exists", original_middleware_name);
+                continue;
+            }
+            // Attach global middleware
+            if let Some((middleware_name, middleware)) =
+                self.find_middleware_in_config(original_middleware_name)
+            {
+                if let Some(middleware) = middleware {
+                    let mut middleware = middleware.clone();
+                    let new_middleware_name = self.get_safe_middleware_name(&middleware_name);
+                    middleware.set_name(&new_middleware_name);
+
+                    let mw_base_key = format!("{}/middlewares/{}", base_key, new_middleware_name);
+                    debug!(
+                        "Adding middleware: {} => {}",
+                        new_middleware_name, mw_base_key
+                    );
+                    let mw_pairs = middleware.to_etcd_pairs(&mw_base_key, resolver, context)?;
+                    debug!("Adding middleware pairs: {:#?}", mw_pairs);
+                    let mw_pairs_clone = mw_pairs.clone();
+                    pairs.extend(mw_pairs);
+                    for pair in mw_pairs_clone.iter() {
+                        self._middlewares
+                            .insert(pair.key().to_string(), Some(middleware.clone()));
+                    }
+                    middleware_names_set.insert(new_middleware_name.clone());
+                }
+            } else if original_middleware_name.ends_with("-strip") {
+                // It's a strip middleware
+                // and we created it
+            } else {
+                // It's not found in the traefik config, host config or deployment config
+                return Err(TraefikError::MiddlewareConfig(format!(
+                    "middleware {} not found",
+                    middleware_name
+                )));
+            }
+        }
+        for middleware_name in middleware_names_set.iter() {
+            collected_middlewares.push(middleware_name.clone());
+        }
+        Ok(pairs)
+    }
+
+    fn collect_middlewares(&self) -> Vec<String> {
+        let mut middleware_names = Vec::new();
+        if let Some(middlewares) = &self.deployment.middlewares {
+            middleware_names.extend(middlewares.clone());
+        }
+        middleware_names.extend(self.host_config.middlewares.iter().cloned());
+        if let Some(path_config) = &self.path_config {
+            for middleware_name in path_config.middlewares.iter() {
+                middleware_names.push(middleware_name.clone());
+            }
+        }
+        middleware_names
+    }
+
+    fn find_middleware_in_config(
+        &self,
+        middleware_name: &str,
+    ) -> Option<(String, Option<MiddlewareConfig>)> {
+        if self._middlewares.contains_key(middleware_name) {
+            return Some((middleware_name.to_string(), None));
+        }
+        if self.traefik_config_contains_middleware(middleware_name) {
+            let middleware = self
+                .traefik_config
+                .middlewares
+                .get(middleware_name)
+                .unwrap()
+                .clone();
+            return Some((middleware_name.to_string(), Some(middleware)));
+        }
+        None
+    }
+
+    fn traefik_config_contains_middleware(&self, middleware_name: &str) -> bool {
+        self.traefik_config
+            .middlewares
+            .contains_key(middleware_name)
+    }
+
+    fn attach_middleware_names(
+        &mut self,
+        base_key: &str,
+        middleware_names: &Vec<String>,
+    ) -> TraefikResult<Vec<EtcdPair>> {
+        // Attach middleware names to the router
+        let mut pairs = vec![];
+        let mut sorted_middleware_names = middleware_names.clone();
+        sorted_middleware_names.sort();
+
+        for (idx, middleware_name) in sorted_middleware_names.iter().enumerate() {
+            {
+                pairs.push(EtcdPair::new(
+                    format!(
+                        "{}/routers/{}/middlewares/{}",
+                        base_key,
+                        self.get_router_name(),
+                        idx
+                    ),
+                    middleware_name,
+                ));
+            }
+        }
+
+        Ok(pairs)
+    }
+
+    fn add_forward_host_middleware(
+        &mut self,
+        middleware_names: &mut Vec<String>,
+        base_key: &str,
+    ) -> TraefikResult<Vec<EtcdPair>> {
+        let mut pairs = Vec::new();
+        let router_name = self.get_router_name();
+        let middleware_name = format!("{}-headers", router_name);
+        pairs.push(EtcdPair::new(
+            format!(
+                "{}/middlewares/{}-headers/headers/customRequestHeaders/X-Forwarded-Host",
+                base_key, router_name
+            ),
+            self.host_config.domain.clone(),
+        ));
+        pairs.push(EtcdPair::new(
+            format!(
+                "{}/middlewares/{}-headers/headers/customRequestHeaders/X-Forwarded-Proto",
+                base_key, router_name
+            ),
+            "https".to_string(),
+        ));
+        pairs.push(EtcdPair::new(
+            format!(
+                "{}/middlewares/{}-headers/headers/customRequestHeaders/X-Original-Host",
+                base_key, router_name
+            ),
+            self.host_config.domain.clone(),
+        ));
+        pairs.push(EtcdPair::new(
+            format!(
+                "{}/middlewares/{}-headers/headers/customRequestHeaders/X-Real-IP",
+                base_key, router_name
+            ),
+            "true".to_string(),
+        ));
+        middleware_names.push(middleware_name.clone());
+        self._middlewares.insert(middleware_name, None);
+        Ok(pairs)
+    }
+
+    fn create_base_service_configuration(
+        &mut self,
+        base_key: &str,
+        resolver: &mut impl TemplateResolver,
+        context: &TemplateContext,
+    ) -> TraefikResult<Vec<EtcdPair>> {
+        let mut pairs = Vec::new();
+        let deployment_service_name = self.get_service_name();
+        debug!(
+            "Adding base service configuration for {}",
+            deployment_service_name
+        );
+
+        match &self.deployment.target {
+            DeploymentTarget::IpAndPort { ip, port } => {
+                let base_key = format!("{}/services/{}", base_key, deployment_service_name);
+                debug!(
+                    "Adding service {} pointing to http://{}:{}",
+                    deployment_service_name, ip, port
+                );
+                pairs.push(EtcdPair::new(
+                    format!("{}/loadBalancer/servers/0/url", base_key),
+                    format!("http://{}:{}", ip, port),
+                ));
+                pairs.push(EtcdPair::new(
+                    format!("{}/loadBalancer/passHostHeader", base_key),
+                    "true".to_string(),
+                ));
+                pairs.push(EtcdPair::new(
+                    format!("{}/loadBalancer/responseForwarding/flushInterval", base_key),
+                    "100ms".to_string(),
+                ));
+            }
+            DeploymentTarget::Service { service_name } => {
+                // let base_key = format!("{}/services/{}", base_key, service_name);
+                debug!("Adding service {} pointing to {}", service_name, base_key);
+                // Add the service configuration
+                if let Some(services) = &self.traefik_config.services {
+                    if let Some(service) = services.get(service_name) {
+                        let mut service = service.clone();
+                        service.set_name(&service_name);
+                        let service_pairs = service.to_etcd_pairs(&base_key, resolver, context)?;
+                        pairs.extend(service_pairs);
+                    } else {
+                        return Err(TraefikError::ServiceConfig(format!(
+                            "Service {} not found",
+                            service_name
+                        )));
+                    }
+                } else {
+                    return Err(TraefikError::ServiceConfig(
+                        "Services not found in config".to_string(),
+                    ));
+                }
+            }
+        };
+
+        Ok(pairs)
+    }
+
+    fn create_deployment_context(&mut self, context: &TemplateContext) -> TemplateContext {
+        let mut deployment_context = context.clone();
+        // Set deployment
+        deployment_context.set_deployment(self.deployment.clone());
+        // Set host
+        deployment_context.set_host(self.host_config.clone());
+
+        // Set the path config
+        if let Some(path) = &self.path_config {
+            deployment_context.set_path_config(path.clone());
+        }
+
+        // Set host variables
+        if let Some(variables) = &self.host_config.variables {
+            for (key, value) in variables.iter() {
+                deployment_context.insert_variable(key, value.clone());
+            }
+        }
+
+        // Set deployment variables
+        if let Some(variables) = &self.deployment.variables {
+            for (key, value) in variables.iter() {
+                deployment_context.insert_variable(key, value.clone());
+            }
+        };
+
+        deployment_context
     }
 }
 
@@ -499,428 +1000,20 @@ fn get_all_internal_deployments(
                 rules: RuleConfig::default(),
                 traefik_config: traefik_config.clone(),
                 variables: deployment.variables.clone(),
+                _middlewares: HashMap::new(),
             });
         }
     }
     Ok(internal_deployments)
 }
 
-pub fn add_deployment_rules<R>(
-    host: &HostConfig,
-    sorted_deployments: &[InternalDeploymentConfig],
-    services: Option<&HashMap<String, ServiceConfig>>,
-    pairs: &mut Vec<EtcdPair>,
-    base_key: &str,
-    rules: &mut RuleConfig,
-    resolver: &mut R,
-    context: &TemplateContext,
-) -> TraefikResult<()>
-where
-    R: TemplateResolver,
-{
-    for internal_deployment in sorted_deployments.iter() {
-        let mut deployment_context = context.clone();
-
-        deployment_context.set_deployment(internal_deployment.deployment.clone());
-        deployment_context.set_host(host.clone());
-
-        if let Some(path) = &internal_deployment.path_config {
-            deployment_context.set_path_config(path.clone());
-        }
-
-        if let Some(variables) = &host.variables {
-            for (key, value) in variables.iter() {
-                let real_value = value.resolve(resolver, &deployment_context)?;
-                deployment_context.insert_variable(key, real_value);
-            }
-        }
-
-        if let Some(variables) = &internal_deployment.deployment.variables {
-            for (key, value) in variables.iter() {
-                let real_value = value.resolve(resolver, &deployment_context)?;
-                deployment_context.insert_variable(key, real_value);
-            }
-        }
-
-        let router_name = match host.domain.as_str() {
-            "" => format!("{}-router", get_safe_key(&internal_deployment.name)),
-            domain => format!(
-                "{}-{}-router",
-                get_safe_key(domain),
-                get_safe_key(&internal_deployment.name)
-            ),
-        };
-        let rule = rules.clone();
-        let deployment_protocol = &internal_deployment.deployment.protocol;
-        let base_key = format!("{}/{}", base_key, deployment_protocol);
-
-        debug!("Adding deployment middlewares for {}", router_name);
-        let mut additional_middlewares = host.middlewares.clone();
-        let strip_prefix_name = add_strip_prefix_middleware(
-            pairs,
-            &base_key,
-            &router_name,
-            internal_deployment.path_config.clone(),
-        )?;
-        if let Some(strip_prefix_middleware_name) = strip_prefix_name.clone() {
-            additional_middlewares.push(strip_prefix_middleware_name);
-        }
-
-        let mut deployment_traefik_config = internal_deployment.traefik_config.clone();
-        set_all_middleware_names(&mut deployment_traefik_config)?;
-
-        // TODO: switch this to use variables using TemplateOr
-        let service_name = format!("{}-service", router_name);
-        // let service_name = "resolver";
-        debug!("Adding deployment rules for {}", router_name);
-        let calculated_service_name = add_base_service_configuration(
-            pairs,
-            &base_key,
-            &service_name,
-            &internal_deployment,
-            services,
-            resolver,
-            &deployment_context,
-        )?;
-
-        let service_name = calculated_service_name;
-
-        let traefik_config = deployment_traefik_config.clone();
-        // if !processed_middlewares.is_empty() {
-        //     let mut processed_middleware_names = Vec::new();
-        //     for (middleware_name, middleware) in processed_middlewares.iter() {
-        //         processed_middleware_names.push(middleware_name.clone());
-        //         // let middleware_key = format!("{}/middlewares", base_key);
-        //         traefik_config
-        //             .middlewares
-        //             .insert(middleware_name.clone(), middleware.clone());
-        //     }
-
-        //     additional_middlewares.extend(processed_middleware_names);
-        // }
-
-        debug!(
-            "Additional middlewares pre-adding: {:?}",
-            additional_middlewares
-        );
-        let middleware_names = add_middlewares(
-            &traefik_config,
-            pairs,
-            &base_key,
-            &router_name,
-            &additional_middlewares,
-            strip_prefix_name.as_deref(),
-            host,
-            resolver,
-            &deployment_context,
-        )?;
-
-        attach_middlewares(pairs, &base_key, &router_name, &middleware_names)?;
-
-        // Link router to the correct service based on rule
-        pairs.push(EtcdPair::new(
-            format!("{}/routers/{}/service", base_key, router_name),
-            service_name.clone(),
-        ));
-
-        debug!("Adding deployment rules for {}", router_name);
-        add_root_router(pairs, &base_key, &router_name, &rule)?;
-    }
-
-    Ok(())
-}
-
-fn set_all_middleware_names(traefik_config: &mut TraefikConfig) -> TraefikResult<()> {
-    for (name, middleware) in traefik_config.middlewares.iter_mut() {
-        middleware.set_name(name);
-    }
-    Ok(())
-}
-
-pub fn attach_middlewares(
-    pairs: &mut Vec<EtcdPair>,
-    base_key: &str,
-    router_name: &str,
-    middleware_names: &[String],
-) -> TraefikResult<()> {
-    for (idx, middleware_name) in middleware_names.iter().enumerate() {
-        pairs.push(EtcdPair::new(
-            format!("{}/routers/{}/middlewares/{}", base_key, router_name, idx),
-            middleware_name.clone(),
-        ));
-    }
-    Ok(())
-}
-
-pub fn add_root_router(
-    pairs: &mut Vec<EtcdPair>,
-    base_key: &str,
-    router_name: &str,
-    rule: &RuleConfig,
-) -> TraefikResult<()> {
-    debug!("Adding root router for {}", router_name);
-
-    let router_key = format!("{}/routers/{}", base_key, router_name);
-    pairs.push(EtcdPair::new(
-        format!("{}/rule", router_key),
-        rule.rule_str(),
-    ));
-    debug!(
-        "Added rule router {}: {} (weight: {})",
-        router_name,
-        rule.rule_str(),
-        rule.get_weight()
-    );
-    pairs.push(EtcdPair::new(
-        format!("{}/entryPoints/0", router_key),
-        "websecure",
-    ));
-    debug!("Added entrypoint: websecure");
-    pairs.push(EtcdPair::new(format!("{}/tls", router_key), "true"));
-    debug!("Added tls: true");
-
-    // Set priority based on rule complexity
-    pairs.push(EtcdPair::new(
-        format!("{}/priority", router_key),
-        (1000 + rule.get_weight() * 10).to_string(),
-    ));
-    Ok(())
-}
-
-fn add_base_service_configuration(
-    pairs: &mut Vec<EtcdPair>,
-    base_key: &str,
-    service_name: &str,
-    internal_deployment_config: &InternalDeploymentConfig,
-    services: Option<&HashMap<String, ServiceConfig>>,
-    resolver: &mut impl TemplateResolver,
-    context: &TemplateContext,
-) -> TraefikResult<String> {
-    let deployment = internal_deployment_config.deployment.clone();
-    // let deployment_protocol = deployment.protocol;
-
-    let mut actual_service_name = service_name;
-
-    match &deployment.target {
-        DeploymentTarget::IpAndPort { ip, port } => {
-            let base_key = format!("{}/services/{}", base_key, service_name);
-            debug!(
-                "Adding service {} pointing to http://{}:{}",
-                service_name, ip, port
-            );
-
-            pairs.push(EtcdPair::new(
-                format!("{}/loadBalancer/servers/0/url", base_key),
-                format!("http://{}:{}", ip, port),
-            ));
-
-            pairs.push(EtcdPair::new(
-                format!("{}/loadBalancer/passHostHeader", base_key),
-                "true".to_string(),
-            ));
-
-            pairs.push(EtcdPair::new(
-                format!("{}/loadBalancer/responseForwarding/flushInterval", base_key),
-                "100ms".to_string(),
-            ));
-        }
-        DeploymentTarget::Service { service_name } => {
-            if let Some(services) = services {
-                if let Some(service) = services.get(service_name) {
-                    let mut service = service.clone();
-                    actual_service_name = service_name.as_str();
-                    service.set_name(service_name);
-                    let service_pairs = service.to_etcd_pairs(base_key, resolver, context)?;
-                    pairs.extend(service_pairs);
-                } else {
-                    return Err(TraefikError::ServiceConfig(format!(
-                        "Service {} not found",
-                        service_name
-                    )));
-                }
-            } else {
-                return Err(TraefikError::ServiceConfig(
-                    "Services not found in config".to_string(),
-                ));
-            }
-        }
-    };
-
-    // let processed_middlewares = internal_deployment_config.process_middleware_templates()?;
-
-    Ok(actual_service_name.to_string())
-}
-
-pub fn add_middlewares(
-    traefik_config: &TraefikConfig,
-    pairs: &mut Vec<EtcdPair>,
-    base_key: &str,
-    router_name: &str,
-    additional_middlewares: &[String],
-    strip_prefix_name: Option<&str>,
-    host_config: &HostConfig,
-    resolver: &mut impl TemplateResolver,
-    context: &TemplateContext,
-) -> TraefikResult<Vec<String>> {
-    let mut middleware_names = Vec::new();
-
-    // Add strip prefix if provided
-    if let Some(strip_name) = strip_prefix_name {
-        middleware_names.push(strip_name.to_string());
-    }
-
-    // Add host forwarding headers if enabled
-    if host_config.forward_host {
-        pairs.push(EtcdPair::new(
-            format!(
-                "{}/middlewares/{}-headers/headers/customRequestHeaders/X-Forwarded-Host",
-                base_key, router_name
-            ),
-            host_config.domain.clone(),
-        ));
-        pairs.push(EtcdPair::new(
-            format!(
-                "{}/middlewares/{}-headers/headers/customRequestHeaders/X-Forwarded-Proto",
-                base_key, router_name
-            ),
-            "https".to_string(),
-        ));
-        pairs.push(EtcdPair::new(
-            format!(
-                "{}/middlewares/{}-headers/headers/customRequestHeaders/X-Original-Host",
-                base_key, router_name
-            ),
-            host_config.domain.clone(),
-        ));
-        pairs.push(EtcdPair::new(
-            format!(
-                "{}/middlewares/{}-headers/headers/customRequestHeaders/X-Real-IP",
-                base_key, router_name
-            ),
-            "true".to_string(),
-        ));
-        middleware_names.push(format!("{}-headers", router_name));
-    }
-
-    // // First add any templated header middlewares
-    // for middleware_name in additional_middlewares {
-    //     debug!("Checking middleware: {}", middleware_name);
-    //     if middleware_name.ends_with("-templated") {
-    //         match traefik_config.middlewares.get(middleware_name) {
-    //             Some(middleware) => {
-    //                 debug!("Adding templated middleware: {}", middleware_name);
-    //                 let mut middleware = middleware.clone();
-    //                 middleware.set_name(middleware_name);
-    //                 let mw_base_key = format!("{}/middlewares", base_key);
-    //                 debug!(
-    //                     "Adding templated middleware: {} => base_key: {}",
-    //                     middleware_name, mw_base_key
-    //                 );
-    //                 let mw_pairs = middleware.to_etcd_pairs(&mw_base_key, resolver, context)?;
-    //                 debug!("templated mw_pairs: {:?}", mw_pairs);
-    //                 pairs.extend(mw_pairs);
-    //                 middleware_names.push(middleware_name.clone());
-    //             }
-    //             None => {
-    //                 debug!(
-    //                     "Templated middleware {} not found in config",
-    //                     middleware_name
-    //                 );
-    //                 continue;
-    //             }
-    //         }
-    //     }
-    // }
-
-    // Then add other middlewares
-    for middleware_name in additional_middlewares {
-        match traefik_config.middlewares.get(middleware_name) {
-            Some(middleware) => {
-                let mut middleware = middleware.clone();
-                middleware.set_name(&middleware_name);
-                let mw_base_key = format!("{}/middlewares/{}", base_key, middleware_name);
-                debug!(
-                    "Adding middleware: {} => base_key: {}",
-                    middleware_name, mw_base_key
-                );
-                let mw_pairs = middleware.to_etcd_pairs(&mw_base_key, resolver, context)?;
-                debug!("Adding middleware pairs: {:#?}", mw_pairs);
-                pairs.extend(mw_pairs);
-                middleware_names.push(middleware_name.clone());
-            }
-            None => {
-                // Strip prefix middleware is handled separately
-                if !middleware_name.ends_with("-strip") {
-                    return Err(TraefikError::MiddlewareConfig(format!(
-                        "middleware {} not found",
-                        middleware_name
-                    )));
-                }
-            }
-        }
-    }
-
-    debug!("Final middleware order: {:?}", middleware_names);
-    Ok(middleware_names)
-}
-
-pub fn add_strip_prefix_middleware(
-    pairs: &mut Vec<EtcdPair>,
-    base_key: &str,
-    path_safe_name: &str,
-    path_config: Option<PathConfig>,
-) -> TraefikResult<Option<String>> {
-    let strip_prefix_name = if let Some(path_config) = path_config {
-        if path_config.strip_prefix {
-            let key = format!(
-                "{}/middlewares/{}-strip/stripPrefix/prefixes/0",
-                base_key, path_safe_name
-            );
-            let value = path_config.path.clone();
-            debug!("Adding strip prefix middleware: {} => {}", key, value);
-            pairs.push(EtcdPair::new(key, value));
-            Some(format!("{}-strip", path_safe_name))
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-    Ok(strip_prefix_name)
-}
-
-pub fn add_pass_through_middleware(
-    pairs: &mut Vec<EtcdPair>,
-    base_key: &str,
-    path_safe_name: &str,
-    path_config: &PathConfig,
-) -> TraefikResult<()> {
-    if path_config.pass_through {
-        pairs.push(EtcdPair::new(
-            format!(
-                "{}/middlewares/{}-headers/headers/customRequestHeaders/X-Pass-Through",
-                base_key, path_safe_name
-            ),
-            "true".to_string(),
-        ));
-    } else {
-        pairs.push(EtcdPair::new(
-            format!(
-                "{}/middlewares/{}-headers/headers/customResponseHeaders/Location",
-                base_key, ""
-            ),
-            "false".to_string(),
-        ));
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
 
+    #[allow(unused_imports)]
+    use crate::test_helpers::init_test_tracing;
     use crate::{
-        config::{middleware::MiddlewareConfig, services::ServiceConfig},
+        config::{headers::HeadersConfig, middleware::MiddlewareConfig, services::ServiceConfig},
         test_helpers::{
             assert_contains_pair, assert_does_not_contain_pair, create_complex_test_config,
             create_test_config, create_test_deployment, create_test_host, create_test_resolver,
@@ -1100,11 +1193,37 @@ mod tests {
     }
 
     #[test]
-    fn test_add_deployment_rules() {
+    fn test_deployment_adds_rule_to_pairs() {
         let host = create_test_host();
         let base_key = "test";
-        let mut pairs = Vec::new();
-        let mut rules = RuleConfig::default();
+
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+
+        let mut deployment = InternalDeploymentConfig {
+            name: "test".to_string(),
+            deployment: create_test_deployment(),
+            host_config: host.clone(),
+            ..Default::default()
+        };
+        deployment.init(&mut resolver, &context);
+
+        let mut deployments = vec![deployment];
+        let pairs = add_deployment_rules(&mut deployments, base_key, &mut resolver, &context);
+
+        assert!(pairs.is_ok());
+        let pairs = pairs.unwrap();
+
+        assert_contains_pair(
+            &pairs,
+            "test/http/routers/test-example-com-test-router/rule Host(`test.example.com`)",
+        );
+    }
+
+    #[test]
+    fn test_add_deployment_rules_from_internal_deployment_config() {
+        let host = create_test_host();
+        let base_key = "test";
 
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
@@ -1132,39 +1251,30 @@ mod tests {
         };
         deployment2.init(&mut resolver, &context);
 
-        let deployments = vec![deployment1, deployment2];
+        let mut deployments = vec![deployment1, deployment2];
 
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
-        add_deployment_rules(
-            &host,
-            &deployments,
-            None,
-            &mut pairs,
-            base_key,
-            &mut rules,
-            &mut resolver,
-            &context,
-        )
-        .unwrap();
+        let pairs =
+            add_deployment_rules(&mut deployments, base_key, &mut resolver, &context).unwrap();
 
         // Verify router configurations
         assert_contains_pair(
             &pairs,
-            "test/http/routers/test-example-com-test1-router/entryPoints/0 websecure",
+            "test/http/routers/test-example-com-test1-path-router/entryPoints/0 websecure",
         );
 
         // Verify strip prefix middleware for path deployment
         assert_contains_pair(
             &pairs,
-            "test/http/middlewares/test-example-com-test1-router-strip/stripPrefix/prefixes/0 /api",
+            "test/http/middlewares/test-example-com-test1-path-router-strip/stripPrefix/prefixes/0 /api",
         );
 
         // Verify service configurations
         // test/http/services/test1-router-service/loadBalancer/servers/0/url
         assert_contains_pair(
             &pairs,
-            "test/http/services/test-example-com-test1-router-service/loadBalancer/servers/0/url http://10.0.0.1:8080",
+            "test/http/services/test-example-com-test1-path-service/loadBalancer/servers/0/url http://10.0.0.1:8080",
         );
     }
 
@@ -1172,8 +1282,6 @@ mod tests {
     fn test_add_deployment_rules_with_strip_prefix() {
         let host = create_test_host();
         let base_key = "test";
-        let mut pairs = Vec::new();
-        let mut rules = RuleConfig::default();
 
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
@@ -1192,25 +1300,16 @@ mod tests {
         };
         deployment1.init(&mut resolver, &context);
 
-        let deployments = vec![deployment1];
+        let mut deployments = vec![deployment1];
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
-        add_deployment_rules(
-            &host,
-            &deployments,
-            None,
-            &mut pairs,
-            base_key,
-            &mut rules,
-            &mut resolver,
-            &context,
-        )
-        .unwrap();
+        let pairs =
+            add_deployment_rules(&mut deployments, base_key, &mut resolver, &context).unwrap();
 
         // Verify strip prefix middleware for path deployment
         assert_contains_pair(
             &pairs,
-            "test/http/middlewares/test-example-com-test1-router-strip/stripPrefix/prefixes/0 /api",
+            "test/http/middlewares/test-example-com-test1-path-router-strip/stripPrefix/prefixes/0 /api",
         );
     }
 
@@ -1269,8 +1368,6 @@ mod tests {
     fn test_forward_host_middleware() {
         let mut host = create_test_host();
         let base_key = "test";
-        let mut pairs = Vec::new();
-        let mut rules = RuleConfig::default();
         host.forward_host = true;
 
         let mut resolver = create_test_resolver();
@@ -1285,21 +1382,14 @@ mod tests {
         };
         deployment1.init(&mut resolver, &context);
 
+        let mut deployments = vec![deployment1];
+
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
-        add_deployment_rules(
-            &host,
-            &[deployment1],
-            None,
-            &mut pairs,
-            base_key,
-            &mut rules,
-            &mut resolver,
-            &context,
-        )
-        .unwrap();
+        let pairs =
+            add_deployment_rules(&mut deployments, base_key, &mut resolver, &context).unwrap();
 
-        debug!("{:#?}", pairs);
+        debug!("test_forward_host_middleware {:#?}", pairs);
         assert_contains_pair(
             &pairs,
             "test/http/middlewares/test-example-com-test1-router-headers/headers/customRequestHeaders/X-Forwarded-Host test.example.com",
@@ -1320,28 +1410,32 @@ mod tests {
 
     #[test]
     fn test_attach_middlewares_attaches_to_the_router() {
-        let mut pairs = Vec::new();
-        attach_middlewares(
-            &mut pairs,
-            "test",
-            "router",
-            &["middleware1".to_string(), "middleware2".to_string()],
-        )
-        .unwrap();
+        let (_host, _base_key, deployments, _resolver, _context) = create_test_env();
+        let mut middleware_names = vec!["middleware1".to_string(), "middleware2".to_string()];
+        let mut dp1 = deployments[0].clone();
+        let pairs = dp1
+            .attach_middleware_names("test/http", &mut middleware_names)
+            .unwrap();
 
-        assert_contains_pair(&pairs, "test/routers/router/middlewares/0 middleware1");
-        assert_contains_pair(&pairs, "test/routers/router/middlewares/1 middleware2");
+        assert_contains_pair(
+            &pairs,
+            "test/http/routers/test-example-com-test1-router/middlewares/0 middleware1",
+        );
+        assert_contains_pair(
+            &pairs,
+            "test/http/routers/test-example-com-test1-router/middlewares/1 middleware2",
+        );
     }
 
     #[test]
     fn test_add_deployment_rules_with_middlewares() {
         let mut test_traefik_config = read_test_config();
         let mut host = create_test_host();
-        host.middlewares = vec!["test-middleware".to_string()];
+        host.middlewares = vec!["default-headers".to_string()];
 
         test_traefik_config
             .middlewares
-            .insert("test-middleware".to_string(), MiddlewareConfig::default());
+            .insert("default-headers".to_string(), MiddlewareConfig::default());
 
         test_traefik_config.hosts.push(host.clone());
 
@@ -1356,26 +1450,16 @@ mod tests {
         let context = create_test_template_context();
         deployment.init(&mut resolver, &context);
 
-        let mut pairs = Vec::new();
-        let mut rules = RuleConfig::default();
+        let mut deployments = vec![deployment];
 
-        add_deployment_rules(
-            &host,
-            &[deployment],
-            None,
-            &mut pairs,
-            "test",
-            &mut rules,
-            &mut resolver,
-            &context,
-        )
-        .unwrap();
+        let pairs =
+            add_deployment_rules(&mut deployments, "test", &mut resolver, &context).unwrap();
 
         // Verify middleware configuration
         // test/http/routers/test-example-com-test-router/middlewares/0
         assert_contains_pair(
             &pairs,
-            "test/http/routers/test-example-com-test-router/middlewares/0 test-middleware",
+            "test/http/routers/test-example-com-test-router/middlewares/0 default-headers",
         );
     }
 
@@ -1405,19 +1489,9 @@ mod tests {
         };
         deployment.init(&mut resolver, &context);
 
-        let mut pairs = Vec::new();
-        let mut rules = RuleConfig::default();
+        let mut deployments = vec![deployment];
 
-        let result = add_deployment_rules(
-            &host,
-            &[deployment],
-            Some(&services),
-            &mut pairs,
-            "test",
-            &mut rules,
-            &mut resolver,
-            &context,
-        );
+        let result = add_deployment_rules(&mut deployments, "test", &mut resolver, &context);
         // Global service does not exist
         assert!(result.is_err());
         let err = result.unwrap_err();
@@ -1429,6 +1503,8 @@ mod tests {
 
     #[test]
     fn test_set_deployment_to_global_service_that_exists() {
+        // init_test_tracing();
+
         let mut test_traefik_config = read_test_config();
         let host = create_test_host();
         let mut services = HashMap::new();
@@ -1454,23 +1530,13 @@ mod tests {
         };
         deployment.init(&mut resolver, &context);
 
-        let mut pairs = Vec::new();
-        let mut rules = RuleConfig::default();
-
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
-        let result = add_deployment_rules(
-            &host,
-            &[deployment],
-            Some(&services),
-            &mut pairs,
-            "test",
-            &mut rules,
-            &mut resolver,
-            &context,
-        );
+        let mut deployments = vec![deployment];
+        let result = add_deployment_rules(&mut deployments, "test", &mut resolver, &context);
         // Global service exists
         assert!(result.is_ok());
+        let pairs = result.unwrap();
         assert_contains_pair(
             &pairs,
             "test/http/routers/test-example-com-test-router/service redirector",
@@ -1479,23 +1545,12 @@ mod tests {
 
     #[test]
     fn test_add_deployment_rules_empty_deployments() {
-        let host = create_test_host();
-        let mut pairs = Vec::new();
-        let mut rules = RuleConfig::default();
-
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
-        let result = add_deployment_rules(
-            &host,
-            &[],
-            None,
-            &mut pairs,
-            "test",
-            &mut rules,
-            &mut resolver,
-            &context,
-        );
+        let mut deployments = vec![];
+        let result = add_deployment_rules(&mut deployments, "test", &mut resolver, &context);
         assert!(result.is_ok());
+        let pairs = result.unwrap();
         assert!(pairs.is_empty());
     }
 
@@ -1504,9 +1559,6 @@ mod tests {
         let mut host = create_test_host();
         host.domain = "domain.com".to_string();
         let base_key = "test";
-        let mut pairs = Vec::new();
-        let mut rules = RuleConfig::default();
-        rules.add_host_rule(&host.domain);
 
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
@@ -1519,19 +1571,11 @@ mod tests {
         };
         deployment.init(&mut resolver, &context);
 
+        let mut deployments = vec![deployment];
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
-        add_deployment_rules(
-            &host,
-            &[deployment],
-            None,
-            &mut pairs,
-            base_key,
-            &mut rules,
-            &mut resolver,
-            &context,
-        )
-        .unwrap();
+        let pairs =
+            add_deployment_rules(&mut deployments, base_key, &mut resolver, &context).unwrap();
 
         // Verify router rule exists
         assert_contains_pair(
@@ -1542,13 +1586,13 @@ mod tests {
         // Verify service exists with correct URL
         assert_contains_pair(
             &pairs,
-            "test/http/services/domain-com-test-router-service/loadBalancer/servers/0/url http://10.0.0.1:8080",
+            "test/http/services/domain-com-test-service/loadBalancer/servers/0/url http://10.0.0.1:8080",
         );
 
         // Verify router is linked to service
         assert_contains_pair(
             &pairs,
-            "test/http/services/domain-com-test-router-service/loadBalancer/passHostHeader true",
+            "test/http/services/domain-com-test-service/loadBalancer/passHostHeader true",
         );
     }
 
@@ -1556,6 +1600,7 @@ mod tests {
     fn test_internal_deployment_to_etcd_pairs() {
         let host = create_test_host();
         let base_key = "test";
+        let test_traefik_config = create_test_config(Some(vec![host.clone()]));
 
         let rule_config = RuleConfig::default();
 
@@ -1564,15 +1609,16 @@ mod tests {
             deployment: create_test_deployment(),
             host_config: host,
             rules: rule_config,
+            traefik_config: test_traefik_config,
             ..Default::default()
         };
         let mut resolver = create_test_resolver();
         let context = create_test_template_context();
         deployment.init(&mut resolver, &context);
 
-        let pairs = deployment
-            .to_etcd_pairs(base_key, &mut resolver, &context)
-            .unwrap();
+        let result = deployment.to_etcd_pairs(base_key, &mut resolver, &context);
+        assert!(result.is_ok());
+        let pairs = result.unwrap();
 
         assert_contains_pair(
             &pairs,
@@ -1588,7 +1634,7 @@ mod tests {
         );
         assert_contains_pair(
             &pairs,
-            "test/http/services/test-example-com-test-router-service/loadBalancer/passHostHeader true",
+            "test/http/services/test-example-com-test-service/loadBalancer/passHostHeader true",
         );
         assert_contains_pair(
             &pairs,
@@ -1596,7 +1642,125 @@ mod tests {
         );
         assert_contains_pair(
             &pairs,
-            "test/http/routers/test-example-com-test-router/service test-example-com-test-router-service",
+            "test/http/routers/test-example-com-test-router/service test-example-com-test-service",
         );
+    }
+
+    #[test]
+    fn test_path_and_host_middleware_names_are_set_to_router_name() {
+        // init_test_tracing();
+
+        let mut traefik_config = create_test_config(None);
+        let mut host = create_test_host();
+        let base_key = "test";
+        let rule_config = RuleConfig::default();
+
+        let mut host_middleware = MiddlewareConfig::default();
+        host_middleware.set_name("test-host-middleware");
+        traefik_config
+            .middlewares
+            .insert("test-host-middleware".to_string(), host_middleware);
+        host.middlewares = vec!["test-host-middleware".to_string()];
+        traefik_config.hosts.push(host.clone());
+        traefik_config.middlewares.insert(
+            "test-host-middleware".to_string(),
+            MiddlewareConfig::default(),
+        );
+        traefik_config.middlewares.insert(
+            "test-deployment-middleware".to_string(),
+            MiddlewareConfig::default(),
+        );
+        traefik_config.middlewares.insert(
+            "test-path-middleware".to_string(),
+            MiddlewareConfig::default(),
+        );
+
+        let header_config = HeadersConfig {
+            additional_headers: HashMap::from([(
+                "X-Forwarded-Host".to_string(),
+                TemplateOr::Static("test.example.com".to_string()),
+            )]),
+            ..Default::default()
+        };
+        let mut path_middleware = MiddlewareConfig::default();
+        path_middleware.set_name("test-path-middleware");
+        path_middleware.headers = Some(header_config);
+
+        let mut deployment_middleware = MiddlewareConfig::default();
+        deployment_middleware.set_name("test-deployment-middleware");
+
+        traefik_config
+            .middlewares
+            .insert("test-path-middleware".to_string(), path_middleware);
+
+        let mut original_deployment = create_test_deployment();
+        original_deployment.middlewares = Some(vec!["test-deployment-middleware".to_string()]);
+
+        original_deployment.middlewares = Some(vec![
+            "test-deployment-middleware".to_string(),
+            "test-path-middleware".to_string(),
+        ]);
+
+        host.paths.push(PathConfig {
+            path: "/api".to_string(),
+            deployments: HashMap::from([("blue".to_string(), original_deployment.clone())]),
+            middlewares: vec!["test-path-middleware".to_string()],
+            strip_prefix: true,
+            pass_through: false,
+        });
+
+        let mut deployment = InternalDeploymentConfig {
+            name: "test".to_string(),
+            deployment: original_deployment,
+            host_config: host,
+            rules: rule_config,
+            traefik_config: traefik_config,
+            ..Default::default()
+        };
+
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        deployment.init(&mut resolver, &context);
+
+        let pairs = deployment
+            .to_etcd_pairs(base_key, &mut resolver, &context)
+            .unwrap();
+
+        assert_contains_pair(
+            &pairs,
+            "test/http/routers/test-example-com-test-router/middlewares/0 test-deployment-middleware",
+        );
+        assert_contains_pair(
+            &pairs,
+            "test/http/routers/test-example-com-test-router/middlewares/5 test-path-middleware",
+        );
+    }
+
+    fn create_test_env() -> (
+        HostConfig,
+        String,
+        Vec<InternalDeploymentConfig>,
+        impl TemplateResolver,
+        TemplateContext,
+    ) {
+        let mut host = create_test_host();
+        let base_key = "test";
+        // let mut rules = RuleConfig::default();
+        host.forward_host = true;
+
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+
+        // Create test deployments
+        let mut deployment1 = InternalDeploymentConfig {
+            name: "test1".to_string(),
+            deployment: create_test_deployment(),
+            host_config: host.clone(),
+            ..Default::default()
+        };
+        deployment1.init(&mut resolver, &context);
+
+        let deployments = vec![deployment1];
+        (host, base_key.to_string(), deployments, resolver, context)
     }
 }

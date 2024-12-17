@@ -155,6 +155,7 @@ impl ToEtcdPairs for TraefikConfig {
     ) -> TraefikResult<Vec<EtcdPair>> {
         // let mut pairs: Vec<EtcdPair> = Vec::new();
         let mut rule_set: HashSet<EtcdPair> = HashSet::new();
+        let mut pairs: Vec<EtcdPair> = rule_set.clone().into_iter().collect();
 
         // Add global pairs
         // pairs.push(EtcdPair::new(base_key, "true"));
@@ -172,14 +173,12 @@ impl ToEtcdPairs for TraefikConfig {
                 debug!("Adding global service: {}", service_name);
                 let service_base_key = format!("{}/http", base_key);
                 let service_pairs = service.to_etcd_pairs(&service_base_key, resolver, &context)?;
-                // pairs.extend(service_pairs.clone());
+                pairs.extend(service_pairs.clone());
                 rule_set.extend(service_pairs.iter().cloned());
             }
         }
 
         let mut rule_set: HashSet<EtcdPair> = rule_set.clone();
-        let rule_set_cloned = rule_set.clone();
-        let mut pairs = rule_set_cloned.into_iter().collect();
         let sorted_hosts = get_sorted_deployments(self)?;
 
         // Run through all deployments and set the variables globally
@@ -203,25 +202,19 @@ impl ToEtcdPairs for TraefikConfig {
             let new_rules = middleware.to_etcd_pairs(&middleware_base_key, resolver, &context)?;
             debug!("New rules middleware rules: {:?}", new_rules);
             for new_rule in new_rules.iter().cloned() {
-                // pairs.push(new_rule.clone());
+                pairs.push(new_rule.clone());
                 rule_set.insert(new_rule);
             }
         }
 
+        let mut deployments = vec![];
         for deployment_config in sorted_hosts.iter() {
-            let mut rules = deployment_config.rules.clone();
-            let host = deployment_config.host_config.clone();
-            add_deployment_rules(
-                &host,
-                &[deployment_config.clone()],
-                self.services.as_ref(),
-                &mut pairs,
-                base_key,
-                &mut rules,
-                resolver,
-                &mut context,
-            )?;
+            deployments.push(deployment_config.clone());
         }
+
+        let deployment_pairs =
+            add_deployment_rules(&mut deployments, base_key, resolver, &mut context)?;
+        pairs.extend(deployment_pairs.clone());
 
         Ok(pairs)
     }

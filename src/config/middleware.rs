@@ -526,7 +526,6 @@ impl ToEtcdPairs for MiddlewareConfig {
                 // TODO: discover why this is not working
                 // and change it to the correct path
                 // let prefixed_key = prefixed_key.replace("headers/headers/", "headers/");
-                debug!("PREFIXED KEY: {}", prefixed_key);
 
                 EtcdPair::new(prefixed_key, pair.value())
             })

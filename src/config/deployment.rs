@@ -190,7 +190,7 @@ pub struct DeploymentConfig {
 impl Default for DeploymentConfig {
     fn default() -> Self {
         Self {
-            name: "".to_string(),
+            name: "deployment".to_string(),
             target: DeploymentTarget::default(),
             weight: default_weight(),
             selection: None,

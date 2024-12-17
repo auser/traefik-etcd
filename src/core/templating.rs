@@ -5,7 +5,7 @@ use std::{
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use tera::{Context, Tera};
+use tera::{Context as TeraContext, Tera};
 
 use crate::{
     config::{
@@ -16,6 +16,7 @@ use crate::{
     error::{TraefikError, TraefikResult},
     TraefikConfig,
 };
+use tracing::error;
 
 #[derive(Debug, Serialize, Deserialize, Clone, JsonSchema, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
@@ -232,9 +233,9 @@ impl TemplateContext {
 }
 
 impl TemplateContext {
-    pub fn get_tera_context(&self) -> Arc<Context> {
+    pub fn get_tera_context(&self) -> Arc<TeraContext> {
         let inner = self.inner.lock().unwrap();
-        let mut context = Context::new();
+        let mut context = TeraContext::new();
         for (key, value) in &inner.variables {
             context.insert(key, value);
         }
@@ -250,7 +251,6 @@ impl TemplateContext {
                 deployment_json["port"] = serde_json::to_value(port).unwrap();
             }
             DeploymentTarget::Service { service_name } => {
-                let service_name = service_name.clone();
                 match traefik_config.get_service(&service_name) {
                     Some(service) => match &service.deployment.target {
                         DeploymentTarget::IpAndPort { ip, port } => {
@@ -308,7 +308,19 @@ impl TemplateResolver for TeraResolver {
         let result = self
             .tera
             .render(&template_name, &tera_context)
-            .map_err(|e| TraefikError::Template(format!("Failed to render template: {}", e)))?;
+            .map_err(|e| {
+                error!("Template: {}", template);
+                let ctx = tera_context.as_ref();
+                let ctx_json = ctx.clone().into_json();
+                let keys: Vec<String> = ctx_json
+                    .as_object()
+                    .unwrap()
+                    .keys()
+                    .map(|k| k.to_string())
+                    .collect();
+                error!("Template context keys: {:#?}", keys);
+                TraefikError::Template(format!("Failed to render template: {}", e))
+            })?;
 
         Ok(result)
     }
