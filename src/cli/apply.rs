@@ -4,12 +4,15 @@ use tracing::{error, info};
 
 #[derive(Args, Debug)]
 pub struct ApplyCommand {
+    /// Dry run the apply command
     #[arg(short, long)]
     dry_run: bool,
 
+    /// Clean the etcd before applying the config
     #[arg(short, long, default_value_t = false)]
     clean: bool,
 
+    /// Show the rules that will be applied to the config
     #[arg(short, long, default_value_t = false)]
     rules: bool,
 }

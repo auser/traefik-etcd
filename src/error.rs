@@ -85,6 +85,12 @@ pub enum TraefikError {
     Template(String),
 }
 
+impl From<tera::Error> for TraefikError {
+    fn from(e: tera::Error) -> Self {
+        TraefikError::Template(e.to_string())
+    }
+}
+
 impl From<Box<dyn std::error::Error>> for TraefikError {
     fn from(e: Box<dyn std::error::Error>) -> Self {
         TraefikError::IOError(e)

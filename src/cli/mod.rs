@@ -22,6 +22,7 @@ mod generate;
 mod get;
 #[cfg(feature = "etcd")]
 mod load;
+mod render;
 #[cfg(feature = "api")]
 pub(crate) mod serve;
 mod show;
@@ -30,12 +31,15 @@ mod validate;
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None, name = NAME)]
 pub struct Cli {
+    /// The command to run
     #[command(subcommand)]
     pub command: Commands,
 
+    /// The log level
     #[arg(long, short = 'l', default_value = "info", global = true)]
     pub log_level: String,
 
+    /// The config file
     #[arg(
         long,
         short = 'f',
@@ -45,8 +49,13 @@ pub struct Cli {
     )]
     pub config_file: Option<PathBuf>,
 
+    /// The etcd config
     #[cfg_attr(feature = "etcd", arg(long, short = 'e'))]
     pub etcd_config: Option<String>,
+
+    /// The variable files
+    #[arg(long, short = 'v', global = true)]
+    pub variable_files: Vec<String>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -72,6 +81,8 @@ pub enum Commands {
     Diff(diff::DiffCommand),
     /// Load the traefik configuration from a key-value file
     Load(load::LoadCommand),
+    /// Render the traefik configuration
+    Render(render::RenderCommand),
 }
 
 #[instrument]
@@ -89,15 +100,17 @@ pub async fn run() -> TraefikResult<()> {
     let config_file = cli.config_file.unwrap_or_default();
     debug!("Using config file: {:?}", config_file);
 
-    let config = std::fs::read_to_string(&config_file).unwrap_or_default();
-    let mut traefik_config: TraefikConfig = match serde_yaml::from_str(&config) {
-        Ok(config) => config,
-        Err(e) => {
-            let err = eyre!("Parse error: {e}");
-            error!("{err}");
-            return Err(TraefikError::ParsingError(err));
-        }
-    };
+    // let config = std::fs::read_to_string(&config_file).unwrap_or_default();
+    // let mut traefik_config: TraefikConfig = match serde_yaml::from_str(&config) {
+    //     Ok(config) => config,
+    //     Err(e) => {
+    //         let err = eyre!("Parse error: {e}");
+    //         error!("{err}");
+    //         return Err(TraefikError::ParsingError(err));
+    //     }
+    // };
+
+    let mut traefik_config = parse_config_file(&config_file, cli.variable_files)?;
 
     #[cfg(feature = "etcd")]
     let etcd_client = match cli.etcd_config {
@@ -146,7 +159,50 @@ pub async fn run() -> TraefikResult<()> {
         Commands::Load(load_command) => {
             load::run(&load_command, &client, &mut traefik_config).await?;
         }
+        Commands::Render(render_command) => {
+            render::run(&render_command, &client, &mut traefik_config).await?;
+        }
     }
 
     Ok(())
+}
+
+fn parse_config_file(
+    config_file: &PathBuf,
+    variable_files: Vec<String>,
+) -> TraefikResult<TraefikConfig> {
+    debug!("Using config file: {:?}", config_file);
+
+    let config = std::fs::read_to_string(&config_file).unwrap_or_default();
+    let mut config_ctx = tera::Context::new();
+
+    for variable_file in variable_files.iter() {
+        let file = std::fs::File::open(variable_file)?;
+        let variables: std::collections::HashMap<String, serde_json::Value> =
+            serde_json::from_reader(file)?;
+        for (key, value) in variables.iter() {
+            debug!("Adding variable: {} = {:?}", key, value);
+            config_ctx.insert(key, value);
+        }
+    }
+
+    match tera::Tera::one_off(&config, &config_ctx, false) {
+        Ok(rendered_config) => {
+            let traefik_config: TraefikConfig = match serde_yaml::from_str(&rendered_config) {
+                Ok(config) => config,
+                Err(e) => {
+                    let err = eyre!("Parse error: {e}");
+                    error!("{err}");
+                    return Err(TraefikError::ParsingError(err));
+                }
+            };
+            Ok(traefik_config)
+        }
+        Err(e) => {
+            let err = eyre!("Template error: {e}");
+            error!("{err}");
+            let traefik_config: TraefikConfig = serde_yaml::from_str(&config)?;
+            Ok(traefik_config)
+        }
+    }
 }
