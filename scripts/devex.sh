@@ -84,7 +84,7 @@ start_container() {
         [[ "$RUN_PRIVILEGED" == "true" ]] && cmd+=(--privileged)
 
         # Add volume mounts to the command
-        for mount in "${MOUNTS[@}"; do
+        for mount in "${MOUNTS[@]}"; do
             cmd+=(-v "$mount")
         done
         cmd+=($ADDITIONAL_ARGS)
@@ -97,11 +97,11 @@ start_container() {
 
         if [[ "$VERBOSE" == "true" ]]; then
             echo_color "BBLACK" "-------- Docker command --------"
-            echo_color "GREEN" "${cmd[@}"
+            echo_color "GREEN" "${cmd[@]}"
         fi
 
         # Execute the command
-        "${cmd[@}"
+        "${cmd[@]}"
 
         sleep 2
     fi
