@@ -25,6 +25,7 @@ command = "npm"
 cwd = "./frontend"
 args = ["run", "dev", "--host"]
 watch = { watch = ["./frontend/"] }
+dependencies = ["install-frontend-deps"]
 workspace = false
 
 [tasks.install-frontend-deps]

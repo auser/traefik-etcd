@@ -3,13 +3,13 @@
 	"version": "0.0.1",
 	"type": "module",
 	"scripts": {
-		"dev": "vite dev",
-		"build": "vite build",
-		"preview": "vite preview",
-		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"format": "prettier --write .",
-		"lint": "prettier --check . && eslint ."
+		"dev": "./node_modules/.bin/vite dev",
+		"build": "./node_modules/.bin/vite build",
+		"preview": "./node_modules/.bin/vite preview",
+		"check": "./node_modules/.bin/svelte-kit sync && ./node_modules/.bin/svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "./node_modules/.bin/svelte-kit sync && ./node_modules/.bin/svelte-check --tsconfig ./tsconfig.json --watch",
+		"format": "./node_modules/.bin/prettier --write .",
+		"lint": "./node_modules/.bin/prettier --check . && ./node_modules/.bin/eslint ."
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^3.0.0",
