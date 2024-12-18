@@ -195,6 +195,7 @@ There is a helpful command to start the frontend  -- `cargo make dev`.
 >
 > ```
 > cargo install cargo-make --force
+> cargo install cargo-watch --force
 > ```
 
 ## Dev notes
