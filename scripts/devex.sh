@@ -46,7 +46,7 @@ build_image() {
         printf "${BBLACK}%s" echo -e "${GREEN}${cmd[@}${COLOR_OFF}"
     fi
 
-    "${cmd[@}"
+    "${cmd[@]}"
 
     if [[ $? -eq 0 ]]; then
         printf "${BBLACK}${GREEN}%s${COLOR_OFF}" "Image $IMAGE_NAME:$IMAGE_TAG built successfully"
