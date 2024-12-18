@@ -1,3 +1,19 @@
+[tasks.install-binstall]
+command = "cargo"
+args = ["install", "cargo-binstall"]
+workspace = false
+
+[tasks.install-binstall-bin]
+command = "cargo"
+args = ["binstall", "dioxus-cli"]
+workspace = false
+
+[tasks.install-dependencies]
+run_task = { name = [
+  "install-binstall",
+  "install-binstall-bin",
+], parallel = true }
+
 [tasks.watch-backend]
 command = "cargo"
 args = ["run", "--", "serve", "-l", "debug"]

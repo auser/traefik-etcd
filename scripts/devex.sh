@@ -96,8 +96,8 @@ start_container() {
         cmd+=(-d "$IMAGE_NAME" /sbin/init)
 
         if [[ "$VERBOSE" == "true" ]]; then
-            echo_color "BBLACK" "-------- Docker command --------"
-            echo_color "GREEN" "${cmd[@]}"
+            echo -e "${BBLACK}-------- Docker command --------${COLOR_OFF}"
+            echo -e "${GREEN}${cmd[@]}${COLOR_OFF}"
         fi
 
         # Execute the command

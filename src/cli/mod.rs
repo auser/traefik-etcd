@@ -26,6 +26,7 @@ mod render;
 #[cfg(feature = "api")]
 pub(crate) mod serve;
 mod show;
+mod ssl;
 mod validate;
 
 #[derive(Debug, Parser)]
@@ -83,6 +84,8 @@ pub enum Commands {
     Load(load::LoadCommand),
     /// Render the traefik configuration
     Render(render::RenderCommand),
+    /// Generate ssl certificates for the etcd server
+    Ssl(ssl::SslCommand),
 }
 
 #[instrument]
@@ -161,6 +164,9 @@ pub async fn run() -> TraefikResult<()> {
         }
         Commands::Render(render_command) => {
             render::run(&render_command, &client, &mut traefik_config).await?;
+        }
+        Commands::Ssl(ssl_command) => {
+            ssl::run(&ssl_command, &client, &mut traefik_config).await?;
         }
     }
 

@@ -14,6 +14,12 @@ The configuration is done in the `config/config.yml` file. You can also pass in 
 traefikctl get -f ./config/config-devcontainer.yml --etcd-config='{"endpoints": ["https://0.0.0.0:2379"], "tls": {"cert": "./config/tls/etcd-peer.pem", "key": "./config/tls/etcd-peer-key.pem", "ca": "./config/tls/ca.pem", "domain": "etcd"}}'
 ```
 
+The configuration file actually contains a script using the handlebars syntax ([tera](https://docs.rs/tera/latest/tera/)) that is used to generate the configuration file, so you can use the `render` command to see what exactly is being generated before being used.
+
+```
+traefikctl render -f ./config/config-devcontainer.yml
+```
+
 ## Getting Started
 
 There are a few scripts to help you get started.
@@ -36,6 +42,28 @@ Occasionally you may need to reset the container. This will remove the container
 ```
 ./scripts/devex.sh reset
 ```
+
+## Architecture
+
+This project is built with a few goals in mind:
+
+- Keep the configuration of _traefik_ as simple as possible using etcd and a simple configuration format.
+
+Traefik is configured using a simple configuration format that is easy to understand and modify. The configuration is stored in etcd, and is automatically synced to the container. in addition, there is a frontend web app you can use to manage the configuration (more on that later).
+
+`traefikctl` is a cli tool that is used to manage the configuration. It can be executed using the `traefikctl` command or through source using `cargo run`. To see all of the commands, you can run `cargo run -- --help` or `traefikctl --help`.
+
+To get started, you can run `traefikctl get` to see the current configuration, but you can generate your own config file using the `traefikctl generate` command.
+
+```
+traefikctl generate -o ./config/generated.yml
+```
+
+In the case of using the `devcontainer` command, you'll need to generate ssl certificates for the etcd server. You can use the `./scripts/gen-certs.sh` script to generate the certificates. Run the command to see all of the options.
+
+After you generate the certificates, you'll need to load them into the container.
+
+The helpful script `./scripts/devex.sh` can be used to launch the devcontainer, load the certificates, run etcd, traefik, and (eventually) the frontend.
 
 ### Hosts
 
