@@ -125,6 +125,8 @@ services:
     working_dir: /workspace
     ports:
       - "8777:8777"
+      - "5173:5173"
+      - "9090:9090"
     
     depends_on:
       - mysql
