@@ -2,3 +2,9 @@
   uses: arduino/setup-protoc@v3
   with:
     repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+- name: Run build-frontend
+  run: |
+    cd frontend
+    npm install
+    npm run build
