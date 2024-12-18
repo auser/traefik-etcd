@@ -181,7 +181,7 @@ fn parse_config_file(
         let variables: std::collections::HashMap<String, serde_json::Value> =
             serde_json::from_reader(file)?;
         for (key, value) in variables.iter() {
-            debug!("Adding variable: {} = {:?}", key, value);
+            debug!("Adding variable: {} = {:#?}", key, value);
             config_ctx.insert(key, value);
         }
     }
