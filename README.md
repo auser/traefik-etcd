@@ -14,6 +14,29 @@ The configuration is done in the `config/config.yml` file. You can also pass in 
 traefikctl get -f ./config/config-devcontainer.yml --etcd-config='{"endpoints": ["https://0.0.0.0:2379"], "tls": {"cert": "./config/tls/etcd-peer.pem", "key": "./config/tls/etcd-peer-key.pem", "ca": "./config/tls/ca.pem", "domain": "etcd"}}'
 ```
 
+## Getting Started
+
+There are a few scripts to help you get started.
+
+```
+# Build the docker image (to contain common dependencies)
+./scripts/devex.sh build
+
+# Start the docker container
+./scripts/devex.sh start
+
+# Exec into the container
+./scripts/devex.sh exec
+```
+
+### Reset the container
+
+Occasionally you may need to reset the container. This will remove the container, rebuild the image, and start a new one. This uses the `devcontainer` command. If you do not have the `devcontainer` command, you can open vscode and run the `install devcontainer` command using the command palette.
+
+```
+./scripts/devex.sh reset
+```
+
 ### Hosts
 
 Each host has a domain, a list of paths, and a list of deployments.

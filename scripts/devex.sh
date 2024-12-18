@@ -27,7 +27,7 @@ fi
 # api_server_address="${my_ip}"
 
 docker_instance() {
-    docker ps | grep "$CONTAINER_NAME" | awk '{print $1}'
+    docker ps --format '{{.ID}} {{.Names}}' | awk '($2 ~ /'$CONTAINER_NAME'/) {print $1}'                                                          
 }
 
 build_image() {
@@ -156,6 +156,7 @@ main() {
         start) start_container ;;
         exec) exec_instance ;;
         reset) reset_container ;;
+        instance) docker_instance ;;
         *) help ;;
     esac
 }
