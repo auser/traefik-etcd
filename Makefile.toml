@@ -21,25 +21,26 @@ watch = { watch = ["./src/", "./bin/"] }
 workspace = false
 
 [tasks.watch-frontend]
-command = "pnpm"
+command = "npm"
 cwd = "./frontend"
 args = ["run", "dev", "--host"]
 watch = { watch = ["./frontend/"] }
 workspace = false
 
 [tasks.install-frontend-deps]
-command = "pnpm"
+command = "npm"
 cwd = "./frontend"
 args = ["install", "--force"]
 workspace = false
 
 [tasks.build-frontend]
-command = "pnpm"
+command = "npm"
 cwd = "./frontend"
 args = ["run", "build"]
 workspace = false
 
 [tasks.dev]
+dependencies = ["install-frontend-deps"]
 run_task = { name = ["watch-backend", "watch-frontend"], parallel = true }
 
 [tasks.build-release]

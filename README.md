@@ -188,6 +188,15 @@ The frontend is a simple web app that is used to manage the configuration. It is
 
 It is not built with any frameworks in mind, so it could be hosted on any static file server.
 
+There is a helpful command to start the frontend  -- `cargo make dev`.
+
+> If you get an error on a mac, you'll need to reinstall the `cargo-make` crate.
+> Cannot run macOS (Mach-O) executable in Docker: Exec format error
+>
+> ```
+> cargo install cargo-make --force
+> ```
+
 ## Dev notes
 
 Check the etcd container for keys:
