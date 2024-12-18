@@ -20,6 +20,14 @@ The configuration file actually contains a script using the handlebars syntax ([
 traefikctl render -f ./config/config-devcontainer.yml
 ```
 
+There is a helper to use the environment variables to save typing `-f {config_file}`. Use `.envrc` to load the environment variables:
+
+```
+source .envrc
+# Or 
+direnv allow
+```
+
 ## Getting Started
 
 There are a few scripts to help you get started.
