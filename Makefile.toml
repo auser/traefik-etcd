@@ -12,7 +12,14 @@ workspace = false
 run_task = { name = [
   "install-binstall",
   "install-binstall-bin",
+  "install-frontend-deps",
 ], parallel = true }
+
+[tasks.install-frontend-deps]
+command = "npm"
+cwd = "./frontend"
+args = ["install", "--force"]
+workspace = false
 
 [tasks.watch-backend]
 command = "cargo"
@@ -23,15 +30,8 @@ workspace = false
 [tasks.watch-frontend]
 command = "npm"
 cwd = "./frontend"
-args = ["run", "dev", "--host"]
+args = ["run", "dev", "--", "--host"]
 watch = { watch = ["./frontend/"] }
-dependencies = ["install-frontend-deps"]
-workspace = false
-
-[tasks.install-frontend-deps]
-command = "npm"
-cwd = "./frontend"
-args = ["install", "--force"]
 workspace = false
 
 [tasks.build-frontend]
@@ -41,7 +41,6 @@ args = ["run", "build"]
 workspace = false
 
 [tasks.dev]
-dependencies = ["install-frontend-deps"]
 run_task = { name = ["watch-backend", "watch-frontend"], parallel = true }
 
 [tasks.build-release]
