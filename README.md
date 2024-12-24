@@ -216,3 +216,17 @@ docker exec -it $(docker ps --format '{{.ID}} {{.Image}} {{.Names}}' | awk '($3 
 
 export ecd="/opt/bitnami/etcd/bin/etcdctl --endpoints=https://localhost:2379 --cacert=/etc/etcd/tls/ca.pem --cert=/etc/etcd/tls/server.pem --key=/etc/etcd/tls/server-key.pem"
 ```
+
+## Graphviz
+
+In case the visualization isn't helpful within yaml, you can turn it into a dot graph using graphviz
+
+```
+sudo apt update && sudo apt install graphviz
+```
+
+Then you can run the following command to generate a graph into pdf:
+
+```
+cargo run -- graph -d > public/graph.dot && dot -T pdf public/graph.dot -o public/graph.pdf
+```
