@@ -110,7 +110,6 @@ impl ToEtcdPairs for ServiceConfig {
         // The base_key: `{prefix}/{protocol}`
         let mut pairs = Vec::new();
 
-        println!("base_key in service config: {}", base_key);
         let service_base_key = format!("{}/services/{}", base_key, self.name);
         // Create the url
         let (ip, port) = match &self.deployment.target {
@@ -122,7 +121,6 @@ impl ToEtcdPairs for ServiceConfig {
                 )))
             }
         };
-        println!("service_base_key: {}", service_base_key);
         let url = format!("{}://{}:{}", self.deployment.protocol, ip, port);
         // TODO: handle multiple hosts?
         pairs.push(EtcdPair::new(

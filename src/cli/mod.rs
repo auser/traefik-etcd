@@ -208,7 +208,6 @@ fn parse_config_file(
             let err = eyre!("Template error: {e}");
             error!("{err}");
             let traefik_config: TraefikConfig = serde_yaml::from_str(&config)?;
-            println!("Using config file: {:#?}", traefik_config);
             Ok(traefik_config)
         }
     }
