@@ -3180,6 +3180,7 @@ checksum = "b4c5cc86750666a3ed20bdaf5ca2a0344f9c67674cae0515bec2da16fbaa47db"
 dependencies = [
  "fixedbitset",
  "indexmap 2.6.0",
+ "serde",
 ]
 
 [[package]]
@@ -5294,6 +5295,7 @@ dependencies = [
  "lazy_static",
  "mime",
  "once_cell",
+ "petgraph",
  "pretty_assertions",
  "protoc",
  "reqwest",

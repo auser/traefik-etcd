@@ -106,11 +106,12 @@ walkdir = { version = "2.5.0", optional = true }
 include_dir = "0.7.4"
 tera = { version = "1.20.0", features = ["chrono"] }
 lazy_static = "1.5.0"
+petgraph = { version = "0.6.5", optional = true, features = ["serde"] }
 
 [features]
 default = ["cli", "tracing", "etcd", "api", "codegen"]
 full = ["default", "tracing", "etcd", "api", "codegen"]
-cli = ["dep:color-eyre", "dep:clap"]
+cli = ["dep:color-eyre", "dep:clap", "dep:petgraph"]
 gen = []
 tracing = [
   "dep:chrono",

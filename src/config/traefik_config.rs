@@ -19,7 +19,7 @@ use crate::{
 };
 
 use super::{
-    deployment::{DeploymentConfig, DeploymentProtocol},
+    deployment::{DeploymentConfig, DeploymentProtocol, DeploymentTarget},
     entry_points::EntryPointsConfig,
     host::{HostConfig, PathConfig},
     middleware::MiddlewareConfig,
@@ -186,7 +186,7 @@ impl ToEtcdPairs for TraefikConfig {
             if let Some(variables) = &deployment.variables {
                 for (key, value) in variables.iter() {
                     let resolved_value = value.resolve(resolver, &context)?;
-                    println!("Inserting variable: {} = {}", key, resolved_value);
+                    debug!("Inserting variable: {} = {}", key, resolved_value);
                     context.insert_variable(key, resolved_value);
                 }
             }
@@ -499,6 +499,103 @@ impl TraefikConfig {
             entry_points: None,
             variables: None,
         }
+    }
+}
+
+impl TraefikConfig {
+    pub fn into_graph(
+        &self,
+        provide_dot: bool,
+    ) -> TraefikResult<(petgraph::Graph<String, String>, Option<String>)> {
+        let mut graph = petgraph::Graph::new();
+        let mut resolver = self.resolver()?;
+        let context = self.context()?;
+        for host in &self.hosts {
+            let host_node = graph.add_node(host.domain.clone());
+
+            for path in &host.paths {
+                let path_node = graph.add_node(path.path.clone());
+                graph.add_edge(host_node, path_node, "path".to_string());
+                for (deployment_name, deployment) in &path.deployments {
+                    // let deployment_node = graph.add_node(deployment_name.clone());
+                    for (path_deployment_name, path_deployment) in &path.deployments {
+                        self.deployment_into_graph(
+                            &mut graph,
+                            path_node,
+                            deployment_name,
+                            deployment,
+                            &mut resolver,
+                            &context,
+                        );
+                    }
+                }
+            }
+            for (deployment_name, deployment) in &host.deployments {
+                self.deployment_into_graph(
+                    &mut graph,
+                    host_node,
+                    deployment_name,
+                    deployment,
+                    &mut resolver,
+                    &context,
+                );
+            }
+        }
+        if provide_dot {
+            let graph_clone = graph.clone();
+            let dot_graph = petgraph::dot::Dot::with_config(
+                &graph_clone,
+                &[petgraph::dot::Config::EdgeNoLabel],
+            );
+
+            Ok((graph, Some(dot_graph.to_string())))
+        } else {
+            Ok((graph, None))
+        }
+    }
+
+    fn deployment_into_graph(
+        &self,
+        graph: &mut petgraph::Graph<String, String>,
+        root_node: petgraph::graph::NodeIndex,
+        deployment_name: &str,
+        deployment: &DeploymentConfig,
+        resolver: &mut impl TemplateResolver,
+        context: &TemplateContext,
+    ) {
+        let path_deployment_node = graph.add_node(deployment_name.to_string());
+        // TODO: add middlewares
+        let mut into_service_node = path_deployment_node;
+        if let Some(middlewares) = &deployment.middlewares {
+            for middleware in middlewares {
+                let middleware_node = graph.add_node(middleware.clone());
+                graph.add_edge(into_service_node, middleware_node, "middleware".to_string());
+                into_service_node = middleware_node;
+            }
+        }
+        let service_name = match &deployment.target {
+            DeploymentTarget::Service { service_name } => service_name.clone(),
+            DeploymentTarget::IpAndPort { ip, port } => {
+                format!("{}:{}", ip, port)
+            }
+        };
+        let service_node = graph.add_node(service_name.clone());
+        graph.add_edge(into_service_node, service_node, "service".to_string());
+        graph.add_edge(
+            root_node,
+            path_deployment_node,
+            deployment.weight.to_string(),
+        );
+        let mut backend_name = String::new();
+        if let Some(variables) = &deployment.variables {
+            backend_name = variables
+                .iter()
+                .map(|(k, v)| format!("{}={:?} ", k, v.resolve(resolver, &context)))
+                .collect::<Vec<String>>()
+                .join(" ");
+        }
+        let backend_node = graph.add_node(backend_name.to_string());
+        graph.add_edge(service_node, backend_node, backend_name);
     }
 }
 

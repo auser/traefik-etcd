@@ -33,11 +33,9 @@ pub async fn run(
         }
     }
 
-    if !command.dry_run {
-        traefik_config
-            .apply_to_etcd(client, command.dry_run, command.rules, command.clean)
-            .await?;
-    }
+    traefik_config
+        .apply_to_etcd(client, command.dry_run, command.rules, command.clean)
+        .await?;
 
     Ok(())
 }

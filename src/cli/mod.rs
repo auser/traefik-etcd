@@ -20,6 +20,7 @@ mod codegen;
 mod diff;
 mod generate;
 mod get;
+mod graph;
 #[cfg(feature = "etcd")]
 mod load;
 mod render;
@@ -86,6 +87,8 @@ pub enum Commands {
     Render(render::RenderCommand),
     /// Generate ssl certificates for the etcd server
     Ssl(ssl::SslCommand),
+    /// Generate a graph of the traefik configuration
+    Graph(graph::GraphCommand),
 }
 
 #[instrument]
@@ -168,6 +171,9 @@ pub async fn run() -> TraefikResult<()> {
         Commands::Ssl(ssl_command) => {
             ssl::run(&ssl_command, &client, &mut traefik_config).await?;
         }
+        Commands::Graph(graph_command) => {
+            graph::run(&graph_command, &client, &mut traefik_config).await?;
+        }
     }
 
     Ok(())
@@ -204,9 +210,7 @@ fn parse_config_file(
             };
             Ok(traefik_config)
         }
-        Err(e) => {
-            let err = eyre!("Template error: {e}");
-            error!("{err}");
+        Err(_e) => {
             let traefik_config: TraefikConfig = serde_yaml::from_str(&config)?;
             Ok(traefik_config)
         }
