@@ -1,4 +1,5 @@
-FROM docker.io/bitnami/etcd:3.5
+ARG PLATFORM=${PLATFORM:-linux/amd64}
+FROM --platform=${PLATFORM} docker.io/bitnami/etcd:3.5
 
 ARG CERT_DIR=${CERT_DIR:-./config/tls}
 
