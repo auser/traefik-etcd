@@ -1,7 +1,6 @@
 # Do all the cargo install stuff
 FROM rust:slim-bookworm AS builder
 ARG PLATFORM=${PLATFORM:-linux/amd64}
-ENV PLATFORM=${PLATFORM:-linux/amd64}
 
 # Configure apt and install packages
 RUN apt-get update \
