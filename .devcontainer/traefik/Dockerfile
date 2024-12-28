@@ -1,4 +1,4 @@
-FROM --platform=${PLATFORM} docker.io/alpine:3.20 AS etcd
+FROM docker.io/alpine:3.20 AS etcd
 ARG PLATFORM=${PLATFORM:-linux/amd64}
 
 ARG ETCD_VER

@@ -1,4 +1,4 @@
-FROM --platform=${PLATFORM} auser/redirector:latest
+FROM auser/redirector:latest
 ARG PLATFORM=linux/amd64
 ENV PLATFORM=${PLATFORM:-linux/amd64}
 

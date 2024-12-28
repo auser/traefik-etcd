@@ -35,7 +35,7 @@ RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo install sqlx-cli
 # Install cargo-leptos
 # RUN cargo binstall cargo-leptos -y
 
-FROM --platform=${PLATFORM} rust:slim-bookworm
+FROM rust:slim-bookworm
 
 ARG DOCKER_COMPOSE_VERSION=2.23.0
 ARG MOLD_VERSION=2.30.0
