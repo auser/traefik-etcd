@@ -1,5 +1,5 @@
 ARG PLATFORM=linux/amd64
-
+ENV PLATFORM=${PLATFORM:-linux/amd64}
 FROM --platform=${PLATFORM} auser/redirector:latest
 
 USER root
@@ -7,6 +7,11 @@ USER root
 ARG USERNAME=vscode
 ARG USER_UID=1001
 ARG USER_GID=$USER_UID
+
+ENV PLATFORM=${PLATFORM:-linux/amd64}
+ENV USERNAME=${USERNAME:-vscode}
+ENV USER_UID=${USER_UID:-1001}
+ENV USER_GID=${USER_GID:-1001}
 
 # Avoid warnings by switching to noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
