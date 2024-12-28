@@ -23,7 +23,8 @@ services:
       context: ..
       dockerfile: ./.devcontainer/etcd/Dockerfile
       args:
-        - CERT_DIR=./config/tls
+        CERT_DIR: ./config/tls
+        PLATFORM: linux/amd64
     hostname: etcd
     environment:
       - ALLOW_NONE_AUTHENTICATION=yes
@@ -47,6 +48,7 @@ services:
       dockerfile: ./.devcontainer/redirector/Dockerfile
       args:
         CERT_DIR: ./config/tls
+        PLATFORM: linux/amd64
     hostname: redirector
     expose:
       - 3000
@@ -76,6 +78,7 @@ services:
       dockerfile: ./.devcontainer/traefik/Dockerfile
       args:
         CERT_DIR: ./config/tls
+        PLATFORM: linux/amd64
     hostname: traefik
     ports:
       - 80:80
@@ -97,6 +100,8 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile
+      args:
+        PLATFORM: linux/amd64
     privileged: true
     init: true
     extra_hosts:
