@@ -98,8 +98,8 @@ services:
 
   development:
     build: 
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: ./.devcontainer/Dockerfile
       args:
         PLATFORM: linux/amd64
     privileged: true

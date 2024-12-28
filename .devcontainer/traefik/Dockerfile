@@ -1,5 +1,5 @@
-ARG PLATFORM=${PLATFORM:-linux/amd64}
 FROM --platform=${PLATFORM} docker.io/alpine:3.20 AS etcd
+ARG PLATFORM=${PLATFORM:-linux/amd64}
 
 ARG ETCD_VER
 ENV ETCD_VER=3.5.15

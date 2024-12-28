@@ -1,6 +1,6 @@
+FROM --platform=${PLATFORM} auser/redirector:latest
 ARG PLATFORM=linux/amd64
 ENV PLATFORM=${PLATFORM:-linux/amd64}
-FROM --platform=${PLATFORM} auser/redirector:latest
 
 USER root
 

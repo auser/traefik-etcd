@@ -1,6 +1,7 @@
 # Do all the cargo install stuff
+FROM rust:slim-bookworm AS builder
 ARG PLATFORM=${PLATFORM:-linux/amd64}
-FROM --platform=${PLATFORM} rust:slim-bookworm AS builder
+ENV PLATFORM=${PLATFORM:-linux/amd64}
 
 # Configure apt and install packages
 RUN apt-get update \
@@ -34,7 +35,6 @@ RUN CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse cargo install sqlx-cli
 # Install cargo-leptos
 # RUN cargo binstall cargo-leptos -y
 
-ARG PLATFORM=${PLATFORM:-linux/amd64}
 FROM --platform=${PLATFORM} rust:slim-bookworm
 
 ARG DOCKER_COMPOSE_VERSION=2.23.0
