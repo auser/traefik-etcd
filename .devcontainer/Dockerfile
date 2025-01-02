@@ -14,7 +14,7 @@ RUN apt-get update \
         librust-openssl-dev \
         python3 python3-pip \
         pkg-config \
-        unzip
+        unzip 
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -y | sh
 

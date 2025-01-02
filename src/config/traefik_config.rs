@@ -518,7 +518,7 @@ impl TraefikConfig {
                 graph.add_edge(host_node, path_node, "path".to_string());
                 for (deployment_name, deployment) in &path.deployments {
                     // let deployment_node = graph.add_node(deployment_name.clone());
-                    for (path_deployment_name, path_deployment) in &path.deployments {
+                    for (_path_deployment_name, _path_deployment) in &path.deployments {
                         self.deployment_into_graph(
                             &mut graph,
                             path_node,
