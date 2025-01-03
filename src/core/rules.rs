@@ -620,10 +620,17 @@ impl InternalDeploymentConfig {
             //         "true".to_string(),
             //     ));
             // } else
-            if self._middlewares.contains_key(original_middleware_name) {
-                debug!("Middleware {} already exists", original_middleware_name);
-                continue;
-            }
+            // if self._middlewares.contains_key(original_middleware_name) {
+            debug!("Middleware {} already exists", original_middleware_name);
+            // continue;
+            self._middlewares.remove(original_middleware_name);
+            collected_middlewares.remove(
+                collected_middlewares
+                    .iter()
+                    .position(|r| r == original_middleware_name)
+                    .unwrap(),
+            );
+            // }
             // Attach global middleware
             if let Some((middleware_name, middleware)) =
                 self.find_middleware_in_config(original_middleware_name)
@@ -662,6 +669,7 @@ impl InternalDeploymentConfig {
         for middleware_name in middleware_names_set.iter() {
             collected_middlewares.push(middleware_name.clone());
         }
+        debug!("Collected middlewares: {:#?}", collected_middlewares);
         Ok(pairs)
     }
 

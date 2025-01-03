@@ -305,7 +305,9 @@ impl TemplateResolver for TeraResolver {
 
         let tera_context = template_context.get_tera_context();
 
-        let result = self
+        let template_clone = template.to_string();
+        // We never want to return an error when rendering a template
+        let mut result = self
             .tera
             .render(&template_name, &tera_context)
             .map_err(|e| {
@@ -320,9 +322,28 @@ impl TemplateResolver for TeraResolver {
                     .collect();
                 error!("Template context keys: {:#?}", keys);
                 TraefikError::Template(format!("Failed to render template: {}", e))
-            })?;
+            });
 
-        Ok(result)
+        if result.is_err() {
+            result = Ok(template_clone);
+        }
+        // .map_err(|_e| {
+        //     error!("Template: {}", template);
+        //     let ctx = tera_context.as_ref();
+        //     let ctx_json = ctx.clone().into_json();
+        //     let keys: Vec<String> = ctx_json
+        //         .as_object()
+        //         .unwrap()
+        //         .keys()
+        //         .map(|k| k.to_string())
+        //         .collect();
+        //     error!("Template context keys: {:#?}", keys);
+        //     // TraefikError::Template(format!("Failed to render template: {}", e))
+        //     Ok::<String, TraefikError>(template_clone)
+        // })
+        // .expect("unable to render template");
+
+        result
     }
 }
 
