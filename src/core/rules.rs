@@ -624,9 +624,9 @@ impl InternalDeploymentConfig {
             debug!("Middleware {} already exists", original_middleware_name);
             // continue;
             // Remove the middleware from the deployment config
-            if self._middlewares.contains_key(original_middleware_name) {
-                let _ = self._middlewares.remove(original_middleware_name);
-            }
+            // if self._middlewares.contains_key(original_middleware_name) {
+            //     let _ = self._middlewares.remove(original_middleware_name);
+            // }
             if let Some(index) = collected_middlewares
                 .iter()
                 .position(|r| r == original_middleware_name)
@@ -640,6 +640,7 @@ impl InternalDeploymentConfig {
             if let Some((middleware_name, middleware)) =
                 self.find_middleware_in_config(original_middleware_name)
             {
+                println!("Found middleware: {}", middleware_name);
                 if let Some(middleware) = middleware {
                     let mut middleware = middleware.clone();
                     let new_middleware_name = self.get_safe_middleware_name(&middleware_name);
