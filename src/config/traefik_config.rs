@@ -194,18 +194,18 @@ impl ToEtcdPairs for TraefikConfig {
 
         // self.add_defaults(&mut pairs, base_key)?;
         // Start with middleware rules
-        debug!("Adding middleware rules");
-        // TODO: add middleware before deployment rules, within the scope of a deployment
-        for (name, middleware) in self.middlewares.clone().iter_mut() {
-            middleware.set_name(name);
-            let middleware_base_key = format!("{}/http/middlewares/{}", base_key, name);
-            let new_rules = middleware.to_etcd_pairs(&middleware_base_key, resolver, &context)?;
-            debug!("New rules middleware rules: {:?}", new_rules);
-            for new_rule in new_rules.iter().cloned() {
-                pairs.push(new_rule.clone());
-                rule_set.insert(new_rule);
-            }
-        }
+        // debug!("Adding middleware rules");
+        // // TODO: add middleware before deployment rules, within the scope of a deployment
+        // for (name, middleware) in self.middlewares.clone().iter_mut() {
+        //     middleware.set_name(name);
+        //     let middleware_base_key = format!("{}/http/middlewares/{}", base_key, name);
+        //     let new_rules = middleware.to_etcd_pairs(&middleware_base_key, resolver, &context)?;
+        //     debug!("New rules middleware rules: {:?}", new_rules);
+        //     for new_rule in new_rules.iter().cloned() {
+        //         pairs.push(new_rule.clone());
+        //         rule_set.insert(new_rule);
+        //     }
+        // }
 
         let mut deployments = vec![];
         for deployment_config in sorted_hosts.iter() {
