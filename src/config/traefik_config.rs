@@ -280,7 +280,7 @@ impl Validate for TraefikConfig {
 }
 
 impl TraefikConfig {
-    pub fn validate_middleware_references(&self, host: &HostConfig) -> TraefikResult<()> {
+    pub fn validate_middleware_references(&self, _host: &HostConfig) -> TraefikResult<()> {
         // Validate host middleware references
         // for middleware in host.middlewares.iter() {
         //     self.validate_middleware_references_in_host(middleware)?;

@@ -623,15 +623,20 @@ impl InternalDeploymentConfig {
             // if self._middlewares.contains_key(original_middleware_name) {
             debug!("Middleware {} already exists", original_middleware_name);
             // continue;
-            self._middlewares.remove(original_middleware_name);
-            collected_middlewares.remove(
-                collected_middlewares
-                    .iter()
-                    .position(|r| r == original_middleware_name)
-                    .unwrap(),
-            );
+            // Remove the middleware from the deployment config
+            if self._middlewares.contains_key(original_middleware_name) {
+                let _ = self._middlewares.remove(original_middleware_name);
+            }
+            if let Some(index) = collected_middlewares
+                .iter()
+                .position(|r| r == original_middleware_name)
+            {
+                let _ = collected_middlewares.remove(index);
+            }
+            // let _ = collected_middlewares.remove(
             // }
             // Attach global middleware
+            println!("Looking for middleware: {}", original_middleware_name);
             if let Some((middleware_name, middleware)) =
                 self.find_middleware_in_config(original_middleware_name)
             {
@@ -660,10 +665,10 @@ impl InternalDeploymentConfig {
                 // and we created it
             } else {
                 // It's not found in the traefik config, host config or deployment config
-                return Err(TraefikError::MiddlewareConfig(format!(
-                    "middleware {} not found",
-                    middleware_name
-                )));
+                // return Err(TraefikError::MiddlewareConfig(format!(
+                //     "middleware {} not found",
+                //     middleware_name
+                // )));
             }
         }
         for middleware_name in middleware_names_set.iter() {
