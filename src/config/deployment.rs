@@ -522,4 +522,20 @@ mod tests {
         let context = create_test_template_context();
         assert!(deployment.validate(&mut resolver, &context).is_ok());
     }
+
+    #[test]
+    fn test_deployment_config_accepts_variables_with_service_name() {
+        let deployment_config = r#"
+        service_name: redirector
+        weight: 100
+        protocol: http
+        variables:
+          ip: "127.0.0.1"
+          port: "80"
+        "#;
+        let deployment: DeploymentConfig = serde_yaml::from_str(deployment_config).unwrap();
+        let mut resolver = create_test_resolver();
+        let context = create_test_template_context();
+        assert!(deployment.validate(&mut resolver, &context).is_ok());
+    }
 }
