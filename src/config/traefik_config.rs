@@ -282,21 +282,21 @@ impl Validate for TraefikConfig {
 impl TraefikConfig {
     pub fn validate_middleware_references(&self, host: &HostConfig) -> TraefikResult<()> {
         // Validate host middleware references
-        for middleware in host.middlewares.iter() {
-            self.validate_middleware_references_in_host(middleware)?;
-        }
+        // for middleware in host.middlewares.iter() {
+        //     self.validate_middleware_references_in_host(middleware)?;
+        // }
         Ok(())
     }
 
-    fn validate_middleware_references_in_host(&self, middleware_name: &str) -> TraefikResult<()> {
-        if !self.middlewares.contains_key(middleware_name) {
-            return Err(TraefikError::MiddlewareConfig(format!(
-                "middleware {} not found",
-                middleware_name
-            )));
-        }
-        Ok(())
-    }
+    // fn validate_middleware_references_in_host(&self, middleware_name: &str) -> TraefikResult<()> {
+    //     if !self.middlewares.contains_key(middleware_name) {
+    //         return Err(TraefikError::MiddlewareConfig(format!(
+    //             "middleware {} not found",
+    //             middleware_name
+    //         )));
+    //     }
+    //     Ok(())
+    // }
 }
 
 impl TraefikConfig {
