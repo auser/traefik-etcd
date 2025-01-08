@@ -2,6 +2,11 @@ etcd:
   endpoints: ["https://etcd:2379"]
   timeout: 2000
   keep_alive: 300
+  tls:
+    cert: "./config/tls/traefik.pem"
+    key: "./config/tls/traefik-key.pem"
+    ca: "./config/tls/ca.pem"
+    domain: etcd
 
 services:
   redirector:
@@ -16,12 +21,12 @@ hosts:
       - path: /api
         deployments:
           green-with-cookie:
-            ip: 10.8.92.2
+            ip: "10.8.92.2"
             port: 3002
             weight: 100
             with_cookie:
               name: "green"
-              value: "true"
+              value: true
         middlewares:
           - enable-headers
         strip_prefix: true

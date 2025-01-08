@@ -28,6 +28,13 @@ source .envrc
 direnv allow
 ```
 
+**YOU MUST RUN THE FOLLOWING COMMANDS OTHERWISE IT WILL NOT WORK:**
+
+```
+cp .devcontainer/traefik/dynamic.example.yml .devcontainer/traefik/dynamic.yml
+cp .devcontainer/traefik/traefik.example.yml .devcontainer/traefik/traefik.yml
+```
+
 ## Getting Started
 
 There are a few scripts to help you get started.
@@ -214,6 +221,9 @@ docker exec -it $ETCD_ID etcdctl get /traefik/config --prefix
 # Or as a one-liner:
 docker exec -it $(docker ps --format '{{.ID}} {{.Image}} {{.Names}}' | awk '($3 ~ /etcd/) {print $1}') bash
 
+# traefik container
+docker exec -it $(docker ps --format '{{.ID}} {{.Image}} {{.Names}}' | awk '($3 ~ /-traefik/) {print $1}') bash
+
 export ecd="/opt/bitnami/etcd/bin/etcdctl --endpoints=https://localhost:2379 --cacert=/etc/etcd/tls/ca.pem --cert=/etc/etcd/tls/server.pem --key=/etc/etcd/tls/server-key.pem"
 ```
 
@@ -230,3 +240,11 @@ Then you can run the following command to generate a graph into pdf:
 ```
 cargo run -- graph -d > public/graph.dot && dot -T pdf public/graph.dot -o public/graph.pdf
 ```
+
+## WINDOWS
+
+Okay, to get this working on windows, you'll need to make sure [Docker Desktop](https://docs.docker.com/desktop/install/windows-install/) is installed and running _and_ connected to the WSL 2 backend. You'll also need to make sure you have the `devcontainer` command installed. You can install it using VSCode.
+
+Press `Ctrl+Shift+P` and search for `install devcontainer` and run the command.
+
+This does **not** work with powershell, you must use [wsl](https://docs.microsoft.com/en-us/windows/wsl/install) to run the commands.
