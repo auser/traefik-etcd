@@ -220,11 +220,12 @@ ETCD_ID=$(docker ps --format '{{.ID}} {{.Image}} {{.Names}}' | awk '($3 ~ /etcd/
 docker exec -it $ETCD_ID etcdctl get /traefik/config --prefix
 # Or as a one-liner:
 docker exec -it $(docker ps --format '{{.ID}} {{.Image}} {{.Names}}' | awk '($3 ~ /etcd/) {print $1}') bash
+export ecd="/opt/bitnami/etcd/bin/etcdctl --endpoints=https://localhost:2379 --cacert=/etc/etcd/tls/ca.pem --cert=/etc/etcd/tls/server.pem --key=/etc/etcd/tls/server-key.pem"
 
 # traefik container
-docker exec -it $(docker ps --format '{{.ID}} {{.Image}} {{.Names}}' | awk '($3 ~ /-traefik/) {print $1}') bash
+docker exec -it $(docker ps --format '{{.ID}} {{.Image}} {{.Names}}' | awk '($3 ~ /-traefik/) {print $1}') sh
 
-export ecd="/opt/bitnami/etcd/bin/etcdctl --endpoints=https://localhost:2379 --cacert=/etc/etcd/tls/ca.pem --cert=/etc/etcd/tls/server.pem --key=/etc/etcd/tls/server-key.pem"
+export ecd="/bin/etcdctl --endpoints=https://etcd:2379 --cacert=/etc/traefik/tls/ca.pem --cert=/etc/traefik/tls/server.pem --key=/etc/traefik/tls/server-key.pem"
 ```
 
 ## Graphviz
