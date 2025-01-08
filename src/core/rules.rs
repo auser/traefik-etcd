@@ -636,7 +636,7 @@ impl InternalDeploymentConfig {
             // let _ = collected_middlewares.remove(
             // }
             // Attach global middleware
-            println!("Looking for middleware: {}", original_middleware_name);
+
             if let Some((middleware_name, middleware)) =
                 self.find_middleware_in_config(original_middleware_name)
             {
