@@ -183,9 +183,10 @@ fn parse_config_file(
     config_file: &PathBuf,
     variable_files: Vec<String>,
 ) -> TraefikResult<TraefikConfig> {
-    debug!("Using config file: {:?}", config_file);
-
     let config = std::fs::read_to_string(&config_file).unwrap_or_default();
+    if config.is_empty() {
+        return Err(TraefikError::ParsingError(eyre!("Config file is empty")));
+    }
     let mut config_ctx = tera::Context::new();
 
     for variable_file in variable_files.iter() {
@@ -200,6 +201,7 @@ fn parse_config_file(
 
     match tera::Tera::one_off(&config, &config_ctx, false) {
         Ok(rendered_config) => {
+            println!("-- {}", rendered_config);
             let traefik_config: TraefikConfig = match serde_yaml::from_str(&rendered_config) {
                 Ok(config) => config,
                 Err(e) => {
@@ -212,6 +214,7 @@ fn parse_config_file(
         }
         Err(_e) => {
             let traefik_config: TraefikConfig = serde_yaml::from_str(&config)?;
+            println!("-- {:?}", traefik_config);
             Ok(traefik_config)
         }
     }
