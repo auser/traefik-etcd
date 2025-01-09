@@ -22,3 +22,4 @@ config/tls/*.cs
 .devcontainer/traefik/traefik.yml
 .devcontainer/traefik/.htpasswd
 config/herringbank-vars.json
+static-services.yml

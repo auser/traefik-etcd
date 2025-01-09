@@ -1,4 +1,7 @@
-use std::{num::ParseIntError, str::ParseBoolError};
+use std::{
+    num::ParseIntError,
+    str::{ParseBoolError, Utf8Error},
+};
 
 use thiserror::Error;
 use tracing_subscriber::util::TryInitError;
@@ -83,6 +86,9 @@ pub enum TraefikError {
 
     #[error("Template error: {0}")]
     Template(String),
+
+    #[error("Utf8 error: {0}")]
+    Utf8Error(#[from] Utf8Error),
 }
 
 impl From<tera::Error> for TraefikError {

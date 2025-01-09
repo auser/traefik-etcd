@@ -29,7 +29,8 @@ RUN apk add --no-cache libcap && \
 COPY ./.devcontainer/traefik/.htpasswd /etc/traefik/.htpasswd
 
 COPY ./.devcontainer/traefik/traefik.yml /etc/traefik/traefik.yaml
-COPY ./.devcontainer/traefik/dynamic.yml /etc/traefik/dynamic_conf.yaml
+RUN mkdir -p /etc/traefik/dynamic
+COPY ./.devcontainer/traefik/dynamic.yml /etc/traefik/dynamic/dynamic.yml
 
 # Should we do it this way? 
 # Nope, but good enough for now

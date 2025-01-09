@@ -28,6 +28,7 @@ mod render;
 pub(crate) mod serve;
 mod show;
 mod ssl;
+mod tofile;
 mod validate;
 
 #[derive(Debug, Parser)]
@@ -89,6 +90,8 @@ pub enum Commands {
     Ssl(ssl::SslCommand),
     /// Generate a graph of the traefik configuration
     Graph(graph::GraphCommand),
+    /// Write the traefik configuration to a file
+    ToFile(tofile::ToFileCommand),
 }
 
 #[instrument]
@@ -173,6 +176,9 @@ pub async fn run() -> TraefikResult<()> {
         }
         Commands::Graph(graph_command) => {
             graph::run(&graph_command, &client, &mut traefik_config).await?;
+        }
+        Commands::ToFile(tofile_command) => {
+            tofile::run(&tofile_command, &client, &mut traefik_config).await?;
         }
     }
 
